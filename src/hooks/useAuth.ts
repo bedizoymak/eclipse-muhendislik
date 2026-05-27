@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { checkIsAdmin } from "@/lib/adminAuth";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -27,15 +28,10 @@ export function useAuth() {
         return;
       }
 
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", currentSession.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+      const { isAdmin } = await checkIsAdmin(currentSession.user.id);
 
       if (!mounted) return;
-      setIsAdmin(Boolean(data));
+      setIsAdmin(isAdmin);
       setLoading(false);
     }
 

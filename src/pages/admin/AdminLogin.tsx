@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { checkIsAdmin, getUserRolesForDebug } from "@/lib/adminAuth";
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -28,7 +29,7 @@ function getAuthErrorMessage(error: unknown) {
 async function logMissingAdminRoleDebug(user: { id: string; email?: string }) {
   if (!import.meta.env.DEV || !supabase) return;
 
-  const { data: matchingRows, error } = await supabase.from("user_roles").select("user_id, role").eq("user_id", user.id);
+  const { data: matchingRows, error } = await getUserRolesForDebug(user.id);
 
   console.debug("[admin-login] admin role not found", {
     currentAuthUserId: user.id,
@@ -106,14 +107,7 @@ export default function AdminLogin() {
         throw new Error("Supabase Auth did not return a signed-in user.");
       }
 
-      const roleQuery = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      const { data: role, error: roleError } = roleQuery;
+      const roleQuery = await checkIsAdmin(user.id);
 
       if (import.meta.env.DEV) {
         console.debug("[admin-login] signed in user", {
@@ -123,7 +117,7 @@ export default function AdminLogin() {
         console.debug("[admin-login] admin role query result", roleQuery);
       }
 
-      if (roleError || !role) {
+      if (roleQuery.error || !roleQuery.isAdmin) {
         await logMissingAdminRoleDebug(user);
         await supabase.auth.signOut();
         toast({
