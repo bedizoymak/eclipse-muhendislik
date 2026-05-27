@@ -53,20 +53,20 @@ const emptyForm: LeadForm = {
 function toForm(row: DbRow): LeadForm {
   return {
     id: row.id,
-    customer_id: row.customer_id ?? "",
-    prospect_name: row.prospect_name ?? "",
-    contact_person: row.contact_person ?? "",
-    phone: row.phone ?? "",
-    email: row.email ?? "",
-    source: row.source ?? "website",
-    interested_service: row.interested_service ?? "",
+    customer_id: String(row.customer_id ?? ""),
+    prospect_name: String(row.prospect_name ?? ""),
+    contact_person: String(row.contact_person ?? ""),
+    phone: String(row.phone ?? ""),
+    email: String(row.email ?? ""),
+    source: String(row.source ?? "website"),
+    interested_service: String(row.interested_service ?? ""),
     estimated_value: String(row.estimated_value ?? ""),
     probability: String(row.probability ?? 10),
-    stage: row.stage ?? "new",
-    expected_close_date: row.expected_close_date ?? "",
-    notes: row.notes ?? "",
-    next_follow_up_date: row.next_follow_up_date ?? "",
-    lost_reason: row.lost_reason ?? "",
+    stage: String(row.stage ?? "new"),
+    expected_close_date: String(row.expected_close_date ?? ""),
+    notes: String(row.notes ?? ""),
+    next_follow_up_date: String(row.next_follow_up_date ?? ""),
+    lost_reason: String(row.lost_reason ?? ""),
   };
 }
 

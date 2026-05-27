@@ -45,16 +45,16 @@ const emptyForm: ServiceForm = {
 function toForm(row: DbRow): ServiceForm {
   return {
     id: row.id,
-    title: row.title ?? "",
-    category: row.category ?? "",
-    short_description: row.short_description ?? "",
-    detail_description: row.detail_description ?? "",
+    title: String(row.title ?? ""),
+    category: String(row.category ?? ""),
+    short_description: String(row.short_description ?? ""),
+    detail_description: String(row.detail_description ?? ""),
     base_price: String(row.base_price ?? ""),
-    pricing_type: row.pricing_type ?? "custom",
+    pricing_type: String(row.pricing_type ?? "custom"),
     is_active: String(row.is_active ?? true),
-    internal_notes: row.internal_notes ?? "",
+    internal_notes: String(row.internal_notes ?? ""),
     sort_order: String(row.sort_order ?? 0),
-    status: row.status ?? "draft",
+    status: String(row.status ?? "draft"),
   };
 }
 

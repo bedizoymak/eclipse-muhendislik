@@ -9,15 +9,17 @@ export function usePublicServices() {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("services")
-      .select("*")
-      .eq("status", "published")
-      .order("sort_order")
-      .then(({ data }) => {
+    async function load() {
+      const { data } = await supabase
+        .from("services")
+        .select("*")
+        .eq("status", "published")
+        .order("sort_order");
+
         if (data?.length) setServices(data);
-      })
-      .finally(() => setLoading(false));
+      setLoading(false);
+    }
+    void load();
   }, []);
 
   return { services, loading };
@@ -29,15 +31,17 @@ export function usePublicProjects() {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("status", "published")
-      .order("sort_order")
-      .then(({ data }) => {
+    async function load() {
+      const { data } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("status", "published")
+        .order("sort_order");
+
         if (data?.length) setProjects(data);
-      })
-      .finally(() => setLoading(false));
+      setLoading(false);
+    }
+    void load();
   }, []);
 
   return { projects, loading };
@@ -49,15 +53,17 @@ export function usePublicSettings() {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("site_settings")
-      .select("*")
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
+    async function load() {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
         if (data) setSettings({ ...defaultSettings, ...data });
-      })
-      .finally(() => setLoading(false));
+      setLoading(false);
+    }
+    void load();
   }, []);
 
   return { settings, loading };

@@ -3,6 +3,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react
 import {
   BarChart3,
   BriefcaseBusiness,
+  ChevronRight,
   CheckSquare,
   ClipboardList,
   FileText,
@@ -28,41 +29,55 @@ import { cn } from "@/lib/utils";
 const navGroups = [
   {
     title: "Genel",
-    items: [{ to: "/admin", label: "Dashboard", description: "CRM özeti", icon: LayoutDashboard, end: true }],
+    items: [{ to: "/admin", label: "Genel Bakış", description: "Kısa şirket özeti", icon: LayoutDashboard, end: true }],
   },
   {
     title: "CRM",
     items: [
-      { to: "/admin/customers", label: "Müşteriler", description: "Cari ve ilişki takibi", icon: Users },
-      { to: "/admin/leads", label: "Fırsatlar", description: "Satış pipeline", icon: TrendingUp },
-      { to: "/admin/services", label: "Hizmetler", description: "BT hizmet kataloğu", icon: ServerCog },
+      { to: "/admin/musteriler", label: "Müşteriler", description: "Cari ve ilişki takibi", icon: Users },
+      { to: "/admin/firsatlar", label: "Fırsatlar", description: "Satış pipeline", icon: TrendingUp },
+      { to: "/admin/hizmetler", label: "Hizmetler", description: "BT hizmet kataloğu", icon: ServerCog },
     ],
   },
   {
     title: "Operasyon",
     items: [
-      { to: "/admin/projects", label: "Projeler", description: "Teknik işler", icon: BriefcaseBusiness },
-      { to: "/admin/tasks", label: "Görevler", description: "İş takibi", icon: CheckSquare },
-      { to: "/admin/tickets", label: "Destek Talepleri", description: "Servis istekleri", icon: Headphones },
+      { to: "/admin/projeler", label: "Projeler", description: "Teknik işler", icon: BriefcaseBusiness },
+      { to: "/admin/gorevler", label: "Görevler", description: "İş takibi", icon: CheckSquare },
+      { to: "/admin/destek-talepleri", label: "Destek Talepleri", description: "Servis istekleri", icon: Headphones },
     ],
   },
   {
     title: "Finans",
     items: [
-      { to: "/admin/offers", label: "Teklifler", description: "Proposal yönetimi", icon: ClipboardList },
-      { to: "/admin/finance", label: "Faturalar", description: "Ödeme ve cari", icon: FileText },
-      { to: "/admin/accounts", label: "Cari Hesap", description: "Resmi / iç kayıt", icon: Wallet },
-      { to: "/admin/expenses", label: "Masraflar", description: "Gider kalemleri", icon: Receipt },
-      { to: "/admin/reports", label: "Raporlar", description: "Analitik ve CSV", icon: BarChart3 },
+      { to: "/admin/teklifler", label: "Teklifler", description: "Proposal yönetimi", icon: ClipboardList },
+      { to: "/admin/finans", label: "Faturalar", description: "Ödeme ve cari", icon: FileText },
+      { to: "/admin/cari-hesap", label: "Cari Hesap", description: "Resmi / iç kayıt", icon: Wallet },
+      { to: "/admin/masraflar", label: "Masraflar", description: "Gider kalemleri", icon: Receipt },
+      { to: "/admin/raporlar", label: "Raporlar", description: "Analitik ve CSV", icon: BarChart3 },
     ],
   },
   {
     title: "Sistem",
-    items: [{ to: "/admin/settings", label: "Ayarlar", description: "Firma ve CRM", icon: Settings }],
+    items: [{ to: "/admin/ayarlar", label: "Ayarlar", description: "Firma ve CRM", icon: Settings }],
   },
 ];
 
 const pageMeta = [
+  { path: "/admin/dashboard", title: "Genel Bakış", group: "Genel" },
+  { path: "/admin/musteriler", title: "Müşteriler", group: "CRM" },
+  { path: "/admin/firsatlar", title: "Fırsatlar", group: "CRM" },
+  { path: "/admin/hizmetler", title: "Hizmetler", group: "CRM" },
+  { path: "/admin/projeler", title: "Projeler", group: "Operasyon" },
+  { path: "/admin/gorevler", title: "Görevler", group: "Operasyon" },
+  { path: "/admin/destek-talepleri", title: "Destek Talepleri", group: "Operasyon" },
+  { path: "/admin/teklifler", title: "Teklifler", group: "Finans" },
+  { path: "/admin/finans", title: "Faturalar", group: "Finans" },
+  { path: "/admin/cari-hesap", title: "Cari Hesap", group: "Finans" },
+  { path: "/admin/masraflar", title: "Masraflar", group: "Finans" },
+  { path: "/admin/raporlar", title: "Raporlar", group: "Finans" },
+  { path: "/admin/mesajlar", title: "Mesajlar", group: "Operasyon" },
+  { path: "/admin/ayarlar", title: "Ayarlar", group: "Sistem" },
   { path: "/admin/customers", title: "Müşteriler", group: "CRM" },
   { path: "/admin/leads", title: "Fırsatlar", group: "CRM" },
   { path: "/admin/services", title: "Hizmetler", group: "CRM" },
@@ -91,7 +106,7 @@ export default function AdminLayout() {
   const page = useMemo(() => currentPage(location.pathname), [location.pathname]);
 
   if (!isSupabaseConfigured) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/admin/giris" replace />;
   }
 
   if (loading) {
@@ -99,19 +114,19 @@ export default function AdminLayout() {
   }
 
   if (!session || !isAdmin) {
-    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/admin/giris" replace state={{ from: location.pathname }} />;
   }
 
   async function logout() {
     await supabase?.auth.signOut();
-    navigate("/admin/login", { replace: true });
+    navigate("/admin/giris", { replace: true });
   }
 
   return (
-    <div className="flex min-h-screen bg-secondary/40">
+    <div className="flex min-h-screen w-full max-w-full overflow-x-hidden bg-secondary/40">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-navy text-white shadow-2xl transition-transform duration-200 lg:static lg:w-80 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-navy text-white shadow-2xl transition-transform duration-200 print:hidden lg:static lg:w-80 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
@@ -139,8 +154,8 @@ export default function AdminLayout() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all hover:bg-white/10 hover:text-white",
-                          isActive ? "bg-electric text-white shadow-glow" : "text-white/75",
+                          "group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-200 hover:translate-x-0.5 hover:bg-white/10 hover:text-white",
+                          isActive ? "bg-electric text-white shadow-glow ring-1 ring-white/10" : "text-white/75",
                         )
                       }
                     >
@@ -178,25 +193,30 @@ export default function AdminLayout() {
 
       {open && <button className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setOpen(false)} aria-label="Menüyü kapat" />}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 backdrop-blur md:px-6">
+      <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
+        <header className="sticky top-0 z-20 w-full max-w-full overflow-x-hidden border-b border-border bg-background/95 px-4 backdrop-blur print:hidden md:px-6">
           <div className="flex h-16 items-center gap-3">
             <button onClick={() => setOpen(true)} aria-label="Menüyü aç" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <div className="text-xs font-medium text-muted-foreground">{page.group}</div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Home className="h-3.5 w-3.5" />
+                <span>{page.group}</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span className="font-medium text-foreground">{page.title}</span>
+              </div>
               <div className="truncate font-display text-lg font-semibold">{page.title}</div>
             </div>
             <Button asChild size="sm" className="ml-auto hidden bg-gradient-electric text-white shadow-glow md:inline-flex">
-              <Link to="/admin/customers">
+              <Link to="/admin/musteriler">
                 <Plus className="h-4 w-4" />
                 Hızlı Kayıt
               </Link>
             </Button>
           </div>
         </header>
-        <main className="min-w-0 flex-1 p-4 md:p-6 xl:p-8">
+        <main className="min-w-0 w-full max-w-full flex-1 overflow-x-hidden p-4 md:p-6 xl:p-8">
           <Outlet />
         </main>
       </div>

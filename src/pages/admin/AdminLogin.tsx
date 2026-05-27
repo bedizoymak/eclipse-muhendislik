@@ -51,6 +51,26 @@ export default function AdminLogin() {
     return <Navigate to={(location.state as { from?: string } | null)?.from || "/admin"} replace />;
   }
 
+  if (!loading && session && !isAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary/40 p-6">
+        <div className="max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-elevated">
+          <h1 className="font-display text-2xl font-semibold">Yetkisiz Erişim</h1>
+          <p className="mt-3 text-sm text-muted-foreground">Bu hesabın Eclipse Mühendislik yönetim paneline erişim yetkisi bulunmuyor.</p>
+          <Button
+            onClick={async () => {
+              await supabase?.auth.signOut();
+              navigate(0);
+            }}
+            className="mt-6 bg-gradient-electric text-white"
+          >
+            Çıkış Yap
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
 
