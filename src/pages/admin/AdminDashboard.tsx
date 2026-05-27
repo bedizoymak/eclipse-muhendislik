@@ -47,6 +47,7 @@ import {
   TICKET_STATUSES,
   todayISO,
 } from "@/lib/crm";
+import { adminPath } from "@/lib/adminRoutes";
 import { cn } from "@/lib/utils";
 
 const colors = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#14b8a6", "#64748b"];
@@ -159,13 +160,13 @@ export default function AdminDashboard() {
         actions={
           <>
             <Button asChild variant="outline">
-              <Link to="/admin/reports">
+              <Link to={adminPath("/reports")}>
                 <BarChart3 className="h-4 w-4" />
                 Raporlar
               </Link>
             </Button>
             <Button asChild className="bg-gradient-electric text-white shadow-glow">
-              <Link to="/admin/customers">
+              <Link to={adminPath("/customers")}>
                 <Plus className="h-4 w-4" />
                 Yeni Kayıt
               </Link>
@@ -284,12 +285,12 @@ export default function AdminDashboard() {
           <div className="grid gap-6 xl:grid-cols-3">
             <AdminSection title="Hızlı İşlemler" description="CRM kayıtlarını hızlı başlatın" contentClassName="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
               {[
-                { to: "/admin/customers", label: "Müşteri ekle", icon: Users },
-                { to: "/admin/leads", label: "Fırsat ekle", icon: TrendingUp },
-                { to: "/admin/offers", label: "Teklif oluştur", icon: ClipboardList },
-                { to: "/admin/expenses", label: "Masraf ekle", icon: Receipt },
-                { to: "/admin/tasks", label: "Görev ekle", icon: CheckSquare },
-                { to: "/admin/tickets", label: "Destek talebi aç", icon: Headphones },
+                { to: adminPath("/customers"), label: "Müşteri ekle", icon: Users },
+                { to: adminPath("/leads"), label: "Fırsat ekle", icon: TrendingUp },
+                { to: adminPath("/offers"), label: "Teklif oluştur", icon: ClipboardList },
+                { to: adminPath("/expenses"), label: "Masraf ekle", icon: Receipt },
+                { to: adminPath("/tasks"), label: "Görev ekle", icon: CheckSquare },
+                { to: adminPath("/tickets"), label: "Destek talebi aç", icon: Headphones },
               ].map((item) => (
                 <Button key={item.to} asChild variant="outline" className="justify-start">
                   <Link to={item.to}>
@@ -303,7 +304,7 @@ export default function AdminDashboard() {
             <AdminSection title="En Değerli Müşteriler" description="Tahsilata göre ilk 5" className="xl:col-span-1" contentClassName="space-y-3">
               {dashboard.topCustomers.length ? (
                 dashboard.topCustomers.map((customer) => (
-                  <Link key={customer.id} to={`/admin/customers/${customer.id}`} className="block rounded-lg border border-border p-3 transition hover:border-accent/50 hover:bg-accent/5">
+                  <Link key={customer.id} to={adminPath(`/customers/${customer.id}`)} className="block rounded-lg border border-border p-3 transition hover:border-accent/50 hover:bg-accent/5">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate font-semibold">{customerName(customer)}</div>

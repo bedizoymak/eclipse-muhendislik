@@ -24,74 +24,75 @@ import logoDark from "@/assets/logo-dark-bg.png";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { adminLoginPath, adminPath } from "@/lib/adminRoutes";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
   {
     title: "Genel",
-    items: [{ to: "/admin", label: "Genel Bakış", description: "Kısa şirket özeti", icon: LayoutDashboard, end: true }],
+    items: [{ to: adminPath(), label: "Genel Bakış", description: "Kısa şirket özeti", icon: LayoutDashboard, end: true }],
   },
   {
     title: "CRM",
     items: [
-      { to: "/admin/musteriler", label: "Müşteriler", description: "Cari ve ilişki takibi", icon: Users },
-      { to: "/admin/firsatlar", label: "Fırsatlar", description: "Satış pipeline", icon: TrendingUp },
-      { to: "/admin/hizmetler", label: "Hizmetler", description: "BT hizmet kataloğu", icon: ServerCog },
+      { to: adminPath("/musteriler"), label: "Müşteriler", description: "Cari ve ilişki takibi", icon: Users },
+      { to: adminPath("/firsatlar"), label: "Fırsatlar", description: "Satış pipeline", icon: TrendingUp },
+      { to: adminPath("/hizmetler"), label: "Hizmetler", description: "BT hizmet kataloğu", icon: ServerCog },
     ],
   },
   {
     title: "Operasyon",
     items: [
-      { to: "/admin/projeler", label: "Projeler", description: "Teknik işler", icon: BriefcaseBusiness },
-      { to: "/admin/gorevler", label: "Görevler", description: "İş takibi", icon: CheckSquare },
-      { to: "/admin/destek-talepleri", label: "Destek Talepleri", description: "Servis istekleri", icon: Headphones },
+      { to: adminPath("/projeler"), label: "Projeler", description: "Teknik işler", icon: BriefcaseBusiness },
+      { to: adminPath("/gorevler"), label: "Görevler", description: "İş takibi", icon: CheckSquare },
+      { to: adminPath("/destek-talepleri"), label: "Destek Talepleri", description: "Servis istekleri", icon: Headphones },
     ],
   },
   {
     title: "Finans",
     items: [
-      { to: "/admin/teklifler", label: "Teklifler", description: "Proposal yönetimi", icon: ClipboardList },
-      { to: "/admin/finans", label: "Faturalar", description: "Ödeme ve cari", icon: FileText },
-      { to: "/admin/cari-hesap", label: "Cari Hesap", description: "Resmi / iç kayıt", icon: Wallet },
-      { to: "/admin/masraflar", label: "Masraflar", description: "Gider kalemleri", icon: Receipt },
-      { to: "/admin/raporlar", label: "Raporlar", description: "Analitik ve CSV", icon: BarChart3 },
+      { to: adminPath("/teklifler"), label: "Teklifler", description: "Proposal yönetimi", icon: ClipboardList },
+      { to: adminPath("/finans"), label: "Faturalar", description: "Ödeme ve cari", icon: FileText },
+      { to: adminPath("/cari-hesap"), label: "Cari Hesap", description: "Resmi / iç kayıt", icon: Wallet },
+      { to: adminPath("/masraflar"), label: "Masraflar", description: "Gider kalemleri", icon: Receipt },
+      { to: adminPath("/raporlar"), label: "Raporlar", description: "Analitik ve CSV", icon: BarChart3 },
     ],
   },
   {
     title: "Sistem",
-    items: [{ to: "/admin/ayarlar", label: "Ayarlar", description: "Firma ve CRM", icon: Settings }],
+    items: [{ to: adminPath("/ayarlar"), label: "Ayarlar", description: "Firma ve CRM", icon: Settings }],
   },
 ];
 
 const pageMeta = [
-  { path: "/admin/dashboard", title: "Genel Bakış", group: "Genel" },
-  { path: "/admin/musteriler", title: "Müşteriler", group: "CRM" },
-  { path: "/admin/firsatlar", title: "Fırsatlar", group: "CRM" },
-  { path: "/admin/hizmetler", title: "Hizmetler", group: "CRM" },
-  { path: "/admin/projeler", title: "Projeler", group: "Operasyon" },
-  { path: "/admin/gorevler", title: "Görevler", group: "Operasyon" },
-  { path: "/admin/destek-talepleri", title: "Destek Talepleri", group: "Operasyon" },
-  { path: "/admin/teklifler", title: "Teklifler", group: "Finans" },
-  { path: "/admin/finans", title: "Faturalar", group: "Finans" },
-  { path: "/admin/cari-hesap", title: "Cari Hesap", group: "Finans" },
-  { path: "/admin/masraflar", title: "Masraflar", group: "Finans" },
-  { path: "/admin/raporlar", title: "Raporlar", group: "Finans" },
-  { path: "/admin/mesajlar", title: "Mesajlar", group: "Operasyon" },
-  { path: "/admin/ayarlar", title: "Ayarlar", group: "Sistem" },
-  { path: "/admin/customers", title: "Müşteriler", group: "CRM" },
-  { path: "/admin/leads", title: "Fırsatlar", group: "CRM" },
-  { path: "/admin/services", title: "Hizmetler", group: "CRM" },
-  { path: "/admin/projects", title: "Projeler", group: "Operasyon" },
-  { path: "/admin/tasks", title: "Görevler", group: "Operasyon" },
-  { path: "/admin/tickets", title: "Destek Talepleri", group: "Operasyon" },
-  { path: "/admin/offers", title: "Teklifler", group: "Finans" },
-  { path: "/admin/finance", title: "Faturalar", group: "Finans" },
-  { path: "/admin/accounts", title: "Cari Hesap", group: "Finans" },
-  { path: "/admin/expenses", title: "Masraflar", group: "Finans" },
-  { path: "/admin/reports", title: "Raporlar", group: "Finans" },
-  { path: "/admin/messages", title: "Mesajlar", group: "Operasyon" },
-  { path: "/admin/settings", title: "Ayarlar", group: "Sistem" },
-  { path: "/admin", title: "Dashboard", group: "Genel", exact: true },
+  { path: adminPath("/dashboard"), title: "Genel Bakış", group: "Genel" },
+  { path: adminPath("/musteriler"), title: "Müşteriler", group: "CRM" },
+  { path: adminPath("/firsatlar"), title: "Fırsatlar", group: "CRM" },
+  { path: adminPath("/hizmetler"), title: "Hizmetler", group: "CRM" },
+  { path: adminPath("/projeler"), title: "Projeler", group: "Operasyon" },
+  { path: adminPath("/gorevler"), title: "Görevler", group: "Operasyon" },
+  { path: adminPath("/destek-talepleri"), title: "Destek Talepleri", group: "Operasyon" },
+  { path: adminPath("/teklifler"), title: "Teklifler", group: "Finans" },
+  { path: adminPath("/finans"), title: "Faturalar", group: "Finans" },
+  { path: adminPath("/cari-hesap"), title: "Cari Hesap", group: "Finans" },
+  { path: adminPath("/masraflar"), title: "Masraflar", group: "Finans" },
+  { path: adminPath("/raporlar"), title: "Raporlar", group: "Finans" },
+  { path: adminPath("/mesajlar"), title: "Mesajlar", group: "Operasyon" },
+  { path: adminPath("/ayarlar"), title: "Ayarlar", group: "Sistem" },
+  { path: adminPath("/customers"), title: "Müşteriler", group: "CRM" },
+  { path: adminPath("/leads"), title: "Fırsatlar", group: "CRM" },
+  { path: adminPath("/services"), title: "Hizmetler", group: "CRM" },
+  { path: adminPath("/projects"), title: "Projeler", group: "Operasyon" },
+  { path: adminPath("/tasks"), title: "Görevler", group: "Operasyon" },
+  { path: adminPath("/tickets"), title: "Destek Talepleri", group: "Operasyon" },
+  { path: adminPath("/offers"), title: "Teklifler", group: "Finans" },
+  { path: adminPath("/finance"), title: "Faturalar", group: "Finans" },
+  { path: adminPath("/accounts"), title: "Cari Hesap", group: "Finans" },
+  { path: adminPath("/expenses"), title: "Masraflar", group: "Finans" },
+  { path: adminPath("/reports"), title: "Raporlar", group: "Finans" },
+  { path: adminPath("/messages"), title: "Mesajlar", group: "Operasyon" },
+  { path: adminPath("/settings"), title: "Ayarlar", group: "Sistem" },
+  { path: adminPath(), title: "Dashboard", group: "Genel", exact: true },
 ];
 
 function currentPage(pathname: string) {
@@ -106,7 +107,7 @@ export default function AdminLayout() {
   const page = useMemo(() => currentPage(location.pathname), [location.pathname]);
 
   if (!isSupabaseConfigured) {
-    return <Navigate to="/admin/giris" replace />;
+    return <Navigate to={adminLoginPath} replace />;
   }
 
   if (loading) {
@@ -114,12 +115,12 @@ export default function AdminLayout() {
   }
 
   if (!session || !isAdmin) {
-    return <Navigate to="/admin/giris" replace state={{ from: location.pathname }} />;
+    return <Navigate to={adminLoginPath} replace state={{ from: location.pathname }} />;
   }
 
   async function logout() {
     await supabase?.auth.signOut();
-    navigate("/admin/giris", { replace: true });
+    navigate(adminLoginPath, { replace: true });
   }
 
   return (
@@ -131,7 +132,7 @@ export default function AdminLayout() {
         )}
       >
         <div className="border-b border-white/10 p-5">
-          <Link to="/admin" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+          <Link to={adminPath()} className="flex items-center gap-3" onClick={() => setOpen(false)}>
             <img src={logoDark} alt="Eclipse Mühendislik" className="h-14 w-24 object-contain" />
             <div className="min-w-0">
               <div className="font-display text-lg font-semibold">Eclipse CRM</div>
@@ -209,7 +210,7 @@ export default function AdminLayout() {
               <div className="truncate font-display text-lg font-semibold">{page.title}</div>
             </div>
             <Button asChild size="sm" className="ml-auto hidden bg-gradient-electric text-white shadow-glow md:inline-flex">
-              <Link to="/admin/musteriler">
+              <Link to={adminPath("/musteriler")}>
                 <Plus className="h-4 w-4" />
                 Hızlı Kayıt
               </Link>

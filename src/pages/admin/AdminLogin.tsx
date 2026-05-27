@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { checkIsAdmin, getUserRolesForDebug } from "@/lib/adminAuth";
+import { adminPath } from "@/lib/adminRoutes";
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -49,7 +50,7 @@ export default function AdminLogin() {
   const { toast } = useToast();
 
   if (!loading && session && isAdmin) {
-    return <Navigate to={(location.state as { from?: string } | null)?.from || "/admin"} replace />;
+    return <Navigate to={(location.state as { from?: string } | null)?.from || adminPath()} replace />;
   }
 
   if (!loading && session && !isAdmin) {
@@ -130,7 +131,7 @@ export default function AdminLogin() {
 
       // TODO: Replace temporary admin credentials before production.
       toast({ title: "Giriş yapıldı", description: "Yönetim paneline yönlendiriliyorsunuz." });
-      navigate("/admin", { replace: true });
+      navigate(adminPath(), { replace: true });
     } catch (error) {
       toast({
         title: "Giriş başarısız",

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useCrmData } from "@/hooks/useCrmData";
+import { adminPath } from "@/lib/adminRoutes";
 import { customerName, DbRow, formatDate, formatTRY, labelOf, PRIORITIES, PROJECT_STATUSES, statusBadgeClass } from "@/lib/crm";
 import { cn } from "@/lib/utils";
 
@@ -216,7 +217,7 @@ export default function AdminProjects() {
                     <td className="p-3">{formatDate(project.deadline)}</td>
                     <td className="p-3 text-right font-medium">{formatTRY(project.budget)}</td>
                     <td className="p-3"><div className="h-2 w-28 rounded-full bg-secondary"><div className="h-2 rounded-full bg-accent" style={{ width: `${project.progress_percentage || 0}%` }} /></div><div className="mt-1 text-xs">{project.progress_percentage || 0}%</div></td>
-                    <td className="p-3"><div className="flex justify-end gap-1"><Button asChild size="sm" variant="ghost"><Link to={`/admin/projects/${project.id}`}><Eye className="h-4 w-4" /></Link></Button><Button size="sm" variant="ghost" onClick={() => openEdit(project)}><Edit className="h-4 w-4" /></Button><Button size="sm" variant="ghost" onClick={() => remove(project)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></td>
+                    <td className="p-3"><div className="flex justify-end gap-1"><Button asChild size="sm" variant="ghost"><Link to={adminPath(`/projects/${project.id}`)}><Eye className="h-4 w-4" /></Link></Button><Button size="sm" variant="ghost" onClick={() => openEdit(project)}><Edit className="h-4 w-4" /></Button><Button size="sm" variant="ghost" onClick={() => remove(project)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></td>
                   </tr>
                 );
               })}

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +27,52 @@ const Index = lazy(() => import("./pages/Index.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
+const isErpApp = import.meta.env.MODE === "erp";
+
+function AdminPrefixRedirect() {
+  const location = useLocation();
+  const pathname = location.pathname.replace(/^\/admin/, "") || "/";
+  return <Navigate to={`${pathname}${location.search}${location.hash}`} replace />;
+}
+
+function AdminRoutes({ rootPath }: { rootPath: string }) {
+  return (
+    <Route path={rootPath} element={<AdminLayout />}>
+      <Route index element={<AdminDashboard />} />
+      <Route path="dashboard" element={<AdminDashboard />} />
+      <Route path="customers" element={<AdminCustomers />} />
+      <Route path="customers/:id" element={<AdminCustomerDetail />} />
+      <Route path="leads" element={<AdminLeads />} />
+      <Route path="services" element={<AdminServices />} />
+      <Route path="projects" element={<AdminProjects />} />
+      <Route path="projects/:id" element={<AdminProjectDetail />} />
+      <Route path="tasks" element={<AdminTasks />} />
+      <Route path="offers" element={<AdminOffers />} />
+      <Route path="finance" element={<AdminFinance />} />
+      <Route path="accounts" element={<AdminFinance />} />
+      <Route path="expenses" element={<AdminExpenses />} />
+      <Route path="tickets" element={<AdminTickets />} />
+      <Route path="reports" element={<AdminReports />} />
+      <Route path="messages" element={<AdminMessages />} />
+      <Route path="settings" element={<AdminSettings />} />
+      <Route path="musteriler" element={<AdminCustomers />} />
+      <Route path="musteriler/:id" element={<AdminCustomerDetail />} />
+      <Route path="firsatlar" element={<AdminLeads />} />
+      <Route path="hizmetler" element={<AdminServices />} />
+      <Route path="projeler" element={<AdminProjects />} />
+      <Route path="projeler/:id" element={<AdminProjectDetail />} />
+      <Route path="gorevler" element={<AdminTasks />} />
+      <Route path="teklifler" element={<AdminOffers />} />
+      <Route path="finans" element={<AdminFinance />} />
+      <Route path="cari-hesap" element={<AdminFinance />} />
+      <Route path="masraflar" element={<AdminExpenses />} />
+      <Route path="destek-talepleri" element={<AdminTickets />} />
+      <Route path="raporlar" element={<AdminReports />} />
+      <Route path="mesajlar" element={<AdminMessages />} />
+      <Route path="ayarlar" element={<AdminSettings />} />
+    </Route>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -36,46 +82,24 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Yükleniyor...</div>}>
-            <Routes>
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin/giris" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="customers" element={<AdminCustomers />} />
-                <Route path="customers/:id" element={<AdminCustomerDetail />} />
-                <Route path="leads" element={<AdminLeads />} />
-                <Route path="services" element={<AdminServices />} />
-                <Route path="projects" element={<AdminProjects />} />
-                <Route path="projects/:id" element={<AdminProjectDetail />} />
-                <Route path="tasks" element={<AdminTasks />} />
-                <Route path="offers" element={<AdminOffers />} />
-                <Route path="finance" element={<AdminFinance />} />
-                <Route path="accounts" element={<AdminFinance />} />
-                <Route path="expenses" element={<AdminExpenses />} />
-                <Route path="tickets" element={<AdminTickets />} />
-                <Route path="reports" element={<AdminReports />} />
-                <Route path="messages" element={<AdminMessages />} />
-                <Route path="settings" element={<AdminSettings />} />
-                <Route path="musteriler" element={<AdminCustomers />} />
-                <Route path="musteriler/:id" element={<AdminCustomerDetail />} />
-                <Route path="firsatlar" element={<AdminLeads />} />
-                <Route path="hizmetler" element={<AdminServices />} />
-                <Route path="projeler" element={<AdminProjects />} />
-                <Route path="projeler/:id" element={<AdminProjectDetail />} />
-                <Route path="gorevler" element={<AdminTasks />} />
-                <Route path="teklifler" element={<AdminOffers />} />
-                <Route path="finans" element={<AdminFinance />} />
-                <Route path="cari-hesap" element={<AdminFinance />} />
-                <Route path="masraflar" element={<AdminExpenses />} />
-                <Route path="destek-talepleri" element={<AdminTickets />} />
-                <Route path="raporlar" element={<AdminReports />} />
-                <Route path="mesajlar" element={<AdminMessages />} />
-                <Route path="ayarlar" element={<AdminSettings />} />
-              </Route>
-              <Route path="/" element={<Index />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            {isErpApp ? (
+              <Routes>
+                <Route path="/giris" element={<AdminLogin />} />
+                <Route path="/admin/login" element={<Navigate to="/giris" replace />} />
+                <Route path="/admin/giris" element={<Navigate to="/giris" replace />} />
+                <Route path="/admin/*" element={<AdminPrefixRedirect />} />
+                {AdminRoutes({ rootPath: "/" })}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            ) : (
+              <Routes>
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/giris" element={<AdminLogin />} />
+                {AdminRoutes({ rootPath: "/admin" })}
+                <Route path="/" element={<Index />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            )}
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>

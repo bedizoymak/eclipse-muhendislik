@@ -6,6 +6,7 @@ import { AdminEmptyState, AdminMetricCard, AdminPageHeader } from "@/components/
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCrmData } from "@/hooks/useCrmData";
+import { adminPath } from "@/lib/adminRoutes";
 import { customerName, formatDate, formatTRY, labelOf, PRIORITIES, PROJECT_STATUSES, TASK_STATUSES, statusBadgeClass } from "@/lib/crm";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,7 @@ export default function AdminProjectDetail() {
   const project = data.projects.find((item) => item.id === id);
 
   if (loading) return <div className="rounded-lg border border-border bg-card p-8 text-muted-foreground">Yükleniyor...</div>;
-  if (!project) return <AdminEmptyState title="Proje bulunamadı" icon={FolderKanban} action={<Button asChild><Link to="/admin/projects">Projeler</Link></Button>} />;
+  if (!project) return <AdminEmptyState title="Proje bulunamadı" icon={FolderKanban} action={<Button asChild><Link to={adminPath("/projects")}>Projeler</Link></Button>} />;
 
   const customer = data.customers.find((item) => item.id === project.customer_id);
   const tasks = data.tasks.filter((item) => item.project_id === project.id);
@@ -50,7 +51,7 @@ export default function AdminProjectDetail() {
         eyebrow="Proje Detayı"
         title={project.title}
         description={`${customerName(customer)} · ${project.service_category || "Kategori yok"} · ${labelOf(PROJECT_STATUSES, project.project_status)} · ${labelOf(PRIORITIES, project.priority)}`}
-        actions={<Button asChild variant="outline"><Link to="/admin/projects"><ArrowLeft className="h-4 w-4" /> Projelere Dön</Link></Button>}
+        actions={<Button asChild variant="outline"><Link to={adminPath("/projects")}><ArrowLeft className="h-4 w-4" /> Projelere Dön</Link></Button>}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

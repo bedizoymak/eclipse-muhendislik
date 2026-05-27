@@ -23,6 +23,7 @@ import {
   statusBadgeClass,
   TICKET_STATUSES,
 } from "@/lib/crm";
+import { adminPath } from "@/lib/adminRoutes";
 import { cn } from "@/lib/utils";
 
 const chartColors = ["#10b981", "#f59e0b", "#ef4444", "#0ea5e9"];
@@ -92,7 +93,7 @@ export default function AdminCustomerDetail() {
   }
 
   if (loading) return <div className="rounded-lg border border-border bg-card p-8 text-muted-foreground">Yükleniyor...</div>;
-  if (!customer) return <AdminEmptyState title="Müşteri bulunamadı" description="Kayıt silinmiş veya erişim yetkiniz olmayabilir." icon={FileText} action={<Button asChild><Link to="/admin/customers">Müşterilere Dön</Link></Button>} />;
+  if (!customer) return <AdminEmptyState title="Müşteri bulunamadı" description="Kayıt silinmiş veya erişim yetkiniz olmayabilir." icon={FileText} action={<Button asChild><Link to={adminPath("/customers")}>Müşterilere Dön</Link></Button>} />;
 
   const financialChart = [
     { name: "Tahsilat", value: related.paid },
@@ -109,7 +110,7 @@ export default function AdminCustomerDetail() {
         description={`${customer.sector || "Sektör yok"} · ${customer.contact_person || "Yetkili girilmedi"} · müşteri ilişkileri, finans, projeler ve destek talepleri.`}
         actions={
           <>
-            <Button asChild variant="outline"><Link to="/admin/customers"><ArrowLeft className="h-4 w-4" /> Müşterilere Dön</Link></Button>
+            <Button asChild variant="outline"><Link to={adminPath("/customers")}><ArrowLeft className="h-4 w-4" /> Müşterilere Dön</Link></Button>
             {customer.phone && <Button asChild variant="outline"><a href={`tel:${customer.phone}`}><Phone className="h-4 w-4" /> Ara</a></Button>}
             {customer.email && <Button asChild variant="outline"><a href={`mailto:${customer.email}`}><Mail className="h-4 w-4" /> E-posta</a></Button>}
           </>
@@ -170,7 +171,7 @@ export default function AdminCustomerDetail() {
         </TabsContent>
         <TabsContent value="projects" className="mt-4">
           <RelatedTable rows={related.projects} empty="Proje yok" columns={[
-            { label: "Proje", render: (row) => <Link className="font-semibold hover:text-accent" to={`/admin/projects/${row.id}`}>{row.title}</Link> },
+            { label: "Proje", render: (row) => <Link className="font-semibold hover:text-accent" to={adminPath(`/projects/${row.id}`)}>{row.title}</Link> },
             { label: "Kategori", render: (row) => row.service_category || row.category || "-" },
             { label: "Bütçe", render: (row) => formatTRY(row.budget), className: "text-right" },
             { label: "Durum", render: (row) => <span className={cn("rounded-md border px-2 py-1 text-xs", statusBadgeClass(row.project_status))}>{labelOf(PROJECT_STATUSES, row.project_status)}</span> },

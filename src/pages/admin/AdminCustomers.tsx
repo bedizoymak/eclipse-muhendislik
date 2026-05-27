@@ -27,6 +27,7 @@ import {
   statusBadgeClass,
   tagsToArray,
 } from "@/lib/crm";
+import { adminPath } from "@/lib/adminRoutes";
 import { cn } from "@/lib/utils";
 
 type CustomerForm = {
@@ -293,7 +294,7 @@ export default function AdminCustomers() {
                   <td className="p-3"><span className={cn("rounded-md border px-2 py-1 text-xs", statusBadgeClass(customer.status))}>{labelOf(CUSTOMER_STATUSES, customer.status)}</span></td>
                   <td className="p-3">
                     <div className="flex justify-end gap-1">
-                      <Button asChild size="sm" variant="ghost"><Link to={`/admin/customers/${customer.id}`}><Eye className="h-4 w-4" /></Link></Button>
+                      <Button asChild size="sm" variant="ghost"><Link to={adminPath(`/customers/${customer.id}`)}><Eye className="h-4 w-4" /></Link></Button>
                       <Button size="sm" variant="ghost" onClick={() => openEdit(customer)}><Edit className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" onClick={() => remove(customer)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
