@@ -1,6 +1,17 @@
-create type public.app_role as enum ('admin', 'user');
-create type public.content_status as enum ('published', 'draft');
-create type public.message_status as enum ('new', 'read');
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'app_role' and typnamespace = 'public'::regnamespace) then
+    create type public.app_role as enum ('admin', 'user');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'content_status' and typnamespace = 'public'::regnamespace) then
+    create type public.content_status as enum ('published', 'draft');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'message_status' and typnamespace = 'public'::regnamespace) then
+    create type public.message_status as enum ('new', 'read');
+  end if;
+end $$;
 
 create table public.profiles (
   id uuid primary key default gen_random_uuid(),
@@ -10,7 +21,7 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
-create table public.user_roles (
+create table if not exists public.user_roles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   role public.app_role not null default 'user',
@@ -28,7 +39,7 @@ as $$
   select exists (
     select 1
     from public.user_roles
-    where user_id = _user_id and role = _role
+    where user_id = _user_id and role::text = _role::text
   )
 $$;
 

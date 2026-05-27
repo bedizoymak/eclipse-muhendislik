@@ -38,7 +38,7 @@ as $$
     select 1
     from private.user_roles
     where user_roles.user_id = _user_id
-      and user_roles.role = _role
+      and user_roles.role::text = _role::text
   );
 $$;
 
