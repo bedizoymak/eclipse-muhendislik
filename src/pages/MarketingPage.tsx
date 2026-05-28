@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -89,17 +89,17 @@ const Cards = ({ items }: { items: readonly (readonly string[])[] }) => (
 
 const homeSections = {
   tr: [
-    ["İşletme problemleri", "Parçalı yazılımlar, Excel dosyaları, geciken raporlar ve kopuk ekip akışları yönetim kararlarını zayıflatır. Eclipse; ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm katmanlarını tek mimaride birleştirerek operasyonel belirsizliği azaltır.", "tasks"],
-    ["Tek platform yaklaşımı", "Satış, finans, stok, görev ve yönetim raporları aynı veri modeli üzerinde çalıştığında işletme bütünsel olarak yönetilebilir hale gelir. Tek platform yaklaşımı, karar kalitesini ve süreç takibini kurumsal standarda taşır.", "executive"],
-    ["ERP modülleri", "ERP modülleri; operasyon, stok, finans, personel, teklif, sipariş ve raporlama süreçlerini ölçülebilir bir yönetim sistemine dönüştürür. Her modül, iş akışlarına ve yetki yapılarına göre konumlandırılır.", "stock"],
-    ["CRM pipeline bölümü", "CRM pipeline yapısı; fırsat, teklif, takip ve kapanış süreçlerini satış ekipleri için görünür hale getirir. AI-Yapay Zeka destekli tahmin katmanı, yüksek potansiyelli fırsatların önceliklendirilmesine yardımcı olur.", "pipeline"],
-    ["AI-Yapay Zeka karar motoru", "AI-Yapay Zeka karar motoru; satış tahmini, risk sinyali, finansal öngörü ve müşteri davranış analizi üretir. Sistem yalnızca veri göstermez, yönetim aksiyonlarını destekleyen sinyaller oluşturur.", "ai"],
-    ["Veri Analizi dashboard bölümü", "Veri Analizi dashboardları KPI, finans, satış, stok ve performans verilerini karşılaştırılabilir hale getirir. Yöneticiler anlık durum, trend ve sapmaları tek ekrandan okuyabilir.", "analytics"],
-    ["Dijital Dönüşüm süreci", "Dijital Dönüşüm; mevcut süreçlerin yazılıma aktarılmasından daha kapsamlıdır. Eclipse yaklaşımı; süreçlerin yeniden tasarlanması, otomasyonla güçlendirilmesi ve sürdürülebilir şekilde ölçülmesini sağlar.", "architecture"],
-    ["Sektör bazlı kullanım senaryoları", "Üretim, depo, lojistik, saha, satış, finans ve servis ekipleri farklı operasyon modellerine sahiptir. Eclipse platformu, bu iş birimlerinin veri ve süreç ihtiyaçlarına göre yapılandırılır.", "tasks"],
-    ["Mobil kullanım", "Mobil kullanım; saha, depo, satış ve servis ekiplerinin gerçek zamanlı veriyle çalışmasını sağlar. Merkez ve saha arasındaki bilgi gecikmesi azalır, operasyonel kayıtlar kurumsal sisteme doğrudan akar.", "stock"],
-    ["Eclipse ile bir iş günü senaryosu", "Gün; CRM fırsatlarının değerlendirilmesi, ERP stok durumunun kontrol edilmesi, finans risklerinin izlenmesi ve Veri Analizi dashboardlarının yönetim kararlarına temel oluşturmasıyla ilerler.", "pipeline"],
-    ["Yönetici dashboardları", "Yönetici dashboardları; şirket performansını departman bazlı değil, bütünleşik veri mimarisi üzerinden gösterir. KPI alert, Forecast ve Risk signal gibi mikro göstergeler karar sürecini hızlandırır.", "executive"],
+    ["İşletme problemleri", "Parçalı yazılımlar, dağınık tablolar, geciken raporlar ve kopuk ekip akışları operasyonel görünürlüğü zayıflatır. Eclipse; ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm katmanlarını tek kurumsal yazılım mimarisinde birleştirerek veri bütünlüğünü güçlendirir.", "tasks"],
+    ["Tek platform yaklaşımı", "Satış, finans, stok, görev ve yönetim raporları aynı veri modeli üzerinde çalıştığında işletme yönetilebilir süreç modeline kavuşur. Tek platform yaklaşımı, karar kalitesini ve süreç mimarisini kurumsal standarda taşır.", "executive"],
+    ["ERP modülleri", "ERP modülleri; operasyon, stok, finans, personel, teklif, sipariş ve raporlama süreçlerini ölçülebilir performans göstergeleriyle yönetilen bir sistem mimarisine dönüştürür.", "stock"],
+    ["CRM satış hattı", "CRM satış hattı; fırsat, teklif, takip ve kapanış aşamalarını satış ekipleri için izlenebilir hale getirir. AI-Yapay Zeka destekli öngörü katmanı, yüksek potansiyelli fırsatların önceliklendirilmesini destekler.", "pipeline"],
+    ["AI-Yapay Zeka karar motoru", "AI-Yapay Zeka karar motoru; satış öngörüsü, risk sinyali, finansal projeksiyon ve müşteri davranış analizi üretir. Sistem, karar destek katmanını operasyonel veriye doğrudan bağlar.", "ai"],
+    ["Veri Analizi kontrol paneli", "Veri Analizi kontrol panelleri; finans, satış, stok ve performans verilerini karşılaştırılabilir göstergelere dönüştürür. Yönetim ekipleri anlık durum, eğilim ve sapmaları ölçülebilir biçimde izler.", "analytics"],
+    ["Dijital Dönüşüm süreci", "Dijital Dönüşüm; mevcut süreçlerin yazılıma aktarılmasından daha kapsamlıdır. Eclipse yaklaşımı; süreç mimarisinin yeniden tasarlanmasını, otomasyonla güçlendirilmesini ve sürdürülebilir şekilde ölçülmesini sağlar.", "architecture"],
+    ["Sektör bazlı kullanım senaryoları", "Üretim, depo, lojistik, saha, satış, finans ve servis ekipleri farklı operasyon modellerine sahiptir. Eclipse platformu, her iş biriminin veri akışı ve süreç mimarisi gereksinimlerine göre yapılandırılır.", "tasks"],
+    ["Mobil kullanım", "Mobil kullanım; saha, depo, satış ve servis ekiplerinin gerçek zamanlı veriyle çalışmasını sağlar. Merkez ve saha arasındaki bilgi gecikmesi azalır, operasyonel kayıtlar kurumsal sisteme doğrudan aktarılır.", "mobile"],
+    ["Eclipse ile bir iş günü senaryosu", "Gün; CRM fırsatlarının değerlendirilmesi, ERP stok durumunun kontrol edilmesi, finansal risklerin izlenmesi ve Veri Analizi kontrol panellerinin yönetim kararlarına temel oluşturmasıyla ilerler.", "pipeline"],
+    ["Yönetici kontrol panelleri", "Yönetici kontrol panelleri; şirket performansını departman bazlı raporlar yerine bütünleşik veri mimarisi üzerinden gösterir. Performans uyarısı, öngörü ve risk sinyali göstergeleri karar süreçlerini hızlandırır.", "executive"],
     ["Entegrasyon ve ölçeklenebilir mimari", "Eclipse mimarisi API bağlantıları, rol bazlı veri erişimi ve ölçeklenebilir modül yapısı ile büyüyen işletme ihtiyaçlarına uyum sağlar. Yeni modüller mevcut veri modeliyle birlikte gelişir.", "architecture"],
     ["Güvenlik ve rol bazlı erişim", "Rol bazlı erişim, departmanlara ve kullanıcı sorumluluklarına göre veri görünürlüğünü kontrol eder. Güvenlik katmanı, kurumsal operasyonların yetkili ve izlenebilir şekilde yürütülmesini destekler.", "security"],
   ],
@@ -124,7 +124,7 @@ const HomeSection = ({ item, index }: { item: readonly [string, string, string];
   const { lang } = useLang();
   const reverse = index % 2 === 1;
   const visualKind = item[2] as Parameters<typeof DashboardVisual>[0]["kind"];
-  const tags = ["Live data", "Risk signal", "Forecast"];
+  const tags = lang === "tr" ? ["Canlı veri", "Risk sinyali", "Öngörü"] : ["Live data", "Risk signal", "Forecast"];
   const problemCards = lang === "tr"
     ? [
         ["Kopuk veri", "Operasyonel sinyaller geç ulaşır ve kararlar parçalı kaynaklara bağlı kalır."],
@@ -257,31 +257,244 @@ const HomePage = () => {
   const { lang } = useLang();
   const t = siteContent[lang];
   const sections = homeSections[lang];
+  const [activeTab, setActiveTab] = useState(0);
+  const tabs = lang === "tr"
+    ? [
+        ["ERP", "Operasyon, stok, finans ve sipariş süreçlerini yönetilebilir süreç modeli altında birleştirir."],
+        ["CRM", "Satış hattı, teklif ve müşteri etkileşimlerini ölçülebilir performans göstergeleriyle izler."],
+        ["AI-Yapay Zeka", "Karar destek katmanı; risk, öngörü ve öneri sinyallerini kurumsal veriyle üretir."],
+        ["Veri Analizi", "Yönetim kontrol panelleri, veri bütünlüğünü karşılaştırılabilir göstergelere dönüştürür."],
+      ]
+    : [
+        ["ERP", "Unifies operations, inventory, finance and order workflows under a manageable process model."],
+        ["CRM", "Tracks sales pipeline, proposals and customer interactions through measurable indicators."],
+        ["AI", "The decision-support layer produces risk, forecast and recommendation signals from enterprise data."],
+        ["Data Analytics", "Management dashboards convert data integrity into comparable indicators."],
+      ];
 
   return (
     <>
       <PageHero pageKey="home" />
       <section className="bg-navy-deep py-16">
         <div className="container-page">
-          <div className="grid gap-5 md:grid-cols-4">
-            {[
-              ["ERP", "94%"],
-              ["CRM", "38"],
-              [lang === "tr" ? "AI-Yapay Zeka" : "AI", "12"],
-              [lang === "tr" ? "Veri Analizi" : "Data Analytics", "7/24"],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] p-5 transition hover:-translate-y-1 hover:border-electric-bright/40">
-                <div className="text-xs uppercase tracking-[0.18em] text-white/45">{label}</div>
-                <div className="mt-3 text-3xl font-semibold text-white">{value}</div>
-                <div className="mt-3 h-1.5 rounded-full bg-white/10">
-                  <div className="h-1.5 w-4/5 rounded-full bg-electric-bright" />
-                </div>
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {tabs.map((tab, index) => (
+                  <button
+                    key={tab[0]}
+                    type="button"
+                    onClick={() => setActiveTab(index)}
+                    className={`rounded-xl border p-5 text-left transition hover:-translate-y-1 ${
+                      activeTab === index ? "border-electric-bright/60 bg-electric/15 shadow-glow" : "border-white/10 bg-white/[0.04] hover:border-electric-bright/40"
+                    }`}
+                  >
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/45">{tab[0]}</div>
+                    <div className="mt-3 text-3xl font-semibold text-white">{["94%", "38", "12", "7/24"][index]}</div>
+                  </button>
+                ))}
               </div>
+            </div>
+            <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.05] p-8 backdrop-blur-xl">
+              <div className="text-xs uppercase tracking-[0.18em] text-electric-bright">{tabs[activeTab][0]}</div>
+              <h2 className="mt-4 text-2xl font-semibold text-white">{lang === "tr" ? "Kurumsal yazılım mimarisinde aktif katman" : "Active layer in enterprise software architecture"}</h2>
+              <p className="mt-4 text-lg leading-relaxed text-white/64">{tabs[activeTab][1]}</p>
+              <div className="mt-6 h-2 rounded-full bg-white/10">
+                <div className="h-2 rounded-full bg-gradient-to-r from-electric to-electric-bright transition-all duration-500" style={{ width: `${[86, 68, 52, 74][activeTab]}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#061321] py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-3xl">
+              <span className="eyebrow">{sections[6][0]}</span>
+              <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+                {lang === "tr" ? "Dijital Dönüşüm için yatay süreç mimarisi." : "A horizontal process architecture for Digital Transformation."}
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-relaxed text-white/58">{sections[6][1]}</p>
+          </div>
+          <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 md:p-8">
+            <div className="absolute left-8 right-8 top-1/2 hidden h-px bg-gradient-to-r from-electric/20 via-electric-bright/70 to-electric/20 md:block" aria-hidden />
+            <div className="relative grid gap-4 md:grid-cols-5">
+              {(lang === "tr"
+                ? ["Süreç analizi", "Mimari planlama", "Modül yapılandırma", "Veri modeli", "Ölçekleme"]
+                : ["Process analysis", "Architecture planning", "Module configuration", "Data model", "Scaling"]).map((step, index) => (
+                <div key={step} className="rounded-xl border border-white/10 bg-navy-deep/80 p-5 transition hover:-translate-y-1 hover:border-electric-bright/45">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-electric-bright/40 bg-electric/15 text-sm font-semibold text-electric-bright">{index + 1}</div>
+                  <h3 className="mt-5 text-base font-semibold text-white">{step}</h3>
+                  <div className="mt-4 h-1.5 rounded-full bg-white/10">
+                    <div className="h-1.5 rounded-full bg-electric-bright" style={{ width: `${[48, 62, 74, 84, 92][index]}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#071827] py-20 md:py-28">
+        <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-electric-bright/40 to-transparent" aria-hidden />
+        <div className="container-page">
+          <div className="mb-10 max-w-3xl">
+            <span className="eyebrow">{lang === "tr" ? "Canlı kontrol mimarisi" : "Live control architecture"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Operasyonel veriyi tek yönetim yüzeyinde birleştiren geniş kontrol paneli." : "A wide control surface that unifies operational data."}
+            </h2>
+          </div>
+          <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-5 shadow-elevated backdrop-blur-xl md:p-8">
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr_0.8fr]">
+              <DashboardVisual kind="finance" />
+              <DashboardVisual kind="analytics" />
+              <div className="grid gap-4">
+                {(lang === "tr" ? ["Canlı veri", "Öngörü", "Risk sinyali", "Performans uyarısı"] : ["Live data", "Forecast", "Risk signal", "KPI alert"]).map((label, index) => (
+                  <div key={label} className="rounded-xl border border-white/10 bg-navy-deep/70 p-4 transition hover:border-electric-bright/40">
+                    <div className="flex items-center gap-3">
+                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-electric-bright" />
+                      <span className="text-sm font-medium text-white">{label}</span>
+                    </div>
+                    <div className="mt-3 h-1.5 rounded-full bg-white/10">
+                      <div className="h-1.5 rounded-full bg-electric-bright" style={{ width: `${[86, 64, 48, 72][index]}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-navy-deep py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-10 max-w-3xl">
+            <span className="eyebrow">{lang === "tr" ? "Farklı kontrol yüzeyleri" : "Distinct control surfaces"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "CRM, stok ve AI-Yapay Zeka katmanları ayrı görsel mantıklarla çalışır." : "CRM, inventory and AI layers operate with distinct visual logic."}
+            </h2>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:translate-y-8">
+              <DashboardVisual kind="pipeline" />
+            </div>
+            <DashboardVisual kind="ai" />
+            <div className="lg:-translate-y-8">
+              <DashboardVisual kind="stock" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-navy-deep py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-10 max-w-3xl">
+            <span className="eyebrow">{lang === "tr" ? "Modül etkileşimi" : "Module interaction"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Hover ile genişleyen modül kartları." : "Module cards that expand on hover."}
+            </h2>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {(lang === "tr"
+              ? [
+                  ["ERP", "Operasyonel görünürlük", "Süreç mimarisi, stok, finans ve sipariş yönetimi aynı veri modeline bağlanır."],
+                  ["CRM", "Satış hattı yönetimi", "Fırsat, teklif ve müşteri etkileşimleri ölçülebilir hale gelir."],
+                  ["AI-Yapay Zeka", "Karar destek katmanı", "Risk, öngörü ve öneri sinyalleri kurumsal veriden üretilir."],
+                  ["Veri Analizi", "Yönetici göstergeleri", "Performans göstergeleri karşılaştırılabilir kontrol panellerine taşınır."],
+                ]
+              : [
+                  ["ERP", "Operational visibility", "Process architecture, inventory, finance and orders connect to one data model."],
+                  ["CRM", "Pipeline management", "Opportunities, proposals and customer interactions become measurable."],
+                  ["AI", "Decision-support layer", "Risk, forecast and recommendation signals are generated from enterprise data."],
+                  ["Data Analytics", "Executive indicators", "Performance indicators move into comparable dashboards."],
+                ]).map((card) => (
+              <article key={card[0]} className="group min-h-48 rounded-xl border border-white/10 bg-white/[0.04] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-electric-bright/50 hover:bg-white/[0.08]">
+                <div className="text-xs uppercase tracking-[0.18em] text-electric-bright">{card[0]}</div>
+                <h3 className="mt-4 text-xl font-semibold text-white">{card[1]}</h3>
+                <p className="mt-4 max-h-0 overflow-hidden text-sm leading-relaxed text-white/58 transition-all duration-300 group-hover:max-h-32">{card[2]}</p>
+              </article>
             ))}
           </div>
         </div>
       </section>
-      {sections.map((item, index) => <HomeSection key={item[0]} item={item} index={index} />)}
+
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-10 max-w-3xl">
+            <span className="eyebrow">{lang === "tr" ? "Senaryo seçimi" : "Scenario selection"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Tıklanabilir kurumsal kullanım senaryoları." : "Clickable enterprise usage scenarios."}
+            </h2>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {(lang === "tr"
+              ? [
+                  ["Satış yönetimi", "CRM satış hattı, teklif disiplini ve AI-Yapay Zeka öngörüleri birlikte çalışır."],
+                  ["Finansal kontrol", "Nakit akışı, geciken tahsilat ve risk sinyalleri yönetim kontrol paneline taşınır."],
+                  ["Saha operasyonu", "Mobil kayıtlar ERP, CRM ve Veri Analizi katmanlarına gerçek zamanlı aktarılır."],
+                ]
+              : [
+                  ["Sales management", "CRM pipeline, proposal discipline and AI forecasts operate together."],
+                  ["Financial control", "Cash flow, overdue collections and risk signals move into the management panel."],
+                  ["Field operations", "Mobile records flow into ERP, CRM and Data Analytics layers in real time."],
+                ]).map((scenario, index) => (
+              <button key={scenario[0]} type="button" className="rounded-xl border border-white/10 bg-white/[0.04] p-6 text-left transition hover:-translate-y-1 hover:border-electric-bright/50 hover:bg-white/[0.08]">
+                <div className="text-xs uppercase tracking-[0.18em] text-electric-bright">0{index + 1}</div>
+                <h3 className="mt-4 text-xl font-semibold text-white">{scenario[0]}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-white/58">{scenario[1]}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-navy-deep py-20 md:py-28">
+        <div className="container-page grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <span className="eyebrow">{lang === "tr" ? "Veri akışı" : "Data flow"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Katmanlar arasında akan ölçeklenebilir mimari." : "Scalable architecture with flowing data between layers."}
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/64">
+              {lang === "tr" ? "ERP, CRM, AI-Yapay Zeka ve Veri Analizi katmanları rol bazlı erişim ve API hazır veri akışlarıyla birlikte çalışır." : "ERP, CRM, AI and Data Analytics layers operate with role-based access and API-ready data flows."}
+            </p>
+          </div>
+          <DashboardVisual kind="architecture" />
+        </div>
+      </section>
+      
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page grid gap-12 lg:grid-cols-2 lg:items-center">
+          <DashboardVisual kind="mobile" />
+          <div>
+            <span className="eyebrow">{lang === "tr" ? "Mobil kullanım" : "Mobile usage"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Saha ve merkez arasında gerçek zamanlı operasyonel süreklilik." : "Real-time operational continuity between field and headquarters."}
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/64">
+              {lang === "tr" ? "Mobil kullanım, görev, stok, müşteri ve servis kayıtlarının kurumsal yazılım mimarisine doğrudan aktarılmasını sağlar." : "Mobile usage transfers task, inventory, customer and service records directly into the enterprise software architecture."}
+            </p>
+          </div>
+        </div>
+      </section>
+      
+      <section className="bg-navy-deep py-20 md:py-28">
+        <div className="container-page grid gap-12 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+          <div>
+            <span className="eyebrow">{lang === "tr" ? "Güvenlik ve yetkilendirme" : "Security and permissions"}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Rol bazlı erişim ile kontrollü veri görünürlüğü." : "Controlled data visibility through role-based access."}
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/64">
+              {lang === "tr" ? "Kullanıcı rolleri, departman sorumlulukları ve veri erişim sınırları kurumsal güvenlik mimarisi içinde tanımlanır." : "User roles, department responsibilities and data access boundaries are defined within the enterprise security architecture."}
+            </p>
+          </div>
+          <DashboardVisual kind="security" />
+        </div>
+      </section>
+
       <section className="bg-[#071827] py-20 md:py-28">
         <div className="container-page">
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
