@@ -93,7 +93,7 @@ const homeSections = {
     ["Tek platform yaklaşımı", "Satış, finans, stok, görev ve yönetim raporları aynı veri modeli üzerinde çalıştığında işletme bütünsel olarak yönetilebilir hale gelir. Tek platform yaklaşımı, karar kalitesini ve süreç takibini kurumsal standarda taşır.", "executive"],
     ["ERP modülleri", "ERP modülleri; operasyon, stok, finans, personel, teklif, sipariş ve raporlama süreçlerini ölçülebilir bir yönetim sistemine dönüştürür. Her modül, iş akışlarına ve yetki yapılarına göre konumlandırılır.", "stock"],
     ["CRM pipeline bölümü", "CRM pipeline yapısı; fırsat, teklif, takip ve kapanış süreçlerini satış ekipleri için görünür hale getirir. AI-Yapay Zeka destekli tahmin katmanı, yüksek potansiyelli fırsatların önceliklendirilmesine yardımcı olur.", "pipeline"],
-    ["AI-Yapay Zeka karar motoru", "AI-Yapay Zeka karar motoru; satış tahmini, risk sinyali, finansal öngörü ve müşteri davranış analizi üretir. Sistem yalnızca veri göstermez, yönetim aksiyonlarını destekleyen sinyaller oluşturur.", "finance"],
+    ["AI-Yapay Zeka karar motoru", "AI-Yapay Zeka karar motoru; satış tahmini, risk sinyali, finansal öngörü ve müşteri davranış analizi üretir. Sistem yalnızca veri göstermez, yönetim aksiyonlarını destekleyen sinyaller oluşturur.", "ai"],
     ["Veri Analizi dashboard bölümü", "Veri Analizi dashboardları KPI, finans, satış, stok ve performans verilerini karşılaştırılabilir hale getirir. Yöneticiler anlık durum, trend ve sapmaları tek ekrandan okuyabilir.", "analytics"],
     ["Dijital Dönüşüm süreci", "Dijital Dönüşüm; mevcut süreçlerin yazılıma aktarılmasından daha kapsamlıdır. Eclipse yaklaşımı; süreçlerin yeniden tasarlanması, otomasyonla güçlendirilmesi ve sürdürülebilir şekilde ölçülmesini sağlar.", "architecture"],
     ["Sektör bazlı kullanım senaryoları", "Üretim, depo, lojistik, saha, satış, finans ve servis ekipleri farklı operasyon modellerine sahiptir. Eclipse platformu, bu iş birimlerinin veri ve süreç ihtiyaçlarına göre yapılandırılır.", "tasks"],
@@ -108,7 +108,7 @@ const homeSections = {
     ["One-platform approach", "When sales, finance, inventory, tasks and reporting operate on the same data model, the business becomes manageable as one system. This approach raises decision quality and process discipline.", "executive"],
     ["ERP modules", "ERP modules turn operations, inventory, finance, personnel, proposals, orders and reporting into a measurable management system. Each module is positioned around workflows and permissions.", "stock"],
     ["CRM pipeline", "The CRM pipeline makes opportunities, proposals, follow-ups and closing stages visible for sales teams. AI-supported forecasting helps prioritize high-potential opportunities.", "pipeline"],
-    ["AI decision engine", "The AI decision engine produces sales forecasts, risk signals, financial outlooks and customer behavior analysis. The system does not only display data; it generates signals that support management action.", "finance"],
+    ["AI decision engine", "The AI decision engine produces sales forecasts, risk signals, financial outlooks and customer behavior analysis. The system does not only display data; it generates signals that support management action.", "ai"],
     ["Data Analytics dashboard", "Data Analytics dashboards make KPI, finance, sales, inventory and performance data comparable. Executives read status, trends and deviations from one interface.", "analytics"],
     ["Digital Transformation process", "Digital Transformation is broader than moving existing work into software. Eclipse redesigns processes, strengthens them with automation and makes them sustainably measurable.", "architecture"],
     ["Industry scenarios", "Manufacturing, warehouse, logistics, field, sales, finance and service teams each have distinct operating models. Eclipse is configured around their data and workflow requirements.", "tasks"],
@@ -121,7 +121,116 @@ const homeSections = {
 } as const;
 
 const HomeSection = ({ item, index }: { item: readonly [string, string, string]; index: number }) => {
+  const { lang } = useLang();
   const reverse = index % 2 === 1;
+  const visualKind = item[2] as Parameters<typeof DashboardVisual>[0]["kind"];
+  const tags = ["Live data", "Risk signal", "Forecast"];
+  const problemCards = lang === "tr"
+    ? [
+        ["Kopuk veri", "Operasyonel sinyaller geç ulaşır ve kararlar parçalı kaynaklara bağlı kalır."],
+        ["Manuel kontrol", "Ekipler ölçülebilir iş akışlarını yönetmek yerine dosya mutabakatına zaman ayırır."],
+        ["Yönetim boşluğu", "Risk, kapasite ve performans tek güvenilir sistemden okunamaz."],
+      ]
+    : [
+        ["Disconnected data", "Operational signals arrive late and decisions depend on fragmented sources."],
+        ["Manual control", "Teams spend effort reconciling files instead of managing measurable workflows."],
+        ["Management gap", "Leadership cannot read risk, capacity and performance from one reliable system."],
+      ];
+  const timelineSteps = lang === "tr" ? ["Analiz", "Yapılandırma", "Ölçüm", "Ölçekleme"] : ["Analyze", "Configure", "Measure", "Scale"];
+  const timelineText = lang === "tr"
+    ? "Operasyonel veri yapılandırılır, bağlanır ve ölçülebilir yönetim akışına dönüştürülür."
+    : "Operational data is structured, connected and converted into measurable management flow.";
+
+  if (index === 0 || index === 7) {
+    return (
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page">
+          <div className="max-w-4xl">
+            <span className="eyebrow">0{index + 2}</span>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/64">{item[1]}</p>
+          </div>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {problemCards.map((card, cardIndex) => {
+              const Icon = iconSet[(index + cardIndex) % iconSet.length];
+              return (
+                <article key={card[0]} className="rounded-xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-electric-bright/40">
+                  <Icon className="h-5 w-5 text-electric-bright" />
+                  <h3 className="mt-5 text-lg font-semibold text-white">{card[0]}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-white/58">{card[1]}</p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (index === 1 || index === 10) {
+    return (
+      <section className="bg-navy-deep py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <span className="eyebrow">0{index + 2}</span>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
+            </div>
+            <p className="text-lg leading-relaxed text-white/64">{item[1]}</p>
+          </div>
+          <div className="mx-auto max-w-5xl">
+            <DashboardVisual kind={visualKind} />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (index === 6 || index === 9) {
+    return (
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <span className="eyebrow">0{index + 2}</span>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/64">{item[1]}</p>
+          </div>
+          <div className="relative border-l border-white/10 pl-6">
+            {timelineSteps.map((step, stepIndex) => (
+              <div key={step} className="relative pb-8 last:pb-0">
+                <span className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-electric-bright shadow-glow" />
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                  <div className="text-xs uppercase tracking-[0.18em] text-electric-bright">0{stepIndex + 1}</div>
+                  <div className="mt-2 font-semibold text-white">{step}</div>
+                  <p className="mt-2 text-sm text-white/55">{timelineText}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (index === 11) {
+    return (
+      <section className="bg-navy-deep py-16 md:py-20">
+        <div className="container-page">
+          <div className="mx-auto max-w-5xl text-center">
+            <span className="eyebrow justify-center">0{index + 2}</span>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
+            <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-white/64">{item[1]}</p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              {(lang === "tr" ? ["API hazır", "Rol bazlı", "Ölçeklenebilir modüller", "Veri akışı"] : ["API ready", "Role mapped", "Scalable modules", "Data flow"]).map((tag) => (
+                <span key={tag} className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/64">{tag}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={index % 2 === 0 ? "bg-[#071827] py-20 md:py-28" : "bg-navy-deep py-20 md:py-28"}>
       <div className={`container-page grid gap-12 lg:grid-cols-2 lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
@@ -130,7 +239,7 @@ const HomeSection = ({ item, index }: { item: readonly [string, string, string];
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
           <p className="mt-5 text-lg leading-relaxed text-white/64">{item[1]}</p>
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            {["Live data", "Risk signal", "Forecast"].map((tag) => (
+            {tags.map((tag) => (
               <div key={tag} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70 transition hover:border-electric-bright/40 hover:text-white">
                 <CheckCircle2 className="mr-2 inline h-4 w-4 text-electric-bright" />
                 {tag}
@@ -138,7 +247,7 @@ const HomeSection = ({ item, index }: { item: readonly [string, string, string];
             ))}
           </div>
         </div>
-        <DashboardVisual kind={item[2] as Parameters<typeof DashboardVisual>[0]["kind"]} />
+        <DashboardVisual kind={visualKind} />
       </div>
     </section>
   );

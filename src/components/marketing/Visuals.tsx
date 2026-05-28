@@ -1,7 +1,7 @@
-import { CheckCircle2, GitBranch, LineChart, LockKeyhole, ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, GitBranch, LineChart, LockKeyhole } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
 
-type VisualKind = "executive" | "pipeline" | "analytics" | "tasks" | "finance" | "stock" | "architecture" | "security";
+type VisualKind = "executive" | "pipeline" | "analytics" | "tasks" | "finance" | "stock" | "architecture" | "security" | "ai";
 
 const bars = [35, 54, 42, 76, 64, 88, 72];
 
@@ -68,11 +68,56 @@ export const DashboardVisual = ({ kind = "executive" }: { kind?: VisualKind }) =
     );
   }
 
+  if (kind === "analytics") {
+    return (
+      <Shell title="Data Analytics Dashboard" label="KPI alert">
+        <Kpis labels={["Revenue", "Margin", "SLA"]} />
+        <div className="mt-4 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-3">
+            {["Finance KPI", "Sales trend", "Stock movement"].map((item, index) => (
+              <div key={item} className="rounded-xl border border-white/10 bg-navy-deep/60 p-3">
+                <div className="flex items-center justify-between text-sm text-white">
+                  <span>{item}</span>
+                  <span className="text-electric-bright">{["92%", "+18%", "74%"][index]}</span>
+                </div>
+                <div className="mt-3 h-1.5 rounded-full bg-white/10">
+                  <div className="h-1.5 rounded-full bg-electric-bright" style={{ width: `${[92, 68, 74][index]}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <Trend />
+        </div>
+      </Shell>
+    );
+  }
+
+  if (kind === "finance") {
+    return (
+      <Shell title="Finance Control" label="Risk signal">
+        <Kpis labels={["Cash", "Risk", "Forecast"]} />
+        <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-navy-deep/60">
+          {[
+            ["Receivables", "₺2.4M", "Forecast"],
+            ["Overdue", "₺186K", "Risk signal"],
+            ["Monthly burn", "₺420K", "KPI alert"],
+          ].map((row) => (
+            <div key={row[0]} className="grid grid-cols-[1fr_0.8fr_0.8fr] gap-3 border-b border-white/10 px-4 py-3 text-sm last:border-0">
+              <span className="text-white/65">{row[0]}</span>
+              <span className="font-semibold text-white">{row[1]}</span>
+              <span className="text-electric-bright">{row[2]}</span>
+            </div>
+          ))}
+        </div>
+      </Shell>
+    );
+  }
+
   if (kind === "tasks") {
     return (
       <Shell title="Operational Task Board" label="KPI alert">
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {["Plan", "Active", "Review"].map((col, index) => (
+          {["Plan", "Active", "Review"].map((col) => (
             <div key={col} className="rounded-xl border border-white/10 bg-navy-deep/60 p-3">
               <div className="text-xs font-semibold text-white/55">{col}</div>
               {[0, 1, 2].map((item) => (
@@ -87,17 +132,45 @@ export const DashboardVisual = ({ kind = "executive" }: { kind?: VisualKind }) =
     );
   }
 
-  if (kind === "finance" || kind === "stock") {
+  if (kind === "stock") {
     return (
-      <Shell title={kind === "finance" ? "Finance Control" : "Inventory Control"} label={kind === "finance" ? "Risk signal" : "Stock signal"}>
-        <Kpis labels={kind === "finance" ? ["Cash", "Risk", "Forecast"] : ["Stock", "Critical", "Turnover"]} />
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_0.8fr]">
+      <Shell title="Inventory Control" label="Stock signal">
+        <Kpis labels={["Stock", "Critical", "Turnover"]} />
+        <div className="mt-4 space-y-3">
+          {[
+            ["Raw material", 82],
+            ["Finished goods", 64],
+            ["Critical parts", 28],
+            ["Reserved stock", 51],
+          ].map(([label, width]) => (
+            <div key={label as string} className="rounded-xl border border-white/10 bg-navy-deep/60 p-3">
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-white/65">{label}</span>
+                <span className="text-electric-bright">{width}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-white/10">
+                <div className="h-2 rounded-full bg-gradient-to-r from-electric to-electric-bright" style={{ width: `${width}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Shell>
+    );
+  }
+
+  if (kind === "executive") {
+    return (
+      <Shell title="Executive Dashboard" label="Eclipse Platform">
+        <Kpis />
+        <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
           <Trend />
           <div className="space-y-3">
-            {["Risk signal", "Forecast", "KPI alert"].map((item) => (
-              <div key={item} className="rounded-xl border border-white/10 bg-white/[0.05] p-3 text-sm text-white">
-                <CheckCircle2 className="mr-2 inline h-4 w-4 text-electric-bright" />
-                {item}
+            {["Forecast", "Risk signal", "KPI alert"].map((item) => (
+              <div key={item} className="rounded-xl border border-white/10 bg-white/[0.05] p-3">
+                <div className="flex items-center gap-2 text-sm text-white">
+                  <CheckCircle2 className="h-4 w-4 text-electric-bright" />
+                  {item}
+                </div>
               </div>
             ))}
           </div>
@@ -106,15 +179,15 @@ export const DashboardVisual = ({ kind = "executive" }: { kind?: VisualKind }) =
     );
   }
 
-  if (kind === "architecture" || kind === "security") {
+  if (kind === "architecture") {
     return (
-      <Shell title={kind === "architecture" ? "Scalable Architecture" : "Role-Based Access"} label={kind === "architecture" ? "Data flow" : "Security"}>
-        <div className="mt-5 grid gap-3">
-          {["ERP", "CRM", "AI", "Analytics"].map((node, index) => (
-            <div key={node} className="flex items-center gap-3 rounded-xl border border-white/10 bg-navy-deep/60 p-3">
-              {kind === "architecture" ? <GitBranch className="h-4 w-4 text-electric-bright" /> : index === 0 ? <ShieldCheck className="h-4 w-4 text-electric-bright" /> : <LockKeyhole className="h-4 w-4 text-electric-bright" />}
-              <span className="text-sm text-white">{node}</span>
-              <span className="ml-auto text-xs text-white/45">{kind === "architecture" ? "API ready" : "Role mapped"}</span>
+      <Shell title="Scalable Architecture" label="Data flow">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {["ERP API", "CRM Sync", "AI Layer", "Analytics Warehouse"].map((node) => (
+            <div key={node} className="rounded-xl border border-white/10 bg-navy-deep/60 p-4">
+              <GitBranch className="h-4 w-4 text-electric-bright" />
+              <div className="mt-3 text-sm font-semibold text-white">{node}</div>
+              <div className="mt-1 text-xs text-white/45">API ready</div>
             </div>
           ))}
         </div>
@@ -122,21 +195,40 @@ export const DashboardVisual = ({ kind = "executive" }: { kind?: VisualKind }) =
     );
   }
 
-  return (
-    <Shell title={kind === "analytics" ? "Data Analytics Dashboard" : "Executive Dashboard"} label="Eclipse Platform">
-      <Kpis />
-      <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <Trend />
-        <div className="space-y-3">
-          {["Forecast", "Risk signal", "KPI alert"].map((item) => (
-            <div key={item} className="rounded-xl border border-white/10 bg-white/[0.05] p-3">
-              <div className="flex items-center gap-2 text-sm text-white">
-                <CheckCircle2 className="h-4 w-4 text-electric-bright" />
-                {item}
-              </div>
-            </div>
+  if (kind === "security") {
+    return (
+      <Shell title="Role-Based Access" label="Security">
+        <div className="mt-5 grid grid-cols-[1fr_repeat(3,0.7fr)] overflow-hidden rounded-xl border border-white/10 text-xs">
+          {["Role", "ERP", "CRM", "AI"].map((head) => <div key={head} className="bg-white/[0.06] p-3 font-semibold text-white/70">{head}</div>)}
+          {["Admin", "Finance", "Sales", "Field"].map((role) => (
+            <Fragment key={role}>
+              <div key={`${role}-role`} className="border-t border-white/10 p-3 text-white">{role}</div>
+              {[0, 1, 2].map((i) => (
+                <div key={`${role}-${i}`} className="border-t border-white/10 p-3 text-center text-electric-bright">
+                  <LockKeyhole className="mx-auto h-4 w-4" />
+                </div>
+              ))}
+            </Fragment>
           ))}
         </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell title="AI Insight Engine" label="AI insights">
+      <div className="mt-4 space-y-3">
+        {["Customer churn risk detected", "Sales forecast revised", "Margin anomaly requires review"].map((item, index) => (
+          <div key={item} className="rounded-xl border border-white/10 bg-navy-deep/60 p-4">
+            <div className="flex items-start gap-3">
+              {index === 0 ? <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-300" /> : <BrainCircuit className="mt-0.5 h-4 w-4 text-electric-bright" />}
+              <div>
+                <div className="text-sm font-semibold text-white">{item}</div>
+                <div className="mt-1 text-xs text-white/45">Confidence {[91, 84, 78][index]}%</div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </Shell>
   );
