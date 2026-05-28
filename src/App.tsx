@@ -4,7 +4,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { LanguageProvider } from "@/i18n/LanguageContext";
+import { getDetectedLanguage, getSavedLanguage, LanguageProvider } from "@/i18n/LanguageContext";
+import type { PageKey } from "@/content/site";
 
 const AdminLayout = lazy(() => import("@/components/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
@@ -24,6 +25,7 @@ const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
 const AdminTasks = lazy(() => import("@/pages/admin/AdminTasks"));
 const AdminTickets = lazy(() => import("@/pages/admin/AdminTickets"));
 const Index = lazy(() => import("./pages/Index.tsx"));
+const MarketingPage = lazy(() => import("./pages/MarketingPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
@@ -74,6 +76,33 @@ function AdminRoutes({ rootPath }: { rootPath: string }) {
   );
 }
 
+function AutoHome() {
+  const saved = getSavedLanguage();
+  const detected = getDetectedLanguage();
+  if ((saved ?? detected) === "en") return <Navigate to="/en" replace />;
+  return <Index />;
+}
+
+const marketingRoutes: Array<[string, PageKey]> = [
+  ["/cozumler", "solutions"],
+  ["/moduller", "modules"],
+  ["/ai-yapay-zeka", "ai"],
+  ["/veri-analizi", "dataAnalytics"],
+  ["/dijital-donusum", "digitalTransformation"],
+  ["/sektorler", "industries"],
+  ["/surec", "process"],
+  ["/iletisim", "contact"],
+  ["/en", "home"],
+  ["/en/solutions", "solutions"],
+  ["/en/modules", "modules"],
+  ["/en/ai", "ai"],
+  ["/en/data-analytics", "dataAnalytics"],
+  ["/en/digital-transformation", "digitalTransformation"],
+  ["/en/industries", "industries"],
+  ["/en/process", "process"],
+  ["/en/contact", "contact"],
+];
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
@@ -96,7 +125,10 @@ const App = () => (
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/giris" element={<AdminLogin />} />
                 {AdminRoutes({ rootPath: "/admin" })}
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<AutoHome />} />
+                {marketingRoutes.map(([path, pageKey]) => (
+                  <Route key={path} path={path} element={<MarketingPage pageKey={pageKey} />} />
+                ))}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             )}
