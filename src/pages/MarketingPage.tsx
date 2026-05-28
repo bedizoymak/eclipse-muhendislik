@@ -87,14 +87,120 @@ const Cards = ({ items }: { items: readonly (readonly string[])[] }) => (
   </div>
 );
 
+const homeSections = {
+  tr: [
+    ["İşletme problemleri", "Parçalı yazılımlar, Excel dosyaları, geciken raporlar ve kopuk ekip akışları yönetim kararlarını zayıflatır. Eclipse; ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm katmanlarını tek mimaride birleştirerek operasyonel belirsizliği azaltır.", "tasks"],
+    ["Tek platform yaklaşımı", "Satış, finans, stok, görev ve yönetim raporları aynı veri modeli üzerinde çalıştığında işletme bütünsel olarak yönetilebilir hale gelir. Tek platform yaklaşımı, karar kalitesini ve süreç takibini kurumsal standarda taşır.", "executive"],
+    ["ERP modülleri", "ERP modülleri; operasyon, stok, finans, personel, teklif, sipariş ve raporlama süreçlerini ölçülebilir bir yönetim sistemine dönüştürür. Her modül, iş akışlarına ve yetki yapılarına göre konumlandırılır.", "stock"],
+    ["CRM pipeline bölümü", "CRM pipeline yapısı; fırsat, teklif, takip ve kapanış süreçlerini satış ekipleri için görünür hale getirir. AI-Yapay Zeka destekli tahmin katmanı, yüksek potansiyelli fırsatların önceliklendirilmesine yardımcı olur.", "pipeline"],
+    ["AI-Yapay Zeka karar motoru", "AI-Yapay Zeka karar motoru; satış tahmini, risk sinyali, finansal öngörü ve müşteri davranış analizi üretir. Sistem yalnızca veri göstermez, yönetim aksiyonlarını destekleyen sinyaller oluşturur.", "finance"],
+    ["Veri Analizi dashboard bölümü", "Veri Analizi dashboardları KPI, finans, satış, stok ve performans verilerini karşılaştırılabilir hale getirir. Yöneticiler anlık durum, trend ve sapmaları tek ekrandan okuyabilir.", "analytics"],
+    ["Dijital Dönüşüm süreci", "Dijital Dönüşüm; mevcut süreçlerin yazılıma aktarılmasından daha kapsamlıdır. Eclipse yaklaşımı; süreçlerin yeniden tasarlanması, otomasyonla güçlendirilmesi ve sürdürülebilir şekilde ölçülmesini sağlar.", "architecture"],
+    ["Sektör bazlı kullanım senaryoları", "Üretim, depo, lojistik, saha, satış, finans ve servis ekipleri farklı operasyon modellerine sahiptir. Eclipse platformu, bu iş birimlerinin veri ve süreç ihtiyaçlarına göre yapılandırılır.", "tasks"],
+    ["Mobil kullanım", "Mobil kullanım; saha, depo, satış ve servis ekiplerinin gerçek zamanlı veriyle çalışmasını sağlar. Merkez ve saha arasındaki bilgi gecikmesi azalır, operasyonel kayıtlar kurumsal sisteme doğrudan akar.", "stock"],
+    ["Eclipse ile bir iş günü senaryosu", "Gün; CRM fırsatlarının değerlendirilmesi, ERP stok durumunun kontrol edilmesi, finans risklerinin izlenmesi ve Veri Analizi dashboardlarının yönetim kararlarına temel oluşturmasıyla ilerler.", "pipeline"],
+    ["Yönetici dashboardları", "Yönetici dashboardları; şirket performansını departman bazlı değil, bütünleşik veri mimarisi üzerinden gösterir. KPI alert, Forecast ve Risk signal gibi mikro göstergeler karar sürecini hızlandırır.", "executive"],
+    ["Entegrasyon ve ölçeklenebilir mimari", "Eclipse mimarisi API bağlantıları, rol bazlı veri erişimi ve ölçeklenebilir modül yapısı ile büyüyen işletme ihtiyaçlarına uyum sağlar. Yeni modüller mevcut veri modeliyle birlikte gelişir.", "architecture"],
+    ["Güvenlik ve rol bazlı erişim", "Rol bazlı erişim, departmanlara ve kullanıcı sorumluluklarına göre veri görünürlüğünü kontrol eder. Güvenlik katmanı, kurumsal operasyonların yetkili ve izlenebilir şekilde yürütülmesini destekler.", "security"],
+  ],
+  en: [
+    ["Business operating challenges", "Fragmented software, spreadsheets, delayed reports and disconnected team workflows weaken management decisions. Eclipse unifies ERP, CRM, AI, Data Analytics and Digital Transformation layers in one architecture.", "tasks"],
+    ["One-platform approach", "When sales, finance, inventory, tasks and reporting operate on the same data model, the business becomes manageable as one system. This approach raises decision quality and process discipline.", "executive"],
+    ["ERP modules", "ERP modules turn operations, inventory, finance, personnel, proposals, orders and reporting into a measurable management system. Each module is positioned around workflows and permissions.", "stock"],
+    ["CRM pipeline", "The CRM pipeline makes opportunities, proposals, follow-ups and closing stages visible for sales teams. AI-supported forecasting helps prioritize high-potential opportunities.", "pipeline"],
+    ["AI decision engine", "The AI decision engine produces sales forecasts, risk signals, financial outlooks and customer behavior analysis. The system does not only display data; it generates signals that support management action.", "finance"],
+    ["Data Analytics dashboard", "Data Analytics dashboards make KPI, finance, sales, inventory and performance data comparable. Executives read status, trends and deviations from one interface.", "analytics"],
+    ["Digital Transformation process", "Digital Transformation is broader than moving existing work into software. Eclipse redesigns processes, strengthens them with automation and makes them sustainably measurable.", "architecture"],
+    ["Industry scenarios", "Manufacturing, warehouse, logistics, field, sales, finance and service teams each have distinct operating models. Eclipse is configured around their data and workflow requirements.", "tasks"],
+    ["Mobile usage", "Mobile usage enables field, warehouse, sales and service teams to work with real-time data. Information latency between headquarters and field operations decreases.", "stock"],
+    ["A business day with Eclipse", "The day progresses through CRM opportunity review, ERP inventory control, finance risk tracking and Data Analytics dashboards supporting management decisions.", "pipeline"],
+    ["Executive dashboards", "Executive dashboards show company performance through integrated data architecture rather than isolated department reports. KPI alert, Forecast and Risk signal labels accelerate decisions.", "executive"],
+    ["Integration and scalable architecture", "Eclipse architecture supports API connections, role-based data access and scalable modules. New capabilities evolve with the existing data model.", "architecture"],
+    ["Security and role-based access", "Role-based access controls data visibility according to departments and user responsibilities. The security layer supports authorized and traceable operations.", "security"],
+  ],
+} as const;
+
+const HomeSection = ({ item, index }: { item: readonly [string, string, string]; index: number }) => {
+  const reverse = index % 2 === 1;
+  return (
+    <section className={index % 2 === 0 ? "bg-[#071827] py-20 md:py-28" : "bg-navy-deep py-20 md:py-28"}>
+      <div className={`container-page grid gap-12 lg:grid-cols-2 lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
+        <div>
+          <span className="eyebrow">0{index + 2}</span>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-white md:text-5xl">{item[0]}</h2>
+          <p className="mt-5 text-lg leading-relaxed text-white/64">{item[1]}</p>
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            {["Live data", "Risk signal", "Forecast"].map((tag) => (
+              <div key={tag} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70 transition hover:border-electric-bright/40 hover:text-white">
+                <CheckCircle2 className="mr-2 inline h-4 w-4 text-electric-bright" />
+                {tag}
+              </div>
+            ))}
+          </div>
+        </div>
+        <DashboardVisual kind={item[2] as Parameters<typeof DashboardVisual>[0]["kind"]} />
+      </div>
+    </section>
+  );
+};
+
+const HomePage = () => {
+  const { lang } = useLang();
+  const t = siteContent[lang];
+  const sections = homeSections[lang];
+
+  return (
+    <>
+      <PageHero pageKey="home" />
+      <section className="bg-navy-deep py-16">
+        <div className="container-page">
+          <div className="grid gap-5 md:grid-cols-4">
+            {[
+              ["ERP", "94%"],
+              ["CRM", "38"],
+              [lang === "tr" ? "AI-Yapay Zeka" : "AI", "12"],
+              [lang === "tr" ? "Veri Analizi" : "Data Analytics", "7/24"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] p-5 transition hover:-translate-y-1 hover:border-electric-bright/40">
+                <div className="text-xs uppercase tracking-[0.18em] text-white/45">{label}</div>
+                <div className="mt-3 text-3xl font-semibold text-white">{value}</div>
+                <div className="mt-3 h-1.5 rounded-full bg-white/10">
+                  <div className="h-1.5 w-4/5 rounded-full bg-electric-bright" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      {sections.map((item, index) => <HomeSection key={item[0]} item={item} index={index} />)}
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div>
+              <span className="eyebrow">15</span>
+              <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">{t.ctaTitle}</h2>
+              <p className="mt-5 text-lg leading-relaxed text-white/64">{t.ctaText}</p>
+              <Button className="mt-8" size="xl" variant="hero" asChild>
+                <Link to={routes[lang].contact}>{t.nav.demo}<ArrowRight className="ml-1 h-4 w-4" /></Link>
+              </Button>
+            </div>
+            <DashboardVisual kind="executive" />
+          </div>
+        </div>
+      </section>
+    </>
+  );
+};
+
 const StandardPage = ({ pageKey }: { pageKey: PageKey }) => {
   const { lang } = useLang();
   const t = siteContent[lang];
 
   if (pageKey === "contact") return <ContactPage />;
+  if (pageKey === "home") return <HomePage />;
 
   const content =
-    pageKey === "solutions" || pageKey === "home" ? t.solutionCards :
+    pageKey === "solutions" ? t.solutionCards :
     pageKey === "modules" ? t.modules :
     pageKey === "ai" ? t.aiItems.map((item) => [item, lang === "tr" ? "Kurumsal veri modeliyle ilişkilendirilmiş AI-Yapay Zeka karar destek kapasitesi." : "Decision intelligence connected to the enterprise data model."]) :
     pageKey === "dataAnalytics" ? t.analyticsItems.map((item) => [item, lang === "tr" ? "Yönetim raporlaması için karşılaştırılabilir ve aksiyona dönüştürülebilir veri katmanı." : "Comparable and actionable data layer for management reporting."]) :
@@ -107,12 +213,11 @@ const StandardPage = ({ pageKey }: { pageKey: PageKey }) => {
       <PageHero pageKey={pageKey} />
       <section className="bg-[#071827] py-20 md:py-28">
         <div className="container-page">
-          {pageKey === "home" && <p className="mb-12 max-w-4xl text-xl leading-relaxed text-white/70">{t.pages.home.intro}</p>}
           {pageKey === "solutions" && <p className="mb-12 max-w-4xl text-xl leading-relaxed text-white/70">{t.pages.solutions.intro}</p>}
           <Cards items={content} />
         </div>
       </section>
-      {pageKey !== "home" && (
+      {(
         <section className="bg-navy-deep py-20">
           <div className="container-page grid gap-10 lg:grid-cols-2 lg:items-center">
             <DashboardVisual />

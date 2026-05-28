@@ -114,8 +114,8 @@ export const siteContent = {
     pages: {
       home: {
         eyebrow: "Kurumsal SaaS ve İşletme Yazılımı",
-        title: "ERP, CRM ve AI-Yapay Zeka ile İşletmenizi Tek Merkezden Yönetin",
-        subtitle: "Eclipse; ERP, CRM, Veri Analizi ve Dijital Dönüşüm çözümlerini AI-Yapay Zeka destekli yazılım mimarisiyle birleştirerek işletmelerin tüm süreçlerini ölçülebilir, yönetilebilir ve ölçeklenebilir hale getirir.",
+        title: "İşletmenizi Tek Merkezden Yönetin",
+        subtitle: "Eclipse; ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm çözümlerini kurumsal yazılım mimarisiyle birleştirerek işletme süreçlerini ölçülebilir, yönetilebilir ve ölçeklenebilir hale getirir.",
         primary: "Demo Talep Et",
         secondary: "Çözümleri İncele",
         intro: "Eclipse, işletmelerin operasyonel süreçlerini yalnızca dijital ortama taşımakla kalmaz; bu süreçleri ölçülebilir, izlenebilir ve optimize edilebilir bir yönetim sistemine dönüştürür.",
@@ -233,8 +233,8 @@ export const siteContent = {
     pages: {
       home: {
         eyebrow: "Enterprise SaaS and Business Software",
-        title: "Manage Your Business with ERP, CRM and AI-Powered Intelligence",
-        subtitle: "Eclipse combines ERP, CRM, Data Analytics and Digital Transformation with AI-powered software architecture to make business operations measurable, manageable and scalable.",
+        title: "Manage Your Business from One Platform",
+        subtitle: "Eclipse combines ERP, CRM, AI, Data Analytics and Digital Transformation through enterprise software architecture to make business operations measurable, manageable and scalable.",
         primary: "Request Demo",
         secondary: "Explore Solutions",
         intro: "Eclipse does not simply move business processes into software; it transforms them into measurable, traceable and optimizable management systems.",
