@@ -90,6 +90,7 @@ const marketingRoutes: Array<[string, PageKey]> = [
   ["/veri-analizi", "dataAnalytics"],
   ["/dijital-donusum", "digitalTransformation"],
   ["/sektorler", "industries"],
+  ["/referanslar", "references"],
   ["/surec", "process"],
   ["/iletisim", "contact"],
   ["/en", "home"],
@@ -99,6 +100,7 @@ const marketingRoutes: Array<[string, PageKey]> = [
   ["/en/data-analytics", "dataAnalytics"],
   ["/en/digital-transformation", "digitalTransformation"],
   ["/en/industries", "industries"],
+  ["/en/references", "references"],
   ["/en/process", "process"],
   ["/en/contact", "contact"],
 ];

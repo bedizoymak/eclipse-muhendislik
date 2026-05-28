@@ -26,6 +26,7 @@ export type PageKey =
   | "dataAnalytics"
   | "digitalTransformation"
   | "industries"
+  | "references"
   | "process"
   | "contact";
 
@@ -40,6 +41,7 @@ export const routes: Record<Lang, Record<PageKey, string>> = {
     dataAnalytics: "/veri-analizi",
     digitalTransformation: "/dijital-donusum",
     industries: "/sektorler",
+    references: "/referanslar",
     process: "/surec",
     contact: "/iletisim",
   },
@@ -51,12 +53,13 @@ export const routes: Record<Lang, Record<PageKey, string>> = {
     dataAnalytics: "/en/data-analytics",
     digitalTransformation: "/en/digital-transformation",
     industries: "/en/industries",
+    references: "/en/references",
     process: "/en/process",
     contact: "/en/contact",
   },
 };
 
-export const navKeys: PageKey[] = ["solutions", "modules", "ai", "dataAnalytics", "digitalTransformation", "industries", "process", "contact"];
+export const navKeys: PageKey[] = ["solutions", "modules", "ai", "dataAnalytics", "digitalTransformation", "industries", "references", "process", "contact"];
 
 const trModules = [
   ["CRM ve Satış Yönetimi", "Satış fırsatlarını, müşteri temaslarını ve teklif süreçlerini merkezi bir CRM yapısında yönetir.", "Satış ekipleri müşteri geçmişi, teklif durumu ve takip aksiyonlarına tek panelden erişir.", "Tahmin doğruluğu, takip disiplini ve müşteri dönüşüm oranı güçlenir."],
@@ -95,6 +98,7 @@ export const siteContent = {
       dataAnalytics: "Veri Analizi",
       digitalTransformation: "Dijital Dönüşüm",
       industries: "Sektörler",
+      references: "Referanslar",
       process: "Süreç",
       contact: "İletişim",
       demo: "Demo Talep Et",
@@ -108,6 +112,7 @@ export const siteContent = {
       dataAnalytics: ["Veri Analizi | Eclipse Kontrol Paneli ve Performans Göstergesi Sistemleri", "Eclipse Veri Analizi modülleri gerçek zamanlı kontrol panelleri, performans göstergesi takibi, finans, satış, stok ve operasyon analitiği sunar."],
       digitalTransformation: ["Dijital Dönüşüm | Eclipse Kurumsal Yazılım Mimarisi", "Eclipse Dijital Dönüşüm çözümleri süreç dijitalleştirme, otomasyon, entegrasyon ve ölçeklenebilir yazılım mimarisi sağlar."],
       industries: ["Sektörler | Eclipse ERP CRM AI-Yapay Zeka Çözümleri", "Üretim, depo, lojistik, kurumsal ofis, saha, satış, finans ve servis ekipleri için ERP, CRM ve AI-Yapay Zeka çözümleri."],
+      references: ["Referanslar | Eclipse ERP CRM AI-Yapay Zeka Projeleri", "Eclipse ile geliştirilen ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm referans projeleri."],
       process: ["Süreç | Eclipse Yazılım Geliştirme ve Devreye Alma", "Süreç analizi, sistem mimarisi, ERP CRM AI-Yapay Zeka yapılandırması, veri modeli, entegrasyon, test ve ölçekleme."],
       contact: ["İletişim ve Demo | Eclipse", "İşletmeniz için uygun ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm mimarisini Eclipse ile planlayın."],
     },
@@ -151,6 +156,11 @@ export const siteContent = {
         title: "Farklı operasyon modelleri için uyarlanabilir kurumsal yazılım.",
         subtitle: "Eclipse, üretimden sahaya, depodan satış ekiplerine kadar farklı iş birimlerinin operasyonel ihtiyaçlarına göre yapılandırılır.",
       },
+      references: {
+        eyebrow: "Referans Projeler",
+        title: "Referans Projeler",
+        subtitle: "Eclipse ile geliştirilen ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm projeleri.",
+      },
       process: {
         eyebrow: "Uygulama Süreci",
         title: "Analizden ölçeklemeye kadar kontrollü mühendislik süreci.",
@@ -184,6 +194,13 @@ export const siteContent = {
       ["Finans Ekipleri", "Cari, tahsilat ve nakit akışı verileri parçalı raporlanır.", "Finans kontrol panelleri ve Veri Analizi modülleri riskleri görünür kılar.", "Finansal kontrol ve raporlama kalitesi artar."],
       ["Servis ve Bakım Ekipleri", "Servis talepleri, görevler ve saha kayıtları izlenebilir değildir.", "Görev, mobil ve müşteri modülleri servis operasyonunu merkezileştirir.", "Müdahale süreleri ve hizmet kalitesi ölçülebilir hale gelir."],
     ],
+    references: [
+      ["Üretim ERP Projesi", "Üretim", "ERP, Stok, Finans, Veri Analizi", "Üretim, sipariş, stok ve finans süreçleri tek kurumsal yazılım mimarisinde birleştirildi.", "Planlama doğruluğu, operasyonel görünürlük ve veri bütünlüğü güçlendirildi.", "stock"],
+      ["Depo ve Stok Yönetimi", "Depo ve Lojistik", "ERP, Stok, Mobil, Veri Analizi", "Depo hareketleri, kritik stok seviyeleri ve sevkiyat kayıtları gerçek zamanlı takip edilebilir hale getirildi.", "Stok hataları azaltıldı; saha ve depo ekipleri aynı veri modeli üzerinde çalışmaya başladı.", "stock"],
+      ["CRM Satış Takip Sistemi", "Satış Operasyonları", "CRM, Teklif, Raporlama, AI-Yapay Zeka", "Fırsat, teklif, takip ve kapanış aşamaları merkezi CRM satış hattı üzerinde yapılandırıldı.", "Satış disiplini, takip kalitesi ve öngörülebilir gelir yönetimi iyileştirildi.", "pipeline"],
+      ["AI-Yapay Zeka Destekli Raporlama", "Yönetim ve Finans", "AI-Yapay Zeka, Veri Analizi, Finans, Yönetici Kontrol Paneli", "Finansal sapmalar, müşteri riski ve performans eğilimleri karar destek katmanına taşındı.", "Yönetim ekipleri risk sinyallerini ve öngörüleri ölçülebilir göstergelerle izlemeye başladı.", "ai"],
+      ["Mobil Saha Operasyon Sistemi", "Saha Operasyonları", "Mobil, Görev, CRM, ERP", "Saha görevleri, müşteri kayıtları ve operasyon bildirimleri mobil kullanım deneyimiyle merkez sisteme bağlandı.", "Merkez ve saha arasındaki veri gecikmesi azaltıldı; operasyonel kayıt kalitesi artırıldı.", "mobile"],
+    ],
     processSteps: [
       ["Süreç ve İhtiyaç Analizi", "Mevcut operasyon yapısı, veri akışları, kullanıcı rolleri, raporlama ihtiyaçları ve entegrasyon gereksinimleri teknik ve işlevsel açıdan değerlendirilir."],
       ["Sistem Mimarisi ve Modül Planlama", "ERP, CRM, Veri Analizi ve AI-Yapay Zeka bileşenlerinin kurumsal hedeflere göre nasıl konumlanacağı belirlenir."],
@@ -214,6 +231,7 @@ export const siteContent = {
       dataAnalytics: "Data Analytics",
       digitalTransformation: "Digital Transformation",
       industries: "Industries",
+      references: "References",
       process: "Process",
       contact: "Contact",
       demo: "Request Demo",
@@ -227,6 +245,7 @@ export const siteContent = {
       dataAnalytics: ["Data Analytics | Eclipse Dashboards and KPI Systems", "Real-time dashboards, KPI tracking, finance, sales, inventory, personnel performance and operational analytics."],
       digitalTransformation: ["Digital Transformation | Eclipse Enterprise Software", "Process digitization, workflow automation, system integration and scalable enterprise software roadmap solutions."],
       industries: ["Industries | Eclipse ERP CRM AI Solutions", "ERP, CRM and AI solutions for manufacturing, warehouse, logistics, corporate offices, field teams, sales, finance and service teams."],
+      references: ["References | Eclipse ERP CRM AI Projects", "Reference projects developed with Eclipse across ERP, CRM, AI, Data Analytics and Digital Transformation."],
       process: ["Process | Eclipse Software Engineering and Deployment", "Process analysis, system architecture, ERP CRM AI configuration, data model, integrations, testing and scaling."],
       contact: ["Contact and Demo | Eclipse", "Plan the right ERP, CRM, AI, Data Analytics and Digital Transformation architecture for your business with Eclipse."],
     },
@@ -245,6 +264,7 @@ export const siteContent = {
       dataAnalytics: { eyebrow: "Data Analytics", title: "Real-time dashboards and manageable KPI architecture.", subtitle: "Data Analytics modules move business data out of fragmented reports and make it comparable, decision-ready and actionable." },
       digitalTransformation: { eyebrow: "Digital Transformation", title: "A software approach that redesigns, measures and sustains business processes.", subtitle: "Digital Transformation is not only the digitization of existing work. In the Eclipse approach, it means redesigning, measuring and sustainably managing processes." },
       industries: { eyebrow: "Industry Fit", title: "Adaptable enterprise software for different operating models.", subtitle: "Eclipse is configured around the operational requirements of production, field teams, warehouses, sales organizations and finance teams." },
+      references: { eyebrow: "Reference Projects", title: "Reference Projects", subtitle: "ERP, CRM, AI, Data Analytics and Digital Transformation projects developed with Eclipse." },
       process: { eyebrow: "Implementation Process", title: "A controlled engineering process from analysis to scaling.", subtitle: "Every project is managed through technical assessment, architecture planning, data modeling, integration, testing and continuous improvement." },
       contact: { eyebrow: "Demo and Consulting", title: "Let us plan the right ERP, CRM and AI architecture for your business.", subtitle: "The Eclipse team evaluates your business processes and defines the appropriate software architecture from both technical and functional perspectives." },
     },
@@ -269,6 +289,13 @@ export const siteContent = {
       ["Sales Teams", "Opportunities and proposal follow-ups rely on personal methods.", "CRM and AI-powered sales forecasting operate together.", "Closing discipline and sales predictability improve."],
       ["Finance Teams", "Accounts, collections and cash flow data are reported through fragmented files.", "Finance dashboards and Data Analytics modules expose financial risks.", "Financial control and reporting quality improve."],
       ["Service Teams", "Service requests, tasks and field records are not fully traceable.", "Task, mobile and customer modules centralize service operations.", "Response times and service quality become measurable."],
+    ],
+    references: [
+      ["Manufacturing ERP Project", "Manufacturing", "ERP, Inventory, Finance, Data Analytics", "Production, order, inventory and finance workflows were unified within one enterprise software architecture.", "Planning accuracy, operational visibility and data integrity were strengthened.", "stock"],
+      ["Warehouse and Inventory Management", "Warehouse & Logistics", "ERP, Inventory, Mobile, Data Analytics", "Warehouse movements, critical stock levels and shipment records were made traceable in real time.", "Inventory errors decreased and warehouse teams started working on a shared data model.", "stock"],
+      ["CRM Sales Tracking System", "Sales Operations", "CRM, Proposal, Reporting, AI", "Opportunity, proposal, follow-up and closing stages were structured on a centralized CRM pipeline.", "Sales discipline, follow-up quality and predictable revenue management improved.", "pipeline"],
+      ["AI-Supported Reporting", "Management and Finance", "AI, Data Analytics, Finance, Executive Dashboard", "Financial deviations, customer risk and performance trends were connected to a decision-support layer.", "Management teams began tracking risk signals and forecasts through measurable indicators.", "ai"],
+      ["Mobile Field Operations System", "Field Operations", "Mobile, Tasks, CRM, ERP", "Field tasks, customer records and operation updates were connected to the central system through a mobile experience.", "Data latency between headquarters and field teams decreased; operational record quality improved.", "mobile"],
     ],
     processSteps: [
       ["Process and Requirements Analysis", "The current operating model, data flows, user roles, reporting needs and integration requirements are assessed from technical and functional perspectives."],

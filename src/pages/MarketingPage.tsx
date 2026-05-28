@@ -514,12 +514,97 @@ const HomePage = () => {
   );
 };
 
+const ReferencesPage = () => {
+  const { lang } = useLang();
+  const t = siteContent[lang];
+  const labels = lang === "tr"
+    ? {
+        customer: "Müşteri adı",
+        sector: "Sektör",
+        modules: "Kullanılan modüller",
+        summary: "Proje özeti",
+        value: "Sağlanan değer",
+        cta: "Projeyi İncele",
+      }
+    : {
+        customer: "Customer",
+        sector: "Industry",
+        modules: "Modules used",
+        summary: "Project summary",
+        value: "Business value",
+        cta: "View Project",
+      };
+
+  return (
+    <>
+      <PageHero pageKey="references" />
+      <section className="bg-[#071827] py-20 md:py-28">
+        <div className="container-page">
+          <div className="mb-12 max-w-4xl">
+            <span className="eyebrow">{t.nav.references}</span>
+            <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+              {lang === "tr" ? "Kurumsal yazılım projeleri, ölçülebilir iş değeriyle sunulur." : "Enterprise software projects presented through measurable business value."}
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-white/62">
+              {lang === "tr"
+                ? "Aşağıdaki referanslar, Eclipse mimarisinin ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm alanlarında nasıl yapılandırıldığını gösteren örnek proje senaryolarıdır."
+                : "The following references are sample project scenarios showing how Eclipse architecture is configured across ERP, CRM, AI, Data Analytics and Digital Transformation."}
+            </p>
+          </div>
+          <div className="grid gap-6">
+            {t.references.map((reference, index) => {
+              const [name, sector, modules, summary, value, visual] = reference;
+              return (
+                <article key={name} className="grid gap-8 rounded-[1.25rem] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl transition hover:border-electric-bright/35 hover:bg-white/[0.065] md:p-7 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-full border border-electric-bright/30 bg-electric/10 px-3 py-1 text-xs font-medium text-electric-bright">0{index + 1}</span>
+                      <span className="text-xs uppercase tracking-[0.18em] text-white/42">{labels.customer}</span>
+                    </div>
+                    <h3 className="mt-5 text-2xl font-semibold text-white md:text-3xl">{name}</h3>
+                    <div className="mt-6 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 bg-navy-deep/60 p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-white/38">{labels.sector}</div>
+                        <div className="mt-2 text-sm font-semibold text-white">{sector}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-navy-deep/60 p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-white/38">{labels.modules}</div>
+                        <div className="mt-2 text-sm font-semibold text-white">{modules}</div>
+                      </div>
+                    </div>
+                    <div className="mt-6 grid gap-5 md:grid-cols-2">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.16em] text-electric-bright">{labels.summary}</div>
+                        <p className="mt-3 text-sm leading-relaxed text-white/62">{summary}</p>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.16em] text-electric-bright">{labels.value}</div>
+                        <p className="mt-3 text-sm leading-relaxed text-white/62">{value}</p>
+                      </div>
+                    </div>
+                    <Button className="mt-7" variant="outline-light" size="sm" asChild>
+                      <Link to={routes[lang].contact}>{labels.cta}</Link>
+                    </Button>
+                  </div>
+                  <DashboardVisual kind={visual as Parameters<typeof DashboardVisual>[0]["kind"]} />
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+      <CTA />
+    </>
+  );
+};
+
 const StandardPage = ({ pageKey }: { pageKey: PageKey }) => {
   const { lang } = useLang();
   const t = siteContent[lang];
 
   if (pageKey === "contact") return <ContactPage />;
   if (pageKey === "home") return <HomePage />;
+  if (pageKey === "references") return <ReferencesPage />;
 
   const content =
     pageKey === "solutions" ? t.solutionCards :
