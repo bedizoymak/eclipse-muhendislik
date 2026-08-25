@@ -10,6 +10,9 @@ const Index = lazy(() => import("./pages/Index.tsx"));
 const MarketingPage = lazy(() => import("./pages/MarketingPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const DemoHome = lazy(() => import("./pages/DemoHome.tsx"));
+const Musteriler = lazy(() => import("./pages/Musteriler.tsx"));
+const MusteriDetay = lazy(() => import("./pages/MusteriDetay.tsx"));
+const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
 
@@ -52,11 +55,14 @@ const App = () => (
           {isDemoApp ? (
             <Routes>
               <Route path="/" element={<DemoHome />} />
+              <Route path="/musteriler" element={<Musteriler />} />
+              <Route path="/musteriler/:parasutId" element={<MusteriDetay />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (
             <Routes>
               <Route path="/" element={<AutoHome />} />
+              <Route path="/login" element={<Login />} />
               {marketingRoutes.map(([path, pageKey]) => (
                 <Route key={path} path={path} element={<MarketingPage pageKey={pageKey} />} />
               ))}
