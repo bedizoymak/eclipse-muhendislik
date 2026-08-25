@@ -4,7 +4,8 @@
 - **End:** 2026-08-25T23:55:00Z
 - **Branch:** `main`
 - **Base commit (before this phase):** `8ffab7a60418580f80d28136d6e9dd36d3744f33`
-- **This phase's commit SHA:** _filled in below after commit, see final chat message for the definitive value_
+- **This phase's commit SHA:** `bd6bf0fb89c3c663b1c28ad8b73b645f92d5df3a` (`bd6bf0f`)
+- **Push result:** `8ffab7a..bd6bf0f main -> main` — success
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf`
 - **Live URL:** https://demo.eclipsemuhendislik.com
 
