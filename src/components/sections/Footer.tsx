@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { useLang } from "@/i18n/LanguageContext";
 import { CONTACT } from "@/i18n/translations";
-import { erpLoginUrl, navKeys, routes, siteContent } from "@/content/site";
+import { navKeys, routes, siteContent } from "@/content/site";
 
 export const Footer = () => {
   const { lang } = useLang();
@@ -58,7 +58,6 @@ export const Footer = () => {
 
         <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-white/42 sm:flex-row">
           <p>© {new Date().getFullYear()} {CONTACT.company}. {lang === "tr" ? "Tüm hakları saklıdır." : "All rights reserved."}</p>
-          <a href={erpLoginUrl} className="hover:text-white">{t.nav.erp}</a>
         </div>
       </div>
     </footer>

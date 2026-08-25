@@ -30,7 +30,6 @@ export type PageKey =
   | "process"
   | "contact";
 
-export const erpLoginUrl = "https://demo.eclipsemuhendislik.com/giris";
 
 export const routes: Record<Lang, Record<PageKey, string>> = {
   tr: {
@@ -102,7 +101,6 @@ export const siteContent = {
       process: "Süreç",
       contact: "İletişim",
       demo: "Demo Talep Et",
-      erp: "ERP Girişi",
     },
     seo: {
       home: ["Eclipse | ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm", "Eclipse; ERP, CRM, AI-Yapay Zeka, Veri Analizi ve Dijital Dönüşüm çözümleriyle işletmeler için kurumsal yazılım mimarileri geliştirir."],
@@ -235,7 +233,6 @@ export const siteContent = {
       process: "Process",
       contact: "Contact",
       demo: "Request Demo",
-      erp: "ERP Login",
     },
     seo: {
       home: ["Eclipse | ERP, CRM, AI, Data Analytics and Digital Transformation", "Eclipse builds enterprise ERP, CRM, AI, Data Analytics and Digital Transformation software architectures for measurable business operations."],

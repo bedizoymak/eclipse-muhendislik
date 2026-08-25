@@ -11,10 +11,6 @@ jobs:
     name: Upload to FTP
     runs-on: ubuntu-latest
 
-    env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

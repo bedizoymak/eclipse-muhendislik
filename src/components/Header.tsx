@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "./Logo";
 import { useLang } from "@/i18n/LanguageContext";
-import { erpLoginUrl, navKeys, routes, siteContent } from "@/content/site";
+import { navKeys, routes, siteContent } from "@/content/site";
 
 export const Header = () => {
   const { lang } = useLang();
@@ -37,9 +37,6 @@ export const Header = () => {
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
           <LanguageSwitcher light />
-          <Button variant="outline-light" size="sm" asChild>
-            <a href={erpLoginUrl}>{t.nav.erp}</a>
-          </Button>
           <Button variant="hero" size="sm" asChild>
             <Link to={routes[lang].contact}>{t.nav.demo}</Link>
           </Button>
@@ -58,9 +55,6 @@ export const Header = () => {
                 {t.nav[key]}
               </Link>
             ))}
-            <a href={erpLoginUrl} onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm font-semibold text-white/82 hover:bg-white/5 hover:text-white">
-              {t.nav.erp}
-            </a>
             <div className="mt-3 flex items-center justify-between gap-3">
               <LanguageSwitcher light />
               <Button variant="hero" size="sm" asChild>
