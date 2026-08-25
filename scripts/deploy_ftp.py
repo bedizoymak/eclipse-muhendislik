@@ -18,6 +18,7 @@ Usage:
 import argparse
 import fnmatch
 import os
+import posixpath
 import sys
 from ftplib import FTP, FTP_TLS, error_perm
 
@@ -92,7 +93,7 @@ def list_remote_recursive(ftp, remote_dir):
             if name in (".", ".."):
                 continue
             is_dir = line.startswith("d")
-            full = f"{path}/{name}".replace("//", "/")
+            full = posixpath.normpath(f"{path}/{name}")
             rel = full[len(remote_dir):].lstrip("/")
             if is_dir:
                 dirs.add(rel)
@@ -142,7 +143,7 @@ def deploy(local_dir, remote_dir, excludes, clean, dry_run, host, port, username
             remote_files, _ = list_remote_recursive(ftp, remote_dir)
             stale = remote_files - set(local_files.keys())
             for rel in sorted(stale):
-                remote_path = f"{remote_dir}/{rel}"
+                remote_path = posixpath.normpath(f"{remote_dir}/{rel}")
                 if dry_run:
                     print(f"[dry-run] delete {remote_path}")
                 else:
@@ -153,12 +154,12 @@ def deploy(local_dir, remote_dir, excludes, clean, dry_run, host, port, username
                         print(f"warning: could not delete {remote_path}: {exc}")
 
         for rel, local_path in sorted(local_files.items()):
-            remote_path = f"{remote_dir}/{rel}"
-            remote_subdir = os.path.dirname(remote_path)
+            remote_path = posixpath.normpath(f"{remote_dir}/{rel}")
+            remote_subdir = posixpath.dirname(remote_path)
             ensure_remote_dir(ftp, remote_subdir, dry_run)
             if not dry_run:
                 ftp.cwd(remote_subdir)
-            upload_file(ftp, local_path, os.path.basename(remote_path) if not dry_run else remote_path, dry_run)
+            upload_file(ftp, local_path, posixpath.basename(remote_path) if not dry_run else remote_path, dry_run)
 
         print(f"done: {len(local_files)} file(s) {'would be ' if dry_run else ''}uploaded to {remote_dir}")
         return 0
