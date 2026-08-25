@@ -3,7 +3,8 @@
 - **Start:** 2026-08-25T23:00:55Z
 - **End:** 2026-08-25T23:16:19Z
 - **Branch:** `main`
-- **Commit SHA:** _(filled in after commit — see final message)_
+- **Commit SHA:** `40984685ff4ee703859c3a4bb7d587b7a10ad3ce` (`4098468`)
+- **Push result:** `759eae3..4098468 main -> main` — success, pushed to `github.com/ebruoymak/eclipsemuhendislik.com`
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf` (eu-central-1, already linked)
 - **Live URL:** https://demo.eclipsemuhendislik.com
 
@@ -94,7 +95,7 @@ All run after the code changes, before commit:
 
 - Staged **only** Phase 1/1.1 files: `.env.example`, `package.json`, `package-lock.json`, `src/App.tsx`, `src/pages/DemoHome.tsx`, `src/pages/Musteriler.tsx`, `src/pages/MusteriDetay.tsx`, `supabase/config.toml`, `supabase/functions/parasut-sync/**`, `supabase/migrations/20260826000000_parasut_sync_infrastructure.sql`, this report.
 - **Not staged / not committed** (left exactly as the user had them): `vite.config.ts`, `src/pages/Login.tsx`, `AUDIT_REPORT.md`.
-- Commit SHA and push result: see end of this report / final chat message.
+- Commit `40984685ff4ee703859c3a4bb7d587b7a10ad3ce` (13 files changed). Pushed to `origin/main`: `759eae3..4098468 main -> main` — success.
 
 ## 15. Frontend deploy
 
