@@ -30,7 +30,7 @@ export type PageKey =
   | "process"
   | "contact";
 
-export const erpLoginUrl = "https://erp.eclipsemuhendislik.com/giris";
+export const erpLoginUrl = "https://demo.eclipsemuhendislik.com/giris";
 
 export const routes: Record<Lang, Record<PageKey, string>> = {
   tr: {
