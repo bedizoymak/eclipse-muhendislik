@@ -9,6 +9,9 @@ import type { PageKey } from "@/content/site";
 const Index = lazy(() => import("./pages/Index.tsx"));
 const MarketingPage = lazy(() => import("./pages/MarketingPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const DemoHome = lazy(() => import("./pages/DemoHome.tsx"));
+
+const isDemoApp = import.meta.env.MODE === "demo";
 
 function AutoHome() {
   const saved = getSavedLanguage();
@@ -46,13 +49,20 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Yükleniyor...</div>}>
-          <Routes>
-            <Route path="/" element={<AutoHome />} />
-            {marketingRoutes.map(([path, pageKey]) => (
-              <Route key={path} path={path} element={<MarketingPage pageKey={pageKey} />} />
-            ))}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {isDemoApp ? (
+            <Routes>
+              <Route path="/" element={<DemoHome />} />
+              <Route path="*" element={<DemoHome />} />
+            </Routes>
+          ) : (
+            <Routes>
+              <Route path="/" element={<AutoHome />} />
+              {marketingRoutes.map(([path, pageKey]) => (
+                <Route key={path} path={path} element={<MarketingPage pageKey={pageKey} />} />
+              ))}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          )}
         </Suspense>
       </BrowserRouter>
     </TooltipProvider>

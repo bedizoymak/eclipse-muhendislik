@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:web",
+    "build": "npm run build:all",
     "build:web": "vite build --mode public && node scripts/create-spa-fallback.mjs dist",
+    "build:demo": "vite build --mode demo && node scripts/create-spa-fallback.mjs dist/demo",
+    "build:all": "npm run build:web && npm run build:demo",
     "build:public": "npm run build:web",
     "build:dev": "vite build --mode development && node scripts/create-spa-fallback.mjs dist",
     "lint": "eslint .",
