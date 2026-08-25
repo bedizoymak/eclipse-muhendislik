@@ -186,11 +186,15 @@ export async function fetchPage(
   path: string,
   page: number,
   pageSize: number,
+  extraParams: Record<string, string> = {},
 ): Promise<PageResult> {
   const companyId = requireEnv("PARASUT_COMPANY_ID");
   const url = new URL(`${PARASUT_BASE_URL}/v4/${companyId}/${path}`);
   url.searchParams.set("page[number]", String(page));
   url.searchParams.set("page[size]", String(pageSize));
+  for (const [key, value] of Object.entries(extraParams)) {
+    url.searchParams.set(key, value);
+  }
 
   for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
     const response = await fetch(url, {
@@ -226,6 +230,7 @@ export async function fetchAllPages(
   accessToken: string,
   path: string,
   pageSize = 25,
+  extraParams: Record<string, string> = {},
 ): Promise<{ items: JsonApiResource[]; totalCountReported: number | null }> {
   const items: JsonApiResource[] = [];
   let page = 1;
@@ -233,7 +238,7 @@ export async function fetchAllPages(
   let totalCountReported: number | null = null;
 
   while (true) {
-    const result = await fetchPage(accessToken, path, page, pageSize);
+    const result = await fetchPage(accessToken, path, page, pageSize, extraParams);
     items.push(...result.items);
 
     if (result.meta?.total_pages != null) totalPages = result.meta.total_pages;

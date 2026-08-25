@@ -7,6 +7,7 @@ interface ContactDemoRow {
   name: string | null;
   short_name: string | null;
   email: string | null;
+  phone: string | null;
   contact_type: string | null;
   city: string | null;
   archived: boolean | null;
@@ -20,6 +21,8 @@ interface SyncStatusRow {
   started_at: string;
   finished_at: string | null;
   fetched_count: number;
+  active_fetched_count: number | null;
+  archived_fetched_count: number | null;
   upserted_count: number;
   error_count: number;
   error_message: string | null;
@@ -29,7 +32,9 @@ interface SyncStatusRow {
 // Function actually wrote real Parasut data into Supabase. Not a dashboard.
 const DemoHome = () => {
   const [contacts, setContacts] = useState<ContactDemoRow[] | null>(null);
-  const [contactCount, setContactCount] = useState<number | null>(null);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [archivedCount, setArchivedCount] = useState<number | null>(null);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -42,12 +47,15 @@ const DemoHome = () => {
     let cancelled = false;
 
     (async () => {
-      const [contactsRes, countRes, syncRes] = await Promise.all([
+      const [contactsRes, totalRes, activeRes, archivedRes, syncRes] = await Promise.all([
         supabase
           .from("parasut_contacts_demo")
-          .select("parasut_id, name, short_name, email, contact_type, city, archived, synced_at")
+          .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
+          .eq("archived", false)
           .limit(20),
         supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }),
+        supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
+        supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
         supabase
           .from("parasut_sync_status_demo")
           .select("*")
@@ -57,15 +65,21 @@ const DemoHome = () => {
 
       if (cancelled) return;
 
-      if (contactsRes.error || countRes.error || syncRes.error) {
-        setLoadError(
-          contactsRes.error?.message ?? countRes.error?.message ?? syncRes.error?.message ?? "Bilinmeyen hata",
-        );
+      const firstError =
+        contactsRes.error?.message ??
+        totalRes.error?.message ??
+        activeRes.error?.message ??
+        archivedRes.error?.message ??
+        syncRes.error?.message;
+      if (firstError) {
+        setLoadError(firstError);
         return;
       }
 
       setContacts(contactsRes.data ?? []);
-      setContactCount(countRes.count ?? 0);
+      setTotalCount(totalRes.count ?? 0);
+      setActiveCount(activeRes.count ?? 0);
+      setArchivedCount(archivedRes.count ?? 0);
       setSyncStatus((syncRes.data as SyncStatusRow | null) ?? null);
     })();
 
@@ -89,20 +103,31 @@ const DemoHome = () => {
 
         {!loadError && (
           <>
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/50">Gerçek contact sayısı</p>
-                <p className="mt-1 text-2xl font-semibold">{contactCount ?? "—"}</p>
+                <p className="text-xs uppercase tracking-wide text-white/50">Aktif müşteriler</p>
+                <p className="mt-1 text-2xl font-semibold">{activeCount ?? "—"}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/50">Son sync durumu</p>
-                <p className="mt-1 text-2xl font-semibold">{syncStatus?.status ?? "henüz çalışmadı"}</p>
+                <p className="text-xs uppercase tracking-wide text-white/50">Arşivli müşteriler</p>
+                <p className="mt-1 text-2xl font-semibold">{archivedCount ?? "—"}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/50">Son sync zamanı</p>
+                <p className="text-xs uppercase tracking-wide text-white/50">Toplam kayıt</p>
+                <p className="mt-1 text-2xl font-semibold">{totalCount ?? "—"}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/50">Son başarılı sync</p>
                 <p className="mt-1 text-sm font-medium">
-                  {syncStatus?.finished_at ? new Date(syncStatus.finished_at).toLocaleString("tr-TR") : "—"}
+                  {syncStatus?.status === "success" && syncStatus.finished_at
+                    ? new Date(syncStatus.finished_at).toLocaleString("tr-TR")
+                    : syncStatus?.status ?? "henüz çalışmadı"}
                 </p>
+                {syncStatus?.status === "success" && (
+                  <p className="mt-1 text-xs text-white/50">
+                    aktif: {syncStatus.active_fetched_count ?? "—"} · arşivli: {syncStatus.archived_fetched_count ?? "—"}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -112,7 +137,7 @@ const DemoHome = () => {
 
             <div className="mt-8">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">İlk 20 gerçek contact</h2>
+                <h2 className="text-lg font-semibold">İlk 20 aktif contact</h2>
                 <Link to="/musteriler" className="text-sm text-electric-bright hover:underline">
                   Tüm müşteriler →
                 </Link>
@@ -122,8 +147,8 @@ const DemoHome = () => {
               ) : contacts.length === 0 ? (
                 <p className="text-white/50">Henüz senkronize edilmiş contact yok.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-white/10">
-                  <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto rounded-xl border border-white/10">
+                  <table className="w-full min-w-[560px] text-left text-sm">
                     <thead className="bg-white/5 text-white/50">
                       <tr>
                         <th className="px-4 py-2 font-medium">Ad</th>
@@ -140,7 +165,7 @@ const DemoHome = () => {
                               {contact.name ?? contact.short_name ?? `#${contact.parasut_id}`}
                             </Link>
                           </td>
-                          <td className="px-4 py-2 text-white/70">{contact.email ?? "—"}</td>
+                          <td className="px-4 py-2 text-white/70">{contact.email?.trim() || "—"}</td>
                           <td className="px-4 py-2 text-white/70">{contact.city ?? "—"}</td>
                           <td className="px-4 py-2 text-white/70">{contact.contact_type ?? "—"}</td>
                         </tr>

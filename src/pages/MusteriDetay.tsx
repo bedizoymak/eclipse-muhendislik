@@ -7,6 +7,7 @@ interface ContactDemoRow {
   name: string | null;
   short_name: string | null;
   email: string | null;
+  phone: string | null;
   contact_type: string | null;
   city: string | null;
   archived: boolean | null;
@@ -30,7 +31,7 @@ const MusteriDetay = () => {
     let cancelled = false;
     supabase
       .from("parasut_contacts_demo")
-      .select("parasut_id, name, short_name, email, contact_type, city, archived, synced_at")
+      .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
       .eq("parasut_id", parasutId)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -76,7 +77,11 @@ const MusteriDetay = () => {
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">E-posta</dt>
-                <dd className="mt-1">{contact.email ?? "—"}</dd>
+                <dd className="mt-1">{contact.email?.trim() || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-white/50">Telefon</dt>
+                <dd className="mt-1">{contact.phone ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Şehir</dt>

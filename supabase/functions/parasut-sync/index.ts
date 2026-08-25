@@ -2,11 +2,16 @@
 //
 // POST body: { "resource": "contacts", "dry_run"?: boolean }
 //
-// Phase 1 supports only the "contacts" resource. Every page of the Parasut
-// list endpoint is fetched before anything is written; a failure on any
-// page aborts the run as an error, never a silent partial success. A
-// partial unique index on parasut.sync_runs(resource) where status='running'
-// prevents two concurrent syncs of the same resource.
+// Phase 1 supports only the "contacts" resource. The Parasut `/contacts`
+// list endpoint does not document a filter[archived] parameter in its
+// swagger spec, but it is real and supported -- verified directly against
+// the live API (Phase 1.2): filter[archived]=false and filter[archived]=true
+// return disjoint, complete result sets. So active and archived contacts
+// are fetched as two independent, fully-paginated streams; a failure or an
+// early pagination stop in EITHER stream aborts the whole run as an error,
+// never a silent partial success. A partial unique index on
+// parasut.sync_runs(resource) where status='running' prevents two
+// concurrent syncs of the same resource.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAllPages, getAccessToken } from "./parasut_client.ts";
@@ -15,8 +20,11 @@ import { mapContact } from "./resources/contacts.ts";
 const SUPPORTED_RESOURCES = ["contacts"] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
-const RESOURCE_CONFIG: Record<Resource, { path: string; table: string }> = {
-  contacts: { path: "contacts", table: "contacts" },
+// archivedFilterParam: the query param name used to split the list into two
+// complete, disjoint streams (active/archived). Only set where verified to
+// actually work against the live API for that resource.
+const RESOURCE_CONFIG: Record<Resource, { path: string; table: string; archivedFilterParam?: string }> = {
+  contacts: { path: "contacts", table: "contacts", archivedFilterParam: "filter[archived]" },
 };
 
 const BATCH_SIZE = 200;
@@ -89,15 +97,39 @@ Deno.serve(async (req: Request) => {
 
   try {
     const accessToken = await getAccessToken(db);
-    const { items, totalCountReported } = await fetchAllPages(accessToken, config.path);
 
-    const fetchedCount = items.length;
+    let activeItems: Awaited<ReturnType<typeof fetchAllPages>>["items"] = [];
+    let archivedItems: Awaited<ReturnType<typeof fetchAllPages>>["items"] = [];
+    let totalCountReported: number | null = null;
+
+    if (config.archivedFilterParam) {
+      // Both streams must complete in full before either is trusted; if
+      // either throws (page failure or early pagination stop), we fall into
+      // the catch block below and the whole run is marked as an error.
+      const [active, archived] = await Promise.all([
+        fetchAllPages(accessToken, config.path, 25, { [config.archivedFilterParam]: "false" }),
+        fetchAllPages(accessToken, config.path, 25, { [config.archivedFilterParam]: "true" }),
+      ]);
+      activeItems = active.items;
+      archivedItems = archived.items;
+      totalCountReported =
+        (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+    } else {
+      const result = await fetchAllPages(accessToken, config.path);
+      activeItems = result.items;
+      totalCountReported = result.totalCountReported;
+    }
+
+    const activeFetchedCount = activeItems.length;
+    const archivedFetchedCount = archivedItems.length;
+    const fetchedCount = activeFetchedCount + archivedFetchedCount;
+
     let upsertedCount = 0;
     let errorCount = 0;
     const errorMessages: string[] = [];
 
     if (!dryRun) {
-      const rows = items.map(mapContact);
+      const rows = [...activeItems, ...archivedItems].map(mapContact);
 
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
@@ -116,21 +148,29 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    const commonFields = {
+      fetched_count: fetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: totalCountReported,
+    };
+
     if (errorCount > 0) {
       await finishRun({
+        ...commonFields,
         status: "error",
-        fetched_count: fetchedCount,
         upserted_count: upsertedCount,
         error_count: errorCount,
         error_message: errorMessages.join(" | ").slice(0, 2000),
-        total_count_reported: totalCountReported,
       });
       return jsonResponse(
         {
           resource,
           dry_run: dryRun,
           status: "error",
-          fetched_count: fetchedCount,
+          total_fetched_count: fetchedCount,
+          active_fetched_count: activeFetchedCount,
+          archived_fetched_count: archivedFetchedCount,
           upserted_count: upsertedCount,
           error_count: errorCount,
           error_message: errorMessages.join(" | "),
@@ -140,18 +180,19 @@ Deno.serve(async (req: Request) => {
     }
 
     await finishRun({
+      ...commonFields,
       status: dryRun ? "dry_run" : "success",
-      fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: 0,
-      total_count_reported: totalCountReported,
     });
 
     return jsonResponse({
       resource,
       dry_run: dryRun,
       status: dryRun ? "dry_run" : "success",
-      fetched_count: fetchedCount,
+      total_fetched_count: fetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: 0,
       total_count_reported: totalCountReported,
