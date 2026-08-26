@@ -2,7 +2,8 @@
 
 - **Branch:** `main`
 - **Base commit (before this phase):** `f7006f6d8a34285b2669c1f99dbd5d65cf4c42ab`
-- **This phase's commit SHA:** _filled in below after commit, definitive value in the final chat message_
+- **This phase's commit SHA:** `83ab3260b65514ed319ce49f55ebc367deddd392` (`83ab326`)
+- **Push result:** `f7006f6..83ab326 main -> main` — success
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf`
 - **Live URL:** https://demo.eclipsemuhendislik.com/giderler
 
@@ -122,7 +123,7 @@ Local Docker was not attempted this phase (a small, view-only + CSS fix; no new 
 | npm run lint | 0 hata | 0 hata, 10 önceden var olan uyarı | PASS | — |
 | npm run build:demo | başarılı | Başarılı | PASS | — |
 | TypeScript kontrolü | 0 hata | 1 hata (`Login.tsx:55`) | **FAIL — pre-existing unrelated error** | Faz 1.1'den beri aynı, Login'e dokunulmadı |
-| Git commit/push | remote main güncel | _(commit sonrası doldurulacak)_ | — | — |
+| Git commit/push | remote main güncel | `83ab326`, `f7006f6..83ab326 main -> main` başarılı | PASS | — |
 
 ## FAIL ve BLOCKED Maddeler
 
