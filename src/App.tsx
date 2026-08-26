@@ -18,6 +18,10 @@ const Tahsilatlar = lazy(() => import("./pages/Tahsilatlar.tsx"));
 const TahsilatDetay = lazy(() => import("./pages/TahsilatDetay.tsx"));
 const Hesaplar = lazy(() => import("./pages/Hesaplar.tsx"));
 const HesapHareketleri = lazy(() => import("./pages/HesapHareketleri.tsx"));
+const Giderler = lazy(() => import("./pages/Giderler.tsx"));
+const GiderDetay = lazy(() => import("./pages/GiderDetay.tsx"));
+const Tedarikciler = lazy(() => import("./pages/Tedarikciler.tsx"));
+const GiderOdemeleri = lazy(() => import("./pages/GiderOdemeleri.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -69,6 +73,10 @@ const App = () => (
               <Route path="/satislar/tahsilatlar/:parasutId" element={<TahsilatDetay />} />
               <Route path="/nakit/hesaplar" element={<Hesaplar />} />
               <Route path="/nakit/hesap-hareketleri" element={<HesapHareketleri />} />
+              <Route path="/giderler" element={<Giderler />} />
+              <Route path="/giderler/tedarikciler" element={<Tedarikciler />} />
+              <Route path="/giderler/odemeler" element={<GiderOdemeleri />} />
+              <Route path="/giderler/:parasutId" element={<GiderDetay />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

@@ -206,7 +206,11 @@ export async function fetchPage(
       },
     });
 
-    if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+    // Retry on 429 (rate limit) and 5xx (observed a transient 500 from
+    // Parasut on an otherwise-valid purchase_bills request during Phase 4
+    // testing; immediately succeeded on retry) -- never on 4xx other than
+    // 429, since those indicate a real request problem, not a transient one.
+    if ((response.status === 429 || response.status >= 500) && attempt < MAX_RATE_LIMIT_RETRIES) {
       await sleep(retryDelayMs(response));
       continue;
     }

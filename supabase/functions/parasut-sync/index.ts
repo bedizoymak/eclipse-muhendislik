@@ -25,8 +25,17 @@ import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./r
 import { mapAccount } from "./resources/accounts.ts";
 import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
 import { mapTransaction } from "./resources/transactions.ts";
+import { detailIdsForBill, mapPurchaseBill, mapPurchaseBillDetail } from "./resources/purchase_bills.ts";
 
-const SUPPORTED_RESOURCES = ["contacts", "sales_invoices", "accounts", "payments", "transactions"] as const;
+const SUPPORTED_RESOURCES = [
+  "contacts",
+  "sales_invoices",
+  "accounts",
+  "payments",
+  "transactions",
+  "purchase_bills",
+  "expense_payments",
+] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
 const BATCH_SIZE = 200;
@@ -406,6 +415,183 @@ async function syncTransactions(db: SupabaseClient, accessToken: string, dryRun:
   };
 }
 
+/**
+ * purchase_bills ("giderler"). Unlike contacts/sales_invoices/accounts,
+ * filter[archived] is NOT supported here -- verified against the live API,
+ * which rejects it with a 400 ("'archived' is not a valid filter.
+ * Acceptable: issue_date, due_date, spender_id, supplier_id, currency,
+ * remaining, item_type"). So there is no independent way to fetch an
+ * archived-only stream to cross-check against, unlike the other resources.
+ * A single full listing is fetched instead; active/archived counts are
+ * derived from each bill's own real `archived` attribute in that listing,
+ * not independently verified via a second API call. This limitation is
+ * reported, not hidden.
+ */
+async function syncPurchaseBills(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "purchase_bills", 25, {
+    include: "supplier,spender,pay_to,details,details.product",
+  });
+
+  const billItems = result.items;
+  const activeFetchedCount = billItems.filter((b) => b.attributes?.archived === false).length;
+  const archivedFetchedCount = billItems.filter((b) => b.attributes?.archived === true).length;
+  const fetchedCount = billItems.length;
+
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of result.included) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const detailPairs: { billParasutId: number; detail: JsonApiResource }[] = [];
+  const missingDetailRefs: string[] = [];
+
+  for (const bill of billItems) {
+    const billParasutId = Number(bill.id);
+    for (const detailId of detailIdsForBill(bill)) {
+      const detail = includedByKey.get(`purchase_bill_details:${detailId}`);
+      if (!detail) {
+        missingDetailRefs.push(`bill ${bill.id} -> detail ${detailId}`);
+        continue;
+      }
+      detailPairs.push({ billParasutId, detail });
+    }
+  }
+
+  const detailFetchedCount = detailPairs.length;
+  const billRows = billItems.map(mapPurchaseBill);
+  const supplierUnresolvedCount = billRows.filter((r) => r.supplier_parasut_id == null).length;
+
+  let billUpsertedCount = 0;
+  let detailUpsertedCount = 0;
+  let errorCount = missingDetailRefs.length;
+  const errorMessages: string[] = [];
+  if (missingDetailRefs.length > 0) {
+    errorMessages.push(
+      `${missingDetailRefs.length} purchase_bill_details referenced but not present in the API response: ${missingDetailRefs
+        .slice(0, 20)
+        .join(", ")}${missingDetailRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    const billResult = await upsertBatched(db, "purchase_bills", billRows as unknown as Record<string, unknown>[]);
+    billUpsertedCount = billResult.upsertedCount;
+    errorCount += billResult.errorCount;
+    errorMessages.push(...billResult.errorMessages);
+
+    const detailRows = detailPairs.map(({ billParasutId, detail }) => mapPurchaseBillDetail(detail, billParasutId));
+    const detailResult = await upsertBatched(db, "purchase_bill_details", detailRows as unknown as Record<string, unknown>[]);
+    detailUpsertedCount = detailResult.upsertedCount;
+    errorCount += detailResult.errorCount;
+    errorMessages.push(...detailResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : billUpsertedCount,
+      detail_fetched_count: detailFetchedCount,
+      detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      unresolved_count: supplierUnresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      bill_fetched_count: fetchedCount,
+      bill_active_fetched_count: activeFetchedCount,
+      bill_archived_fetched_count: archivedFetchedCount,
+      bill_upserted_count: dryRun ? 0 : billUpsertedCount,
+      detail_fetched_count: detailFetchedCount,
+      detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      supplier_resolved_count: fetchedCount - supplierUnresolvedCount,
+      supplier_unresolved_count: supplierUnresolvedCount,
+      total_count_reported: result.totalCountReported,
+      note: "filter[archived] is not supported by the live API for purchase_bills; active/archived counts are derived from a single full listing, not independently cross-checked",
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Expense payments: payments attached to purchase_bills, published
+ * separately from the sales_invoices-scoped "payments" resource (Phase 1.2/3).
+ * Same no-standalone-endpoint situation as sales_invoices payments --
+ * fetched via include=payments,payments.transaction on purchase_bills.
+ */
+async function syncExpensePayments(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "purchase_bills", 25, {
+    include: "payments,payments.transaction",
+  });
+
+  const billItems = result.items;
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of result.included) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const paymentPairs: { billParasutId: number; payment: JsonApiResource }[] = [];
+  const missingPaymentRefs: string[] = [];
+
+  for (const bill of billItems) {
+    const billParasutId = Number(bill.id);
+    for (const paymentId of paymentIdsForInvoice(bill)) {
+      const payment = includedByKey.get(`payments:${paymentId}`);
+      if (!payment) {
+        missingPaymentRefs.push(`bill ${bill.id} -> payment ${paymentId}`);
+        continue;
+      }
+      paymentPairs.push({ billParasutId, payment });
+    }
+  }
+
+  const fetchedCount = paymentPairs.length;
+  const unresolvedCount = paymentPairs.filter(({ payment }) => !payment.relationships?.transaction?.data).length;
+
+  let upsertedCount = 0;
+  let errorCount = missingPaymentRefs.length;
+  const errorMessages: string[] = [];
+  if (missingPaymentRefs.length > 0) {
+    errorMessages.push(
+      `${missingPaymentRefs.length} expense payments referenced but not present in the API response: ${missingPaymentRefs
+        .slice(0, 20)
+        .join(", ")}${missingPaymentRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    // Base parasut.payments already held 874 pre-existing rows from a
+    // separate, earlier sync mechanism (payable_type "PurchaseBill", found
+    // in Phase 3) -- those have different parasut_ids than what this real
+    // API-driven sync fetches, so onConflict:'parasut_id' updates any
+    // genuine overlap and inserts the rest without creating duplicates.
+    const rows = paymentPairs.map(({ billParasutId, payment }) => mapPayment(payment, billParasutId, "purchase_bills"));
+    const result = await upsertBatched(db, "payments", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount += result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      coverage: "purchase_bills payments only (no bank_fees/salaries/taxes payments in this phase)",
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -464,6 +650,8 @@ Deno.serve(async (req: Request) => {
       accounts: syncAccounts,
       payments: syncPayments,
       transactions: syncTransactions,
+      purchase_bills: syncPurchaseBills,
+      expense_payments: syncExpensePayments,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
