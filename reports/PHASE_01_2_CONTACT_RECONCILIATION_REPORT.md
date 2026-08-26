@@ -120,3 +120,75 @@ Deployed (not committed, build output): `dist/demo/**` → uploaded via FTP
 - **Active:** `1011029218` — 2F MAKİNE SAN. VE DIŞ TİC. LTD. ŞTİ. (phone: `02125672019`)
 - **Active:** `1017928283` — ABBAS ÇELİKTEN (phone: `0530 118 73 76`)
 - **Archived:** `1011029178` — HİRA PARTS METAL SANAYİ VE TİCARET LİMİTED ŞİRKETİ (phone: `null` in Parasut — expect "—" on screen, not a blank/error)
+
+---
+
+## Sonuç Özeti
+
+| Kontrol | Beklenen | Gerçekleşen | Sonuç | Sorun/Kök Neden |
+|---|---:|---:|---|---|
+| Paraşüt aktif contacts | API sonucu | 440 (`filter[archived]=false`, tam pagination) | PASS | — |
+| Paraşüt arşivli contacts | API sonucu | 8 (`filter[archived]=true`, tam pagination) | PASS | — |
+| Paraşüt toplam contacts | aktif + arşivli | 440 + 8 = 448 | PASS | — |
+| Supabase aktif kayıt | API aktif sayısı (440) | 440 (`Content-Range` ile doğrulandı) | PASS | — |
+| Supabase arşivli kayıt | API arşivli sayısı (8) | 8 (`Content-Range` ile doğrulandı) | PASS | — |
+| Supabase toplam kayıt | API toplamı (448) | 448 (`Content-Range` ile doğrulandı) | PASS | — |
+| Son sync sayaçları | API ile aynı | `active_fetched_count=440, archived_fetched_count=8, upserted_count=448, error_count=0` | PASS | — |
+| Local Supabase doğrulama (Docker) | local dry-run/test mümkün olmalı | Docker daemon oturum boyunca yanıt vermedi | **BLOCKED** | Bkz. FAIL/BLOCKED bölümü — Docker Desktop altyapı sorunu, bu fazın koduyla ilgisi yok |
+| Varsayılan UI filtresi | yalnız aktif | `Musteriler.tsx`/`DemoHome.tsx` kodu varsayılan `archived=false` sorguluyor (kod incelemesiyle doğrulandı) | PASS | Tarayıcıda görsel olarak yeniden teyit edilmedi (bkz. not aşağıda) |
+| UI aktif/arşivli/toplam | Supabase ile aynı | UI, Supabase'deki aynı `count:exact` sorgularını kullanıyor → 440/8/448 | PASS | Aynı not |
+| Telefon alanı | gerçek API/Supabase verisi | Hosted REST'ten doğrulandı, ör. `"phone":"02125672019"` | PASS | — |
+| Ana sayfa | gerçek sayaçlar | HTTP 200, veri REST üzerinden doğrulandı, güncel bundle canlıda | PASS | Tarayıcıda görsel render bu oturumda teyit edilemedi — self-signed sertifika (bkz. FAIL/BLOCKED) |
+| /musteriler | HTTP 200 + gerçek veri | HTTP 200, REST verisi doğrulandı | PASS | Aynı not |
+| Müşteri detay route'u | doğru gerçek kayıt | `/musteriler/1011029218` ve `/musteriler/1011029178` HTTP 200, REST'teki kayıtla eşleşiyor | PASS | Aynı not |
+| Mobil/yatay taşma | kolon kaybı yok | `overflow-x-auto` + `min-w` kodu deploy edildi; gerçek tarayıcıda scroll/kırpılma davranışı görülmedi | **BLOCKED** | Bkz. FAIL/BLOCKED bölümü |
+| Migration deploy | hosted uygulanmış | `supabase migration list`: 4/4 migration local=remote | PASS | İlk deneme hatalıydı, düzeltilip tekrar başarıyla push edildi (bkz. bölüm 7) |
+| Edge Function deploy | hosted çalışıyor | Dry-run ve gerçek sync ikisi de 200/success döndü | PASS | — |
+| Frontend deploy | canlı bundle güncel | Canlı `index.html` → `index-Cr3lhBdi.js`, yerel build hash'iyle birebir aynı | PASS | — |
+| npm test | başarılı | 1/1 test geçti | PASS | — |
+| npm run lint | 0 hata | 0 hata, 10 önceden var olan uyarı | PASS | — |
+| npm run build:demo | başarılı | Başarılı, `dist/demo` üretildi ve deploy edildi | PASS | — |
+| TypeScript kontrolü | 0 hata | 1 hata (`src/pages/Login.tsx:55`) | **FAIL — pre-existing unrelated error** | Bkz. FAIL/BLOCKED bölümü |
+| Git commit/push | remote main güncel | `git push` başarılı, `origin/main` bu fazın commit'lerini içeriyor | PASS | — |
+
+## FAIL ve BLOCKED Maddeler
+
+### TypeScript kontrolü (`tsc --noEmit`)
+- Durum: FAIL
+- Hata mesajı: `src/pages/Login.tsx(55,17): error TS2322: Type '{ variant: string; }' is not assignable to type 'IntrinsicAttributes & LogoProps'. Property 'variant' does not exist on type 'IntrinsicAttributes & LogoProps'.`
+- Kesin kök neden: `Login.tsx`, kullanıcının bu oturumlardan önce kendi yazdığı, hâlâ üzerinde çalıştığı bir dosya. `Logo` bileşeninin `LogoProps` tip tanımı `variant` prop'unu içermiyor, ama `Login.tsx` bu prop'u geçiriyor.
+- Bu fazdan mı kaynaklandı, önceden mi vardı: Önceden vardı. Faz 1, Faz 1.1 ve Faz 1.2 boyunca `Login.tsx`'e hiç dokunulmadı (kullanıcı talimatı: "Login ile ilgilenme, bu konuya zaman harcama").
+- Canlı sistemi etkiliyor mu: Hayır. Gerçek deploy'da kullanılan `npm run build:demo` (Vite/esbuild) tip hatalarını build'i durdurmadan geçiyor; `demo.eclipsemuhendislik.com` başarıyla build edilip deploy edildi ve çalışıyor. `tsc --noEmit` görev talimatındaki zorunlu üçlünün (`npm test`, `npm run lint`, `npm run build:demo`) parçası değil, ek bilgilendirme kontrolü.
+- Yapılan denemeler: Hiçbiri — talimat gereği `Login.tsx`'e dokunulmadı.
+- Düzeltilmesi için gereken işlem: `LogoProps` tipine `variant` prop'unun eklenmesi. Bu, kullanıcının kendi Login çalışmasının parçası.
+- Sonraki faza bırakıldıysa nedeni: Kapsam dışı — kullanıcı açıkça Login ile ilgilenilmemesini istedi.
+
+### Local Supabase doğrulama (Docker)
+- Durum: BLOCKED
+- Hata mesajı: `npx supabase start` → `{"_tag":"Error","error":{"code":"LegacyDockerLifecycleInspectError","message":"failed to inspect container health"}}`. Sonraki denemelerde `docker ps` / `docker ps -a` → `request returned 500 Internal Server Error for API route ... check if the server supports the requested API version`. Daha sonraki bir deneme 15 saniyede yanıt vermeden zaman aşımına uğradı; `docker version` arka planda boş çıktıyla `exit 0` döndü (daemon'ın kararsız olduğunun ek bir işareti).
+- Kesin kök neden: Bu makinedeki Docker Desktop daemon'ı bu oturum boyunca kararsız/yanıtsızdı. Docker Desktop'a özgü bir altyapı sorunu; bu fazın kod veya migration değişikliğiyle hiçbir ilgisi yok.
+- Bu fazdan mı kaynaklandı, önceden mi vardı: Bu fazda ortaya çıktı. Faz 1.1'de local Docker sorunsuz çalışmış, local Supabase stack'i başarıyla başlatılıp gerçek uçtan uca test edilmişti (dry-run + real sync + concurrency lock testleri). Bu fazda ortam koşulu değişti; kod değişikliği değil.
+- Canlı sistemi etkiliyor mu: Doğrudan hayır. Ancak bu, migration/Edge Function'ı hosted'a göndermeden önce local'de dry-test etme imkanını ortadan kaldırdı. Bunun yerine değişiklikler doğrudan hosted'a push edildi ve orada dry-run + gerçek sync ile doğrulandı; migration'ın ilk hatalı versiyonu hosted'da temiz bir şekilde (transaction rollback, doğrulanmış) geri alındı, kısmi durum oluşmadı.
+- Yapılan denemeler: `npx supabase start` (2 kez), `npx supabase stop` sonrası tekrar `start`, `docker ps`, `docker ps -a`, `docker version` — hiçbiri kararlı/kullanılabilir bir sonuç vermedi.
+- Düzeltilmesi için gereken işlem: Docker Desktop'ın bu makinede yeniden başlatılması/onarılması. Bu oturumun araçlarıyla yapılamaz, kullanıcı tarafında bir işlem gerektiriyor.
+- Sonraki faza bırakıldıysa nedeni: Docker Desktop'ı onarmak bu oturumun yetkisi dışında. Hosted doğrulama (migration, Edge Function, gerçek sync, sayı eşleşmesi) yeterli kanıt sağladığı için faz bu şekilde tamamlandı, ancak local doğrulama adımı resmi olarak BLOCKED işaretleniyor — gizlenmiyor.
+
+### Mobil/yatay taşma görsel doğrulaması
+- Durum: BLOCKED
+- Hata mesajı: Kod hatası değil — tarayıcı/ağ katmanında: WebFetch → `"self signed certificate"`; yerel `curl` (sertifika doğrulamalı) → `schannel: SEC_E_UNTRUSTED_ROOT (0x80090325)`.
+- Kesin kök neden: `demo.eclipsemuhendislik.com` self-signed bir sertifika sunuyor (Faz 1.1'de `openssl s_client` ile doğrulandı: `subject=CN=demo.eclipsemuhendislik.com`, `issuer=CN=demo.eclipsemuhendislik.com`, aynı gün verilmiş). Bu oturumdaki hiçbir sertifika doğrulaması yapan araç (WebFetch, gerçek tarayıcı benzeri istemciler) sayfayı çekip render edemiyor; bu yüzden `overflow-x-auto` düzeltmesinin gerçek bir tarayıcıda beklendiği gibi çalıştığı — kolonların artık kırpılmadığı, yatay kaydırmanın çalıştığı — görsel olarak teyit edilemedi.
+- Bu fazdan mı kaynaklandı, önceden mi vardı: Sertifika sorunu önceden vardı (Faz 1.1'de tespit edildi; hosting/SSL sağlayıcı sorunu, bu fazın kod değişikliğiyle ilgisi yok). Ancak bu fazda yapılan CSS düzeltmesinin (`overflow-x-auto`, `min-w-[...]`) gerçekten işe yaradığı, aynı sertifika sorunu yüzünden bu fazda da görsel olarak doğrulanamadı.
+- Canlı sistemi etkiliyor mu: Sertifika sorunu evet — gerçek son kullanıcıların tarayıcısında güven uyarısı gösterebilir, ama bu fazın kapsamı dışında bir hosting/DNS/SSL sorunu, kodla ilgisi yok. Scroll/kolon düzeltmesinin kendisi canlıya deploy edildi (yerel build çıktısında ve yüklenen `index-Cr3lhBdi.js`/`index-RqOK1I0q.css` içinde mevcut).
+- Yapılan denemeler: `curl -k` (sertifika doğrulaması atlanarak) ile HTTP 200 ve doğru bundle referansı doğrulandı; WebFetch ile gerçek doğrulamalı erişim denendi, sertifika hatasıyla reddedildi; bu ortamda headless tarayıcı (Playwright vb.) kurulu değildi, görev kapsamı dışında ek bağımlılık olarak kurulmadı.
+- Düzeltilmesi için gereken işlem: `demo` subdomain'i için geçerli bir TLS sertifikası (AutoSSL/Let's Encrypt) sağlanmalı. Sonrasında Claude Browser veya gerçek bir tarayıcı ile `/musteriler` dar ekran genişliğinde açılıp yatay kaydırmanın çalıştığı ve "Tür" kolonunun artık kırpılmadığı teyit edilmeli.
+- Sonraki faza bırakıldıysa nedeni: Sertifika sorunu bu oturumda çözülemez (hosting/SSL sağlayıcı tarafında işlem gerektiriyor, kod değişikliği değil) ve bu ortamda güvenilir bir headless tarayıcı yok. Görsel doğrulama Claude Browser'a veya sertifika düzeltildikten sonraki bir oturuma bırakıldı.
+
+## Genel Karar
+
+**PASS WITH KNOWN ISSUES**
+
+- **Kritik canlı sorun var mı?** Hayır. Migration, Edge Function, gerçek sync, sayı eşleşmesi ve tüm route'lar (HTTP seviyesinde) canlıda PASS.
+- **Paraşüt API–Supabase–UI sayıları eşleşiyor mu?** Evet — aktif 440 / arşivli 8 / toplam 448, üç katmanda da birebir eşleşiyor (UI tarafı, Supabase'e karşı UI'ın kullandığı gerçek sorgularla doğrulandı; tam DOM render'ı görsel olarak teyit edilmedi, sebebi yukarıda ayrı madde olarak işaretli).
+- **Canlıya deploy edildi mi?** Evet — migration hosted'a uygulandı, Edge Function hosted'a deploy edildi ve gerçek veriyle çalıştırıldı, frontend build'i FTP ile `demo.eclipsemuhendislik.com`'a yüklendi ve bundle hash'i canlıda doğrulandı.
+- **Claude Browser testine hazır mı?** Evet, iki bilinen sınırlamayla: (1) self-signed sertifika nedeniyle tarayıcı bir güven uyarısı gösterebilir/bypass gerektirebilir, (2) mobil/yatay taşma düzeltmesi kod olarak deploy edildi ama henüz görsel olarak teyit edilmedi.
+- **Bir sonraki gerekli işlem nedir?** (1) `demo` subdomain'i için geçerli SSL sertifikası sağlanmalı, (2) Claude Browser ile gerçek tarayıcı görsel doğrulaması yapılmalı (sayaçlar, Aktif/Arşivli/Tümü filtreleri, telefon alanı, mobil/yatay scroll), (3) Docker Desktop bu makinede onarılmalı ki sonraki fazlarda local doğrulama tekrar mümkün olsun.
