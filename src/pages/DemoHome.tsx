@@ -135,6 +135,12 @@ const DemoHome = () => {
               <p className="mt-3 text-sm text-red-300">Son hata: {syncStatus.error_message}</p>
             )}
 
+            <div className="mt-6">
+              <Link to="/satislar/faturalar" className="text-sm text-electric-bright hover:underline">
+                Satış faturaları →
+              </Link>
+            </div>
+
             <div className="mt-8">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">İlk 20 aktif contact</h2>

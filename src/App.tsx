@@ -12,6 +12,8 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const DemoHome = lazy(() => import("./pages/DemoHome.tsx"));
 const Musteriler = lazy(() => import("./pages/Musteriler.tsx"));
 const MusteriDetay = lazy(() => import("./pages/MusteriDetay.tsx"));
+const Faturalar = lazy(() => import("./pages/Faturalar.tsx"));
+const FaturaDetay = lazy(() => import("./pages/FaturaDetay.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -57,6 +59,8 @@ const App = () => (
               <Route path="/" element={<DemoHome />} />
               <Route path="/musteriler" element={<Musteriler />} />
               <Route path="/musteriler/:parasutId" element={<MusteriDetay />} />
+              <Route path="/satislar/faturalar" element={<Faturalar />} />
+              <Route path="/satislar/faturalar/:parasutId" element={<FaturaDetay />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

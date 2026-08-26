@@ -151,6 +151,7 @@ export interface JsonApiResource {
 
 interface JsonApiListResponse {
   data: JsonApiResource[];
+  included?: JsonApiResource[];
   meta?: {
     current_page?: number;
     total_pages?: number;
@@ -160,6 +161,7 @@ interface JsonApiListResponse {
 
 export interface PageResult {
   items: JsonApiResource[];
+  included: JsonApiResource[];
   meta: JsonApiListResponse["meta"];
   page: number;
 }
@@ -215,7 +217,7 @@ export async function fetchPage(
     }
 
     const json = (await response.json()) as JsonApiListResponse;
-    return { items: json.data ?? [], meta: json.meta, page };
+    return { items: json.data ?? [], included: json.included ?? [], meta: json.meta, page };
   }
 
   throw new Error(`Parasut ${path} page ${page} failed: exceeded rate-limit retries`);
@@ -231,8 +233,9 @@ export async function fetchAllPages(
   path: string,
   pageSize = 25,
   extraParams: Record<string, string> = {},
-): Promise<{ items: JsonApiResource[]; totalCountReported: number | null }> {
+): Promise<{ items: JsonApiResource[]; included: JsonApiResource[]; totalCountReported: number | null }> {
   const items: JsonApiResource[] = [];
+  const includedByKey = new Map<string, JsonApiResource>();
   let page = 1;
   let totalPages: number | null = null;
   let totalCountReported: number | null = null;
@@ -240,6 +243,9 @@ export async function fetchAllPages(
   while (true) {
     const result = await fetchPage(accessToken, path, page, pageSize, extraParams);
     items.push(...result.items);
+    for (const resource of result.included) {
+      includedByKey.set(`${resource.type}:${resource.id}`, resource);
+    }
 
     if (result.meta?.total_pages != null) totalPages = result.meta.total_pages;
     if (result.meta?.total_count != null) totalCountReported = result.meta.total_count;
@@ -257,5 +263,5 @@ export async function fetchAllPages(
     );
   }
 
-  return { items, totalCountReported };
+  return { items, included: [...includedByKey.values()], totalCountReported };
 }
