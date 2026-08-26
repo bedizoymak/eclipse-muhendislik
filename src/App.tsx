@@ -14,6 +14,10 @@ const Musteriler = lazy(() => import("./pages/Musteriler.tsx"));
 const MusteriDetay = lazy(() => import("./pages/MusteriDetay.tsx"));
 const Faturalar = lazy(() => import("./pages/Faturalar.tsx"));
 const FaturaDetay = lazy(() => import("./pages/FaturaDetay.tsx"));
+const Tahsilatlar = lazy(() => import("./pages/Tahsilatlar.tsx"));
+const TahsilatDetay = lazy(() => import("./pages/TahsilatDetay.tsx"));
+const Hesaplar = lazy(() => import("./pages/Hesaplar.tsx"));
+const HesapHareketleri = lazy(() => import("./pages/HesapHareketleri.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -61,6 +65,10 @@ const App = () => (
               <Route path="/musteriler/:parasutId" element={<MusteriDetay />} />
               <Route path="/satislar/faturalar" element={<Faturalar />} />
               <Route path="/satislar/faturalar/:parasutId" element={<FaturaDetay />} />
+              <Route path="/satislar/tahsilatlar" element={<Tahsilatlar />} />
+              <Route path="/satislar/tahsilatlar/:parasutId" element={<TahsilatDetay />} />
+              <Route path="/nakit/hesaplar" element={<Hesaplar />} />
+              <Route path="/nakit/hesap-hareketleri" element={<HesapHareketleri />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

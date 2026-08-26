@@ -135,9 +135,18 @@ const DemoHome = () => {
               <p className="mt-3 text-sm text-red-300">Son hata: {syncStatus.error_message}</p>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap gap-4">
               <Link to="/satislar/faturalar" className="text-sm text-electric-bright hover:underline">
                 Satış faturaları →
+              </Link>
+              <Link to="/satislar/tahsilatlar" className="text-sm text-electric-bright hover:underline">
+                Tahsilatlar →
+              </Link>
+              <Link to="/nakit/hesaplar" className="text-sm text-electric-bright hover:underline">
+                Hesaplar →
+              </Link>
+              <Link to="/nakit/hesap-hareketleri" className="text-sm text-electric-bright hover:underline">
+                Hesap hareketleri →
               </Link>
             </div>
 

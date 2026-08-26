@@ -22,12 +22,24 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAllPages, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
+import { mapAccount } from "./resources/accounts.ts";
+import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
+import { mapTransaction } from "./resources/transactions.ts";
 
-const SUPPORTED_RESOURCES = ["contacts", "sales_invoices"] as const;
+const SUPPORTED_RESOURCES = ["contacts", "sales_invoices", "accounts", "payments", "transactions"] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
 const BATCH_SIZE = 200;
 const ARCHIVED_FILTER_PARAM = "filter[archived]";
+
+interface SyncResult {
+  dbFields: Record<string, unknown>;
+  responseFields: Record<string, unknown>;
+  errorCount: number;
+  errorMessages: string[];
+}
+
+type SyncFn = (db: SupabaseClient, accessToken: string, dryRun: boolean) => Promise<SyncResult>;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -214,6 +226,186 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
   };
 }
 
+async function syncAccounts(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "accounts");
+  const activeFetchedCount = active.items.length;
+  const archivedFetchedCount = archived.items.length;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = [...active.items, ...archived.items].map(mapAccount);
+    const result = await upsertBatched(db, "accounts", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount = result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: activeFetchedCount + archivedFetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: activeFetchedCount + archivedFetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Payments have no standalone list endpoint in Parasut (verified against
+ * swagger and the live API). This resource covers only payments attached to
+ * sales_invoices, fetched via include=payments on that list endpoint --
+ * matching the /satislar/tahsilatlar scope. payable_type/payable_id are the
+ * invoice each payment was actually found under (a real relationship
+ * Parasut's own invoice data states), never guessed.
+ */
+async function syncPayments(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "sales_invoices", {
+    include: "payments,payments.transaction",
+  });
+
+  const invoiceItems = [...active.items, ...archived.items];
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of [...active.included, ...archived.included]) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const paymentPairs: { invoiceParasutId: number; payment: JsonApiResource }[] = [];
+  const missingPaymentRefs: string[] = [];
+
+  for (const invoice of invoiceItems) {
+    const invoiceParasutId = Number(invoice.id);
+    for (const paymentId of paymentIdsForInvoice(invoice)) {
+      const payment = includedByKey.get(`payments:${paymentId}`);
+      if (!payment) {
+        missingPaymentRefs.push(`invoice ${invoice.id} -> payment ${paymentId}`);
+        continue;
+      }
+      paymentPairs.push({ invoiceParasutId, payment });
+    }
+  }
+
+  const fetchedCount = paymentPairs.length;
+  const unresolvedCount = paymentPairs.filter(({ payment }) => !payment.relationships?.transaction?.data).length;
+
+  let upsertedCount = 0;
+  let errorCount = missingPaymentRefs.length;
+  const errorMessages: string[] = [];
+  if (missingPaymentRefs.length > 0) {
+    errorMessages.push(
+      `${missingPaymentRefs.length} payments referenced but not present in the API response: ${missingPaymentRefs
+        .slice(0, 20)
+        .join(", ")}${missingPaymentRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    const rows = paymentPairs.map(({ invoiceParasutId, payment }) => mapPayment(payment, invoiceParasutId));
+    const result = await upsertBatched(db, "payments", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount += result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      coverage: "sales_invoices payments only (no purchase_bills/bank_fees/salaries/taxes payments in this phase)",
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Parasut has no standalone list endpoint for transactions either --
+ * fetched per-account via /accounts/{id}/transactions?include=debit_account,credit_account
+ * (a real, paginated endpoint), covering every account. The same
+ * transaction can legitimately appear under two different accounts (e.g. a
+ * transfer between two of the company's own accounts); upserting on
+ * parasut_id naturally dedupes that.
+ */
+async function syncTransactions(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active: activeAccounts, archived: archivedAccounts } = await fetchActiveAndArchived(accessToken, "accounts");
+  const accountIds = [...activeAccounts.items, ...archivedAccounts.items].map((a) => a.id);
+
+  const perAccountResults = await Promise.all(
+    accountIds.map((accountId) =>
+      fetchAllPages(accessToken, `accounts/${accountId}/transactions`, 25, {
+        include: "debit_account,credit_account",
+      }),
+    ),
+  );
+
+  const rawFetchedCount = perAccountResults.reduce((sum, r) => sum + r.items.length, 0);
+  const totalCountReported = perAccountResults.reduce((sum, r) => sum + (r.totalCountReported ?? 0), 0) || null;
+
+  const uniqueByParasutId = new Map<string, JsonApiResource>();
+  for (const result of perAccountResults) {
+    for (const item of result.items) {
+      uniqueByParasutId.set(item.id, item);
+    }
+  }
+  const uniqueItems = [...uniqueByParasutId.values()];
+  const fetchedCount = uniqueItems.length;
+
+  const rows = uniqueItems.map(mapTransaction);
+  const unresolvedCount = rows.filter((r) => r.debit_account_parasut_id == null || r.credit_account_parasut_id == null).length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const result = await upsertBatched(db, "transactions", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount = result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      raw_fetched_count_before_dedup: rawFetchedCount,
+      accounts_covered: accountIds.length,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -266,10 +458,14 @@ Deno.serve(async (req: Request) => {
   try {
     const accessToken = await getAccessToken(db);
 
-    const result =
-      resource === "contacts"
-        ? await syncContacts(db, accessToken, dryRun)
-        : await syncSalesInvoices(db, accessToken, dryRun);
+    const syncers: Record<Resource, SyncFn> = {
+      contacts: syncContacts,
+      sales_invoices: syncSalesInvoices,
+      accounts: syncAccounts,
+      payments: syncPayments,
+      transactions: syncTransactions,
+    };
+    const result = await syncers[resource](db, accessToken, dryRun);
 
     if (result.errorCount > 0) {
       await finishRun({
