@@ -84,7 +84,24 @@ interface ActivityRow {
   parasut_id: number;
   activity_type: string | null;
   date: string | null;
+  data_description: string | null;
+  data_issue_date: string | null;
+  data_due_date: string | null;
+  data_net_total: number | null;
+  data_currency: string | null;
+  data_content: string | null;
+  data_status: string | null;
+  data_contact_id: number | null;
+  data_contact_name: string | null;
   done_by_email: string | null;
+  done_by_parasut_id: number | null;
+  done_by_type: string | null;
+  done_by_name: string | null;
+  done_by_user_email: string | null;
+  item_parasut_id: number | null;
+  item_type: string | null;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -144,7 +161,7 @@ const TeklifDetay = () => {
           .eq("sales_offer_parasut_id", parasutId),
         supabase
           .from("parasut_sales_offer_activities_demo")
-          .select("parasut_id, activity_type, date, done_by_email")
+          .select("*")
           .eq("sales_offer_parasut_id", parasutId),
       ]);
 
@@ -557,15 +574,106 @@ const TeklifDetay = () => {
             ) : activities.length === 0 ? (
               <p className="mt-2 text-white/50">Kayıt yok.</p>
             ) : (
-              <ul className="mt-3 space-y-2">
+              <div className="mt-3 space-y-3">
                 {activities.map((act) => (
-                  <li key={act.parasut_id} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm">
-                    <span className="text-white/90">{act.activity_type ? ACTIVITY_LABELS[act.activity_type] ?? act.activity_type : "—"}</span>
-                    <span className="ml-3 text-white/50">{formatApiTimestamp(act.date)}</span>
-                    {act.done_by_email && <span className="ml-3 text-white/50">{act.done_by_email}</span>}
-                  </li>
+                  <div key={act.parasut_id} className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="font-medium text-white/90">
+                        {act.activity_type ? ACTIVITY_LABELS[act.activity_type] ?? act.activity_type : "—"}
+                      </span>
+                      <span className="text-white/50">{formatApiTimestamp(act.date)}</span>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Activity Paraşüt ID</dt>
+                        <dd className="mt-1">{act.parasut_id}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Yapan (done_by)</dt>
+                        <dd className="mt-1">
+                          {act.done_by_parasut_id ? (
+                            <>
+                              {act.done_by_name ?? `#${act.done_by_parasut_id}`}
+                              {act.done_by_user_email && <span className="text-white/50"> ({act.done_by_user_email})</span>}
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">İlgili kayıt (item)</dt>
+                        <dd className="mt-1">
+                          {act.item_parasut_id && act.item_type === "sales_offers" ? (
+                            <Link to={`/satislar/teklifler/${act.item_parasut_id}`} className="text-electric-bright hover:underline">
+                              #{act.item_parasut_id}
+                            </Link>
+                          ) : act.item_parasut_id ? (
+                            `${act.item_type ?? "?"} #${act.item_parasut_id}`
+                          ) : (
+                            "—"
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">done_by_email (activity alanı)</dt>
+                        <dd className="mt-1">{formatValue(act.done_by_email)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te oluşturulma</dt>
+                        <dd className="mt-1">{formatApiTimestamp(act.parasut_created_at)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te güncellenme</dt>
+                        <dd className="mt-1">{formatApiTimestamp(act.parasut_updated_at)}</dd>
+                      </div>
+                    </dl>
+
+                    <p className="mt-3 text-xs uppercase tracking-wide text-white/50">Snapshot (data)</p>
+                    <dl className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Durum (status)</dt>
+                        <dd className="mt-1">{formatValue(act.data_status)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Açıklama</dt>
+                        <dd className="mt-1">{formatValue(act.data_description)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Müşteri</dt>
+                        <dd className="mt-1">
+                          {act.data_contact_id ? (
+                            <Link to={`/musteriler/${act.data_contact_id}`} className="text-electric-bright hover:underline">
+                              {act.data_contact_name ?? `#${act.data_contact_id}`}
+                            </Link>
+                          ) : (
+                            formatValue(act.data_contact_name)
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Düzenleme tarihi</dt>
+                        <dd className="mt-1">{formatValue(act.data_issue_date)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Geçerlilik tarihi</dt>
+                        <dd className="mt-1">{formatValue(act.data_due_date)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-wide text-white/50">Net toplam</dt>
+                        <dd className="mt-1">{formatAmount(act.data_net_total, act.data_currency)}</dd>
+                      </div>
+                      {act.data_content && (
+                        <div className="sm:col-span-3">
+                          <dt className="text-xs uppercase tracking-wide text-white/50">İçerik</dt>
+                          <dd className="mt-1 whitespace-pre-wrap">{act.data_content}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </>
         )}

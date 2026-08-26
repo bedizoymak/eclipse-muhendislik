@@ -295,16 +295,27 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
   // endpoint, which does resolve them. Any per-offer fetch failure aborts
   // the whole sync (thrown by fetchResource), same all-or-nothing guarantee
   // as the paginated fetches.
-  const activityPairs: { offerParasutId: number; activity: JsonApiResource }[] = [];
+  const activityPairs: { offerParasutId: number; activity: JsonApiResource; doneByUser: JsonApiResource | null }[] = [];
   if (!dryRun) {
     for (const offer of offerItems) {
       const offerParasutId = Number(offer.id);
+      // activities.item / activities.done_by must each be included
+      // explicitly -- verified: include=activities alone returns
+      // relationships.done_by/item as empty {"meta":{}} on the activity
+      // resource, same established Parasut pattern as elsewhere.
       const { included: offerIncluded } = await fetchResource(accessToken, "sales_offers", offer.id, {
-        include: "activities",
+        include: "activities,activities.item,activities.done_by",
       });
+      const usersByKey = new Map<string, JsonApiResource>();
+      for (const resource of offerIncluded) {
+        if (resource.type === "users") usersByKey.set(resource.id, resource);
+      }
       for (const resource of offerIncluded) {
         if (resource.type === "activities") {
-          activityPairs.push({ offerParasutId, activity: resource });
+          const doneByRel = resource.relationships?.["done_by"]?.data;
+          const doneByUser =
+            doneByRel && !Array.isArray(doneByRel) ? usersByKey.get(doneByRel.id) ?? null : null;
+          activityPairs.push({ offerParasutId, activity: resource, doneByUser });
         }
       }
     }
@@ -337,7 +348,9 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
     errorCount += detailResult.errorCount;
     errorMessages.push(...detailResult.errorMessages);
 
-    const activityRows = activityPairs.map(({ offerParasutId, activity }) => mapSalesOfferActivity(activity, offerParasutId));
+    const activityRows = activityPairs.map(({ offerParasutId, activity, doneByUser }) =>
+      mapSalesOfferActivity(activity, offerParasutId, doneByUser),
+    );
     const activityResult = await upsertBatched(db, "sales_offer_activities", activityRows as unknown as Record<string, unknown>[]);
     activityUpsertedCount = activityResult.upsertedCount;
     errorCount += activityResult.errorCount;

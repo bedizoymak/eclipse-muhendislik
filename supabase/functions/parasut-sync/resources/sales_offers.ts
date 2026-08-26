@@ -231,10 +231,20 @@ export interface SalesOfferActivityRow {
   sales_offer_parasut_id: number;
   activity_type: string | null;
   date: string | null;
-  data: unknown;
+  data_description: string | null;
+  data_issue_date: string | null;
+  data_due_date: string | null;
+  data_net_total: number | null;
+  data_currency: string | null;
+  data_content: string | null;
+  data_status: string | null;
+  data_contact_id: number | null;
+  data_contact_name: string | null;
   done_by_email: string | null;
   done_by_parasut_id: number | null;
   done_by_type: string | null;
+  done_by_name: string | null;
+  done_by_user_email: string | null;
   item_parasut_id: number | null;
   item_type: string | null;
   raw: JsonApiResource;
@@ -243,30 +253,64 @@ export interface SalesOfferActivityRow {
   synced_at: string;
 }
 
-export function mapSalesOfferActivity(item: JsonApiResource, offerParasutId: number): SalesOfferActivityRow {
+function relatedRef(item: JsonApiResource, key: string): { id: number | null; type: string | null } {
+  const rel = item.relationships?.[key]?.data;
+  if (!rel || Array.isArray(rel)) return { id: null, type: null };
+  const id = Number(rel.id);
+  return { id: Number.isFinite(id) ? id : null, type: rel.type ?? null };
+}
+
+/**
+ * Maps a sales_offer's "activities" relationship resource. `data` is a real,
+ * fixed-schema snapshot (verified identical shape across both real activity
+ * records on the one offer in this account) -- its fields are normalized
+ * into their own columns rather than left opaque, per the "no real field
+ * left DB-JSON-only" rule.
+ *
+ * `doneByUser` is the resolved `users` resource from `included` when the
+ * caller fetched with include=activities.done_by (verified: without that
+ * specific sub-include, relationships.done_by comes back as empty
+ * `{"meta":{}}`, same established Parasut relationship pattern as
+ * everywhere else in this project) -- its real name/email are captured
+ * here since this project has no parasut.users table to join against.
+ */
+export function mapSalesOfferActivity(
+  item: JsonApiResource,
+  offerParasutId: number,
+  doneByUser: JsonApiResource | null,
+): SalesOfferActivityRow {
   const a = item.attributes ?? {};
+  const d = (a.data ?? {}) as Record<string, unknown>;
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) {
     throw new Error(`SalesOfferActivity resource has a non-numeric id: ${item.id}`);
   }
+
+  const doneBy = relatedRef(item, "done_by");
+  const itemRef = relatedRef(item, "item");
+  const userAttrs = doneByUser?.attributes ?? {};
 
   return {
     parasut_id: parasutId,
     sales_offer_parasut_id: offerParasutId,
     activity_type: attr(a, "activity_type"),
     date: attr(a, "date"),
-    data: attr(a, "data"),
+    data_description: attr(d, "description"),
+    data_issue_date: attr(d, "issue_date"),
+    data_due_date: attr(d, "due_date"),
+    data_net_total: attr(d, "net_total"),
+    data_currency: attr(d, "currency"),
+    data_content: attr(d, "content"),
+    data_status: attr(d, "status"),
+    data_contact_id: attr(d, "contact_id"),
+    data_contact_name: attr(d, "contact_name"),
     done_by_email: attr(a, "done_by_email"),
-    done_by_parasut_id: relatedId(item, "done_by"),
-    done_by_type: (() => {
-      const rel = item.relationships?.["done_by"]?.data;
-      return rel && !Array.isArray(rel) ? rel.type ?? null : null;
-    })(),
-    item_parasut_id: relatedId(item, "item"),
-    item_type: (() => {
-      const rel = item.relationships?.["item"]?.data;
-      return rel && !Array.isArray(rel) ? rel.type ?? null : null;
-    })(),
+    done_by_parasut_id: doneBy.id,
+    done_by_type: doneBy.type,
+    done_by_name: doneByUser ? attr(userAttrs, "name") : null,
+    done_by_user_email: doneByUser ? attr(userAttrs, "email") : null,
+    item_parasut_id: itemRef.id,
+    item_type: itemRef.type,
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
