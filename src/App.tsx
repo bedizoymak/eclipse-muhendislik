@@ -29,6 +29,8 @@ const StokSeviyeleri = lazy(() => import("./pages/StokSeviyeleri.tsx"));
 const StokHareketleri = lazy(() => import("./pages/StokHareketleri.tsx"));
 const Cekler = lazy(() => import("./pages/Cekler.tsx"));
 const CekDetay = lazy(() => import("./pages/CekDetay.tsx"));
+const Teklifler = lazy(() => import("./pages/Teklifler.tsx"));
+const TeklifDetay = lazy(() => import("./pages/TeklifDetay.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -91,6 +93,8 @@ const App = () => (
               <Route path="/stok/hareketleri" element={<StokHareketleri />} />
               <Route path="/nakit/cekler" element={<Cekler />} />
               <Route path="/nakit/cekler/:parasutId" element={<CekDetay />} />
+              <Route path="/satislar/teklifler" element={<Teklifler />} />
+              <Route path="/satislar/teklifler/:parasutId" element={<TeklifDetay />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

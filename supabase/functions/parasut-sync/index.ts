@@ -22,6 +22,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAllPages, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
+import { detailIdsForOffer, mapSalesOffer, mapSalesOfferDetail } from "./resources/sales_offers.ts";
 import { mapAccount } from "./resources/accounts.ts";
 import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
 import { mapTransaction } from "./resources/transactions.ts";
@@ -45,6 +46,7 @@ const SUPPORTED_RESOURCES = [
   "stock_movements",
   "item_categories",
   "checks",
+  "sales_offers",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -238,6 +240,101 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
       invoice_upserted_count: dryRun ? 0 : invoiceUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Sales offers ("satış teklifleri"). filter[archived] works despite the
+ * API's own bad-filter error message only listing issue_date/contact_id as
+ * "Acceptable" (verified: both filter[archived]=true and =false return 200
+ * with distinct meta.total_count) -- same fetchActiveAndArchived pattern as
+ * every other archivable resource. Verified acceptable includes: contact,
+ * details, details.product, sales_invoice.
+ */
+async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "sales_offers", {
+    include: "details,details.product,contact,sales_invoice",
+  });
+
+  const offerItems = [...active.items, ...archived.items];
+  const offerActiveFetchedCount = active.items.length;
+  const offerArchivedFetchedCount = archived.items.length;
+  const offerFetchedCount = offerActiveFetchedCount + offerArchivedFetchedCount;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of [...active.included, ...archived.included]) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const detailPairs: { offerParasutId: number; detail: JsonApiResource }[] = [];
+  const missingDetailRefs: string[] = [];
+
+  for (const offer of offerItems) {
+    const offerParasutId = Number(offer.id);
+    for (const detailId of detailIdsForOffer(offer)) {
+      const detail = includedByKey.get(`sales_offer_details:${detailId}`);
+      if (!detail) {
+        missingDetailRefs.push(`offer ${offer.id} -> detail ${detailId}`);
+        continue;
+      }
+      detailPairs.push({ offerParasutId, detail });
+    }
+  }
+
+  const detailFetchedCount = detailPairs.length;
+  const unresolvedCount = offerItems.filter((o) => !o.relationships?.contact?.data).length;
+
+  let offerUpsertedCount = 0;
+  let detailUpsertedCount = 0;
+  let errorCount = missingDetailRefs.length;
+  const errorMessages: string[] = [];
+  if (missingDetailRefs.length > 0) {
+    errorMessages.push(
+      `${missingDetailRefs.length} sales_offer_details referenced but not present in the API response: ${missingDetailRefs
+        .slice(0, 20)
+        .join(", ")}${missingDetailRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    const offerRows = offerItems.map(mapSalesOffer);
+    const offerResult = await upsertBatched(db, "sales_offers", offerRows as unknown as Record<string, unknown>[]);
+    offerUpsertedCount = offerResult.upsertedCount;
+    errorCount += offerResult.errorCount;
+    errorMessages.push(...offerResult.errorMessages);
+
+    const detailRows = detailPairs.map(({ offerParasutId, detail }) => mapSalesOfferDetail(detail, offerParasutId));
+    const detailResult = await upsertBatched(db, "sales_offer_details", detailRows as unknown as Record<string, unknown>[]);
+    detailUpsertedCount = detailResult.upsertedCount;
+    errorCount += detailResult.errorCount;
+    errorMessages.push(...detailResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: offerFetchedCount,
+      active_fetched_count: offerActiveFetchedCount,
+      archived_fetched_count: offerArchivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : offerUpsertedCount,
+      detail_fetched_count: detailFetchedCount,
+      detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      offer_fetched_count: offerFetchedCount,
+      offer_active_fetched_count: offerActiveFetchedCount,
+      offer_archived_fetched_count: offerArchivedFetchedCount,
+      offer_upserted_count: dryRun ? 0 : offerUpsertedCount,
+      detail_fetched_count: detailFetchedCount,
+      detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      unresolved_count: unresolvedCount,
       total_count_reported: totalCountReported,
     },
     errorCount,
@@ -969,6 +1066,7 @@ Deno.serve(async (req: Request) => {
       stock_movements: syncStockMovements,
       item_categories: syncItemCategories,
       checks: syncChecks,
+      sales_offers: syncSalesOffers,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
