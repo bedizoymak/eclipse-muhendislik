@@ -2,7 +2,8 @@
 
 - **Branch:** `main`
 - **Base commit (before this phase):** `e4158e067056e737e36e9024bc8423d30175e4e8`
-- **This phase's commit SHA:** _filled in below after commit, definitive value in the final chat message_
+- **This phase's commit SHA:** `c8c37b49af03da98a712b1260b6d5cfc5ff80024` (`c8c37b4`)
+- **Push result:** `e4158e0..c8c37b4 main -> main` — success
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf`
 - **Live URL:** https://demo.eclipsemuhendislik.com
 
@@ -134,7 +135,7 @@ Deployed (not committed, build output): `dist/demo/**` → uploaded via FTP
 | npm run build:demo | başarılı | Başarılı | PASS | — |
 | TypeScript kontrolü | 0 hata | 1 hata (`Login.tsx:55`) | **FAIL — pre-existing unrelated error** | Faz 1.2'den beri aynı, Login'e dokunulmadı |
 | Mobil/yatay taşma görsel doğrulaması | kolon kaybı yok | Kod deploy edildi; tarayıcıda teyit yok | **BLOCKED** | Self-signed sertifika (Faz 1.1'den beri süregelen) |
-| Git commit/push | remote main güncel | _(commit sonrası doldurulacak)_ | — | — |
+| Git commit/push | remote main güncel | `c8c37b4`, `e4158e0..c8c37b4 main -> main` başarılı | PASS | — |
 
 ## FAIL ve BLOCKED Maddeler
 
