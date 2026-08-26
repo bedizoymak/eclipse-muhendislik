@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-27
 **Canlı URL:** https://demo.eclipsemuhendislik.com/satislar/teklifler/1001300304
-**Kod commit SHA:** (aşağıda, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `49200475dd63c59a6ee57534e7ad68994e92f688`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Ham activity envanteri
 
