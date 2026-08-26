@@ -26,6 +26,10 @@ import { mapAccount } from "./resources/accounts.ts";
 import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
 import { mapTransaction } from "./resources/transactions.ts";
 import { detailIdsForBill, mapPurchaseBill, mapPurchaseBillDetail } from "./resources/purchase_bills.ts";
+import { inventoryLevelIdsForProduct, mapInventoryLevel, mapProduct } from "./resources/products.ts";
+import { mapWarehouse } from "./resources/warehouses.ts";
+import { mapItemCategory } from "./resources/item_categories.ts";
+import { mapStockMovement } from "./resources/stock_movements.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -35,6 +39,10 @@ const SUPPORTED_RESOURCES = [
   "transactions",
   "purchase_bills",
   "expense_payments",
+  "products",
+  "warehouses",
+  "stock_movements",
+  "item_categories",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -592,6 +600,223 @@ async function syncExpensePayments(db: SupabaseClient, accessToken: string, dryR
   };
 }
 
+/**
+ * products (+ their inventory_levels, embedded via include -- Parasut has
+ * no separate /inventory_levels list endpoint). filter[archived] is
+ * undocumented for products but verified real (same as contacts/
+ * sales_invoices/accounts). inventory_levels.warehouse needs its own
+ * explicit include to resolve each level's warehouse id -- verified
+ * empirically; without it the relationship comes back empty even though
+ * the inventory_levels themselves are present.
+ */
+async function syncProducts(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "products", {
+    include: "inventory_levels,inventory_levels.warehouse,category",
+  });
+
+  const productItems = [...active.items, ...archived.items];
+  const activeFetchedCount = active.items.length;
+  const archivedFetchedCount = archived.items.length;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of [...active.included, ...archived.included]) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const levelPairs: { productParasutId: number; level: JsonApiResource }[] = [];
+  const missingLevelRefs: string[] = [];
+
+  for (const product of productItems) {
+    const productParasutId = Number(product.id);
+    for (const levelId of inventoryLevelIdsForProduct(product)) {
+      const level = includedByKey.get(`inventory_levels:${levelId}`);
+      if (!level) {
+        missingLevelRefs.push(`product ${product.id} -> inventory_level ${levelId}`);
+        continue;
+      }
+      levelPairs.push({ productParasutId, level });
+    }
+  }
+
+  const levelFetchedCount = levelPairs.length;
+  const levelRows = levelPairs.map(({ productParasutId, level }) => mapInventoryLevel(level, productParasutId));
+  const levelUnresolvedCount = levelRows.filter((r) => r.warehouse_parasut_id == null).length;
+
+  let productUpsertedCount = 0;
+  let levelUpsertedCount = 0;
+  let errorCount = missingLevelRefs.length;
+  const errorMessages: string[] = [];
+  if (missingLevelRefs.length > 0) {
+    errorMessages.push(
+      `${missingLevelRefs.length} inventory_levels referenced but not present in the API response: ${missingLevelRefs
+        .slice(0, 20)
+        .join(", ")}${missingLevelRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    const productRows = productItems.map(mapProduct);
+    const productResult = await upsertBatched(db, "products", productRows as unknown as Record<string, unknown>[]);
+    productUpsertedCount = productResult.upsertedCount;
+    errorCount += productResult.errorCount;
+    errorMessages.push(...productResult.errorMessages);
+
+    const levelResult = await upsertBatched(db, "inventory_levels", levelRows as unknown as Record<string, unknown>[]);
+    levelUpsertedCount = levelResult.upsertedCount;
+    errorCount += levelResult.errorCount;
+    errorMessages.push(...levelResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: activeFetchedCount + archivedFetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : productUpsertedCount,
+      detail_fetched_count: levelFetchedCount,
+      detail_upserted_count: dryRun ? 0 : levelUpsertedCount,
+      unresolved_count: levelUnresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      product_fetched_count: activeFetchedCount + archivedFetchedCount,
+      product_active_fetched_count: activeFetchedCount,
+      product_archived_fetched_count: archivedFetchedCount,
+      product_upserted_count: dryRun ? 0 : productUpsertedCount,
+      inventory_level_fetched_count: levelFetchedCount,
+      inventory_level_upserted_count: dryRun ? 0 : levelUpsertedCount,
+      inventory_level_unresolved_count: levelUnresolvedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/** warehouses: filter[archived] is documented and real for this endpoint. */
+async function syncWarehouses(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "warehouses");
+  const activeFetchedCount = active.items.length;
+  const archivedFetchedCount = archived.items.length;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = [...active.items, ...archived.items].map(mapWarehouse);
+    const result = await upsertBatched(db, "warehouses", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount = result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: activeFetchedCount + archivedFetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: activeFetchedCount + archivedFetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * item_categories: no archived attribute exists on this resource at all
+ * (verified against the schema), so there is no active/archived split to
+ * attempt -- a single full listing is the complete, correct fetch.
+ */
+async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "item_categories");
+  const fetchedCount = result.items.length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = result.items.map(mapItemCategory);
+    const upsertResult = await upsertBatched(db, "item_categories", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * stock_movements: a real, global, paginated list endpoint (no per-warehouse
+ * iteration needed, unlike transactions in Phase 3). No archived concept.
+ * Upserting on parasut_id is naturally idempotent -- no duplicate risk from
+ * a single linear stream.
+ */
+async function syncStockMovements(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "stock_movements", 25, {
+    include: "product,source,contact,warehouse",
+  });
+  const fetchedCount = result.items.length;
+  const rows = result.items.map(mapStockMovement);
+  const unresolvedCount = rows.filter((r) => r.product_parasut_id == null || r.warehouse_parasut_id == null).length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const upsertResult = await upsertBatched(db, "stock_movements", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -652,6 +877,10 @@ Deno.serve(async (req: Request) => {
       transactions: syncTransactions,
       purchase_bills: syncPurchaseBills,
       expense_payments: syncExpensePayments,
+      products: syncProducts,
+      warehouses: syncWarehouses,
+      stock_movements: syncStockMovements,
+      item_categories: syncItemCategories,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 

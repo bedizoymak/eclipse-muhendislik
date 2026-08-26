@@ -22,6 +22,11 @@ const Giderler = lazy(() => import("./pages/Giderler.tsx"));
 const GiderDetay = lazy(() => import("./pages/GiderDetay.tsx"));
 const Tedarikciler = lazy(() => import("./pages/Tedarikciler.tsx"));
 const GiderOdemeleri = lazy(() => import("./pages/GiderOdemeleri.tsx"));
+const Urunler = lazy(() => import("./pages/Urunler.tsx"));
+const UrunDetay = lazy(() => import("./pages/UrunDetay.tsx"));
+const Depolar = lazy(() => import("./pages/Depolar.tsx"));
+const StokSeviyeleri = lazy(() => import("./pages/StokSeviyeleri.tsx"));
+const StokHareketleri = lazy(() => import("./pages/StokHareketleri.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -77,6 +82,11 @@ const App = () => (
               <Route path="/giderler/tedarikciler" element={<Tedarikciler />} />
               <Route path="/giderler/odemeler" element={<GiderOdemeleri />} />
               <Route path="/giderler/:parasutId" element={<GiderDetay />} />
+              <Route path="/urunler" element={<Urunler />} />
+              <Route path="/urunler/:parasutId" element={<UrunDetay />} />
+              <Route path="/stok/depolar" element={<Depolar />} />
+              <Route path="/stok/seviyeleri" element={<StokSeviyeleri />} />
+              <Route path="/stok/hareketleri" element={<StokHareketleri />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (
