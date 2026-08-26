@@ -2,7 +2,8 @@
 
 - **Branch:** `main`
 - **Base commit (before this phase):** `47faae2657066f44527cf1335b43f16291b7acf7`
-- **This phase's commit SHA:** _filled in below after commit, definitive value in the final chat message_
+- **This phase's commit SHA:** `877b92bb7639bb73f09e6fbd0535f44ae58c65e5` (`877b92b`)
+- **Push result:** `47faae2..877b92b main -> main` — success
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf`
 - **Live URL:** https://demo.eclipsemuhendislik.com
 
@@ -159,7 +160,7 @@ Deployed (not committed, build output): `dist/demo/**` → uploaded via FTP
 | npm run lint | 0 hata | İlk çalıştırma 205 hata verdi | **FAIL (sonradan düzeltildi, 0 hata)** | Bkz. FAIL/BLOCKED — gitignore'lu Docker artefaktı, kaynak koda ait değil |
 | npm run build:demo | başarılı | Başarılı | PASS | — |
 | TypeScript kontrolü | 0 hata | 1 hata (`Login.tsx:55`) | **FAIL — pre-existing unrelated error** | Faz 1.2'den beri aynı, Login'e dokunulmadı |
-| Git commit/push | remote main güncel | _(commit sonrası doldurulacak, aşağıya bakın)_ | — | — |
+| Git commit/push | remote main güncel | `877b92b`, `47faae2..877b92b main -> main` başarılı | PASS | — |
 
 ## FAIL ve BLOCKED Maddeler
 
