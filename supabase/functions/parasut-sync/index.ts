@@ -30,6 +30,7 @@ import { inventoryLevelIdsForProduct, mapInventoryLevel, mapProduct } from "./re
 import { mapWarehouse } from "./resources/warehouses.ts";
 import { mapItemCategory } from "./resources/item_categories.ts";
 import { mapStockMovement } from "./resources/stock_movements.ts";
+import { mapCheck } from "./resources/checks.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -43,6 +44,7 @@ const SUPPORTED_RESOURCES = [
   "warehouses",
   "stock_movements",
   "item_categories",
+  "checks",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -817,6 +819,53 @@ async function syncStockMovements(db: SupabaseClient, accessToken: string, dryRu
   };
 }
 
+/**
+ * checks ("çekler"). /{company_id}/checks is a real, working endpoint --
+ * verified directly against the live API -- that is completely absent from
+ * the published swagger spec. filter[archived] is not valid here either
+ * (verified: rejected, real acceptable filters are due_date/issue_date/
+ * currency/amount/net_total), so this is a single full listing, not a
+ * dual archived stream. issued_by/given_to need their own explicit
+ * includes to resolve (same established pattern as every other relation).
+ */
+async function syncChecks(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "checks", 25, {
+    include: "issued_by,given_to",
+  });
+  const fetchedCount = result.items.length;
+  const rows = result.items.map(mapCheck);
+  const unresolvedCount = rows.filter((r) => r.issued_by_parasut_id == null && r.given_to_parasut_id == null).length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const upsertResult = await upsertBatched(db, "checks", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -881,6 +930,7 @@ Deno.serve(async (req: Request) => {
       warehouses: syncWarehouses,
       stock_movements: syncStockMovements,
       item_categories: syncItemCategories,
+      checks: syncChecks,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
