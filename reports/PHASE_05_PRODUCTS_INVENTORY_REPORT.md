@@ -2,7 +2,8 @@
 
 - **Branch:** `main`
 - **Base commit (before this phase):** `2c75e8cbfd8e13820010bc927b58402010de99fe`
-- **This phase's commit SHA:** _filled in below after commit, definitive value in the final chat message_
+- **This phase's commit SHA:** `519261da2806a6a5ff1b099fec6e2725327a96c5` (`519261d`)
+- **Push result:** `2c75e8c..519261d main -> main` — success
 - **Hosted Supabase project:** `yzuxdrknidveptvnwthf`
 - **Live URL:** https://demo.eclipsemuhendislik.com
 
@@ -157,7 +158,7 @@ Deployed (not committed, build output): `dist/demo/**` → uploaded via FTP
 | npm run build:demo | başarılı | Başarılı | PASS | — |
 | TypeScript kontrolü | 0 hata | 1 hata (`Login.tsx:55`) | **FAIL — pre-existing unrelated error** | Faz 1.1'den beri aynı, Login'e dokunulmadı |
 | Mobil/yatay taşma | kolon kaybı yok | Faz 4.1'de doğrulanan `w-full min-w-0 sm:max-w-[220px]` deseni yeni select'lerde de kullanıldı | PASS | Bu fazda ayrı bir gerçek tarayıcı ölçümü tekrarlanmadı (kod deseni Faz 4.1'de zaten gerçek ölçümle doğrulanmıştı); bkz. not aşağıda |
-| Git commit/push | remote main güncel | _(commit sonrası doldurulacak)_ | — | — |
+| Git commit/push | remote main güncel | `519261d`, `2c75e8c..519261d main -> main` başarılı | PASS | — |
 
 ## FAIL ve BLOCKED Maddeler
 
