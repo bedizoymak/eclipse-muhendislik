@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-26
 **Canlı URL:** https://demo.eclipsemuhendislik.com/nakit/cekler
-**Kod commit SHA:** (bu raporun altına, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `17bce6472480026e8e8af234b5431abbe6a65513`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Gerçek API doğrulaması
 
