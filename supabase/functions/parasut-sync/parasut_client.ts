@@ -159,6 +159,11 @@ interface JsonApiListResponse {
   };
 }
 
+interface JsonApiSingleResponse {
+  data: JsonApiResource;
+  included?: JsonApiResource[];
+}
+
 export interface PageResult {
   items: JsonApiResource[];
   included: JsonApiResource[];
@@ -225,6 +230,53 @@ export async function fetchPage(
   }
 
   throw new Error(`Parasut ${path} page ${page} failed: exceeded rate-limit retries`);
+}
+
+/**
+ * Fetches a single resource by id (GET /{path}/{id}), for relations the
+ * list endpoint itself rejects as an include but the single-record
+ * endpoint accepts (verified case: sales_offers.activities -- the list
+ * endpoint's own 400 error only lists contact/details/details.product/
+ * sales_invoice as acceptable, while the single endpoint's error message
+ * additionally lists activities/activities.item/activities.done_by/
+ * sharings/sharings.* as acceptable, and actually resolves them). Same
+ * retry semantics as fetchPage. Throws on any non-2xx response.
+ */
+export async function fetchResource(
+  accessToken: string,
+  path: string,
+  id: string,
+  extraParams: Record<string, string> = {},
+): Promise<{ item: JsonApiResource; included: JsonApiResource[] }> {
+  const companyId = requireEnv("PARASUT_COMPANY_ID");
+  const url = new URL(`${PARASUT_BASE_URL}/v4/${companyId}/${path}/${id}`);
+  for (const [key, value] of Object.entries(extraParams)) {
+    url.searchParams.set(key, value);
+  }
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if ((response.status === 429 || response.status >= 500) && attempt < MAX_RATE_LIMIT_RETRIES) {
+      await sleep(retryDelayMs(response));
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Parasut ${path}/${id} failed (${response.status}): ${text.slice(0, 500)}`);
+    }
+
+    const json = (await response.json()) as JsonApiSingleResponse;
+    return { item: json.data, included: json.included ?? [] };
+  }
+
+  throw new Error(`Parasut ${path}/${id} failed: exceeded rate-limit retries`);
 }
 
 /**

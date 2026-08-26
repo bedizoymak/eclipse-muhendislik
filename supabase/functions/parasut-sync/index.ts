@@ -19,10 +19,10 @@
 // response's `included` array, or the run is an error, never a guess.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { fetchAllPages, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
+import { fetchAllPages, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
-import { detailIdsForOffer, mapSalesOffer, mapSalesOfferDetail } from "./resources/sales_offers.ts";
+import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
 import { mapAccount } from "./resources/accounts.ts";
 import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
 import { mapTransaction } from "./resources/transactions.ts";
@@ -289,8 +289,31 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
   const detailFetchedCount = detailPairs.length;
   const unresolvedCount = offerItems.filter((o) => !o.relationships?.contact?.data).length;
 
+  // activities cannot be resolved via the list endpoint's include chain
+  // (verified: the list endpoint 400s on include=activities) -- each
+  // offer's activities are fetched individually via the single-record
+  // endpoint, which does resolve them. Any per-offer fetch failure aborts
+  // the whole sync (thrown by fetchResource), same all-or-nothing guarantee
+  // as the paginated fetches.
+  const activityPairs: { offerParasutId: number; activity: JsonApiResource }[] = [];
+  if (!dryRun) {
+    for (const offer of offerItems) {
+      const offerParasutId = Number(offer.id);
+      const { included: offerIncluded } = await fetchResource(accessToken, "sales_offers", offer.id, {
+        include: "activities",
+      });
+      for (const resource of offerIncluded) {
+        if (resource.type === "activities") {
+          activityPairs.push({ offerParasutId, activity: resource });
+        }
+      }
+    }
+  }
+  const activityFetchedCount = activityPairs.length;
+
   let offerUpsertedCount = 0;
   let detailUpsertedCount = 0;
+  let activityUpsertedCount = 0;
   let errorCount = missingDetailRefs.length;
   const errorMessages: string[] = [];
   if (missingDetailRefs.length > 0) {
@@ -313,6 +336,12 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
     detailUpsertedCount = detailResult.upsertedCount;
     errorCount += detailResult.errorCount;
     errorMessages.push(...detailResult.errorMessages);
+
+    const activityRows = activityPairs.map(({ offerParasutId, activity }) => mapSalesOfferActivity(activity, offerParasutId));
+    const activityResult = await upsertBatched(db, "sales_offer_activities", activityRows as unknown as Record<string, unknown>[]);
+    activityUpsertedCount = activityResult.upsertedCount;
+    errorCount += activityResult.errorCount;
+    errorMessages.push(...activityResult.errorMessages);
   }
 
   return {
@@ -334,6 +363,8 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
       offer_upserted_count: dryRun ? 0 : offerUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      activity_fetched_count: dryRun ? 0 : activityFetchedCount,
+      activity_upserted_count: dryRun ? 0 : activityUpsertedCount,
       unresolved_count: unresolvedCount,
       total_count_reported: totalCountReported,
     },

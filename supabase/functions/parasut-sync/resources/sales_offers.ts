@@ -6,12 +6,22 @@
 // own 400 error message on an unrelated bad filter only listing
 // "issue_date, contact_id" as acceptable -- same established pattern as
 // other resources where the error message's "Acceptable" list is incomplete
-// or stale. Verified acceptable includes (via real 400 responses): contact,
-// details, details.product, sales_invoice -- activities and sharings both
-// return relationships.*.meta = {} (never data) and are rejected by
-// include=activities/include=sharings with a 400 ("not a valid relation"),
-// so nothing is fetched for them; not a gap, the API itself never resolves
-// them.
+// or stale. Verified acceptable includes on the LIST endpoint (via real 400
+// responses): contact, details, details.product, sales_invoice.
+//
+// Phase 7.1 finding: the SINGLE-record endpoint (GET /sales_offers/{id})
+// accepts a materially different include set -- its own 400 error message
+// lists details, details.product, contact, contact.contact_people(.contact),
+// contact.category, sales_invoice, activities, activities.item,
+// activities.done_by, sharings, sharings.* as acceptable, and
+// include=activities on the single endpoint genuinely resolves to real
+// activity records (status-change history), while the exact same include on
+// the LIST endpoint 400s ("activities is not a valid relation"). This is a
+// real, verified endpoint-level API inconsistency, not a bug in this
+// codebase -- so activities are fetched per-offer via the single endpoint
+// (fetchResource), not via the list's include chain, which cannot resolve
+// them. sharings resolves to a real empty array via the single endpoint
+// (genuinely no sharings on the one real offer in this account).
 //
 // All monetary/status fields are used exactly as the API returns them --
 // never recomputed from line items. Anything null/absent in the payload
@@ -209,6 +219,54 @@ export function mapSalesOfferDetail(item: JsonApiResource, offerParasutId: numbe
     accommodation_tax_exempt: attr(a, "accommodation_tax_exempt"),
     sales_offer_parasut_id: offerParasutId,
     product_parasut_id: relatedId(item, "product"),
+    raw: item,
+    parasut_created_at: attr(a, "created_at"),
+    parasut_updated_at: attr(a, "updated_at"),
+    synced_at: new Date().toISOString(),
+  };
+}
+
+export interface SalesOfferActivityRow {
+  parasut_id: number;
+  sales_offer_parasut_id: number;
+  activity_type: string | null;
+  date: string | null;
+  data: unknown;
+  done_by_email: string | null;
+  done_by_parasut_id: number | null;
+  done_by_type: string | null;
+  item_parasut_id: number | null;
+  item_type: string | null;
+  raw: JsonApiResource;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
+  synced_at: string;
+}
+
+export function mapSalesOfferActivity(item: JsonApiResource, offerParasutId: number): SalesOfferActivityRow {
+  const a = item.attributes ?? {};
+  const parasutId = Number(item.id);
+  if (!Number.isFinite(parasutId)) {
+    throw new Error(`SalesOfferActivity resource has a non-numeric id: ${item.id}`);
+  }
+
+  return {
+    parasut_id: parasutId,
+    sales_offer_parasut_id: offerParasutId,
+    activity_type: attr(a, "activity_type"),
+    date: attr(a, "date"),
+    data: attr(a, "data"),
+    done_by_email: attr(a, "done_by_email"),
+    done_by_parasut_id: relatedId(item, "done_by"),
+    done_by_type: (() => {
+      const rel = item.relationships?.["done_by"]?.data;
+      return rel && !Array.isArray(rel) ? rel.type ?? null : null;
+    })(),
+    item_parasut_id: relatedId(item, "item"),
+    item_type: (() => {
+      const rel = item.relationships?.["item"]?.data;
+      return rel && !Array.isArray(rel) ? rel.type ?? null : null;
+    })(),
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
