@@ -830,21 +830,58 @@ async function syncStockMovements(db: SupabaseClient, accessToken: string, dryRu
  */
 async function syncChecks(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "checks", 25, {
-    include: "issued_by,given_to",
+    include: "issued_by,given_to,payments",
   });
   const fetchedCount = result.items.length;
   const rows = result.items.map(mapCheck);
   const unresolvedCount = rows.filter((r) => r.issued_by_parasut_id == null && r.given_to_parasut_id == null).length;
 
+  // A check's own relationships.payments.data lists real payment ids
+  // (verified against the live API); the full payment objects are only
+  // present when explicitly included -- same pattern as sales_invoices/
+  // purchase_bills payments. Not every check has a payment yet (unpaid/
+  // pending checks legitimately have an empty payments array).
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of result.included) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+  const paymentPairs: { checkParasutId: number; payment: JsonApiResource }[] = [];
+  const missingPaymentRefs: string[] = [];
+  for (const check of result.items) {
+    const checkParasutId = Number(check.id);
+    for (const paymentId of paymentIdsForInvoice(check)) {
+      const payment = includedByKey.get(`payments:${paymentId}`);
+      if (!payment) {
+        missingPaymentRefs.push(`check ${check.id} -> payment ${paymentId}`);
+        continue;
+      }
+      paymentPairs.push({ checkParasutId, payment });
+    }
+  }
+
   let upsertedCount = 0;
-  let errorCount = 0;
+  let paymentsUpsertedCount = 0;
+  let errorCount = missingPaymentRefs.length;
   const errorMessages: string[] = [];
+  if (missingPaymentRefs.length > 0) {
+    errorMessages.push(
+      `${missingPaymentRefs.length} check payments referenced but not present in the API response: ${missingPaymentRefs
+        .slice(0, 20)
+        .join(", ")}${missingPaymentRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
 
   if (!dryRun) {
     const upsertResult = await upsertBatched(db, "checks", rows as unknown as Record<string, unknown>[]);
     upsertedCount = upsertResult.upsertedCount;
-    errorCount = upsertResult.errorCount;
+    errorCount += upsertResult.errorCount;
     errorMessages.push(...upsertResult.errorMessages);
+
+    const paymentRows = paymentPairs.map(({ checkParasutId, payment }) => mapPayment(payment, checkParasutId, "checks"));
+    const paymentsResult = await upsertBatched(db, "payments", paymentRows as unknown as Record<string, unknown>[]);
+    paymentsUpsertedCount = paymentsResult.upsertedCount;
+    errorCount += paymentsResult.errorCount;
+    errorMessages.push(...paymentsResult.errorMessages);
   }
 
   return {
@@ -858,6 +895,7 @@ async function syncChecks(db: SupabaseClient, accessToken: string, dryRun: boole
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
+      payments_upserted_count: dryRun ? 0 : paymentsUpsertedCount,
       unresolved_count: unresolvedCount,
       total_count_reported: result.totalCountReported,
     },
