@@ -17,6 +17,7 @@ interface CheckDemoRow {
   is_out: boolean | null;
   is_transferred: boolean | null;
   days_overdue: number | null;
+  days_till_due_date: number | null;
   bank_identifier: string | null;
   bank_name: string | null;
   serial_number: string | null;
@@ -130,6 +131,10 @@ const CekDetay = () => {
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Vadesi geçen gün</dt>
                 <dd className="mt-1">{check.days_overdue ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-white/50">Vadeye kalan gün</dt>
+                <dd className="mt-1">{check.days_till_due_date ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Keşideci (issued_by)</dt>
