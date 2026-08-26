@@ -124,8 +124,8 @@ const Giderler = () => {
           </Link>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-6 flex min-w-0 flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap gap-2">
             {ARCHIVED_FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -142,39 +142,43 @@ const Giderler = () => {
             ))}
           </div>
 
-          <select
-            value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
-            className="rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white"
-          >
-            <option value="all">Tüm ödeme durumları</option>
-            <option value="paid">Ödendi</option>
-            <option value="overdue">Vadesi geçti</option>
-            <option value="unpaid">Ödenmedi</option>
-            <option value="partially_paid">Kısmi ödendi</option>
-          </select>
+          <div className="w-full min-w-0 sm:w-auto sm:max-w-[220px]">
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
+              className="w-full max-w-full truncate rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white"
+            >
+              <option value="all">Tüm ödeme durumları</option>
+              <option value="paid">Ödendi</option>
+              <option value="overdue">Vadesi geçti</option>
+              <option value="unpaid">Ödenmedi</option>
+              <option value="partially_paid">Kısmi ödendi</option>
+            </select>
+          </div>
 
-          <select
-            value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
-            className="rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white"
-          >
-            <option value="">Tüm tedarikçiler</option>
-            {suppliers.map((s) => (
-              <option key={s.parasut_id} value={s.parasut_id}>
-                {s.name ?? `#${s.parasut_id}`}
-              </option>
-            ))}
-          </select>
+          <div className="w-full min-w-0 sm:w-auto sm:max-w-[220px]">
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="w-full max-w-full truncate rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white"
+            >
+              <option value="">Tüm tedarikçiler</option>
+              {suppliers.map((s) => (
+                <option key={s.parasut_id} value={s.parasut_id}>
+                  {s.name ?? `#${s.parasut_id}`}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="flex items-center gap-2 text-sm text-white/60">
+          <div className="flex min-w-0 items-center gap-2 text-sm text-white/60">
             <label htmlFor="fromDate">Tarih:</label>
             <input
               id="fromDate"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
+              className="min-w-0 rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
             />
             <span>–</span>
             <input
@@ -182,7 +186,7 @@ const Giderler = () => {
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
+              className="min-w-0 rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
             />
           </div>
         </div>
