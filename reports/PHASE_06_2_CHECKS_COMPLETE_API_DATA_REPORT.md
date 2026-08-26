@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-26
 **Canlı URL:** https://demo.eclipsemuhendislik.com/nakit/cekler
-**Kod commit SHA:** (aşağıda, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `3e2ab2d81abe3d74b53550cb124a9b11a47eb3c9`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Ham API envanteri
 
