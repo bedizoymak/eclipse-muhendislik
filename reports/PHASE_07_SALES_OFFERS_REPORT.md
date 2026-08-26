@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-27
 **Canlı URL:** https://demo.eclipsemuhendislik.com/satislar/teklifler
-**Kod commit SHA:** (aşağıda, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `b14b34f9ea7f19a1c25ba93b6cd7adbc1d32ac5c`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Dokümantasyon ve gerçek API keşfi
 
