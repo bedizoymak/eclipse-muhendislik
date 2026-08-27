@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { E_DOCUMENT_TYPE_LABELS, formatEDocValue, type EDocument } from "@/lib/eDocuments";
+import { E_DOCUMENT_TYPE_LABELS, formatEDocValue, resolveEDocumentUrl, type EDocument } from "@/lib/eDocuments";
 
 function formatAmount(value: number | null, currency: string | null): string {
   if (value == null) return "—";
@@ -26,10 +26,11 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function LinkButton({ href, label }: { href: string | null; label: string }) {
-  if (!href) return <span>—</span>;
+  const resolved = resolveEDocumentUrl(href);
+  if (!resolved) return <span>—</span>;
   return (
     <a
-      href={href}
+      href={resolved}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-block rounded-lg border border-electric-bright/40 px-3 py-1 text-xs text-electric-bright hover:bg-electric-bright/10"

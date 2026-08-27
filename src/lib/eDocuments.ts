@@ -130,3 +130,30 @@ export function formatEDocValue(value: string | number | boolean | null | undefi
   if (typeof value === "string" && value.trim() === "") return "—";
   return String(value);
 }
+
+// Parasut's own API returns pdf_url/html_url as a relative path (e.g.
+// "/666034/e_invoices/1055802035/show_original") while signed_ubl_url is
+// already absolute (e.g. "https://uygulama.parasut.com/..."). The DB/view
+// stores the raw value exactly as the API gave it -- this resolver only
+// runs at render time, never touches storage. A relative path is resolved
+// against Parasut's own app origin (never anything else); an already-
+// absolute http(s) URL passes through unchanged; anything else (null,
+// empty, javascript:/data:/protocol-relative, or a value that fails to
+// parse as a real URL) returns null so no link is ever rendered for it.
+const PARASUT_APP_ORIGIN = "https://uygulama.parasut.com";
+
+export function resolveEDocumentUrl(value: string | null | undefined): string | null {
+  if (!value || value.trim() === "") return null;
+  // Reject protocol-relative ("//host/path") explicitly -- resolving it
+  // against PARASUT_APP_ORIGIN would silently adopt whatever host it names,
+  // not Parasut's.
+  if (value.trim().startsWith("//")) return null;
+  let resolved: URL;
+  try {
+    resolved = new URL(value, PARASUT_APP_ORIGIN);
+  } catch {
+    return null;
+  }
+  if (resolved.protocol !== "https:" && resolved.protocol !== "http:") return null;
+  return resolved.href;
+}

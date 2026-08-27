@@ -51,11 +51,39 @@ const Faturalar = () => {
   const [counts, setCounts] = useState<{ active: number; archived: number; all: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Tab counts are derived once from the same real, unfiltered "archived"
+  // column every list row already comes from -- not from separate
+  // count=exact HEAD requests (those were firing 3 concurrent, Range-less
+  // HEAD calls per page load and returning a reproducible 503 from
+  // Supabase). Fetching the full archived column once is cheap (451 rows)
+  // and gives an authoritative, real count with a single request.
   useEffect(() => {
     if (!supabase) {
       setLoadError("Supabase yapılandırılmamış.");
       return;
     }
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase.from("parasut_sales_invoices_demo").select("archived");
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error.message);
+        return;
+      }
+      const rows = (data as { archived: boolean | null }[] | null) ?? [];
+      const active = rows.filter((r) => r.archived === false).length;
+      const archived = rows.filter((r) => r.archived === true).length;
+      setCounts({ active, archived, all: rows.length });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
     let cancelled = false;
 
     (async () => {
@@ -70,23 +98,13 @@ const Faturalar = () => {
       if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
       if (toDate) listQuery = listQuery.lte("issue_date", toDate);
 
-      const [listRes, activeRes, archivedRes, allRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_sales_invoices_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        supabase.from("parasut_sales_invoices_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        supabase.from("parasut_sales_invoices_demo").select("parasut_id", { count: "exact", head: true }),
-      ]);
-
+      const { data, error } = await listQuery;
       if (cancelled) return;
-
-      const firstError = listRes.error?.message ?? activeRes.error?.message ?? archivedRes.error?.message ?? allRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (error) {
+        setLoadError(error.message);
         return;
       }
-
-      setInvoices((listRes.data as InvoiceDemoRow[] | null) ?? []);
-      setCounts({ active: activeRes.count ?? 0, archived: archivedRes.count ?? 0, all: allRes.count ?? 0 });
+      setInvoices((data as InvoiceDemoRow[] | null) ?? []);
     })();
 
     return () => {
@@ -103,8 +121,8 @@ const Faturalar = () => {
         <h1 className="mt-4 font-display text-3xl font-semibold">Satış Faturaları</h1>
         <p className="mt-1 text-white/60">Paraşüt'ten senkronize edilen gerçek satış faturaları.</p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <div className="flex min-w-0 flex-wrap gap-2">
             {ARCHIVED_FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -124,7 +142,7 @@ const Faturalar = () => {
           <select
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
-            className="rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white"
+            className="w-full min-w-0 rounded-lg border border-white/15 bg-navy-deep px-3 py-1.5 text-sm text-white sm:w-auto"
           >
             <option value="all">Tüm ödeme durumları</option>
             <option value="paid">Ödendi</option>
@@ -133,22 +151,24 @@ const Faturalar = () => {
             <option value="partially_paid">Kısmi ödendi</option>
           </select>
 
-          <div className="flex items-center gap-2 text-sm text-white/60">
-            <label htmlFor="fromDate">Tarih:</label>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-white/60">
+            <label htmlFor="fromDate" className="shrink-0">
+              Tarih:
+            </label>
             <input
               id="fromDate"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
+              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white sm:flex-none"
             />
-            <span>–</span>
+            <span className="shrink-0">–</span>
             <input
               id="toDate"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white"
+              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-navy-deep px-2 py-1 text-white sm:flex-none"
             />
           </div>
         </div>
