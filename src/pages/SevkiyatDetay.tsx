@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveEDocumentUrl } from "@/lib/eDocuments";
 
 interface ShipmentDocumentDemoRow {
   parasut_id: number;
@@ -45,9 +46,15 @@ interface ShipmentDocumentDemoRow {
   e_despatch_response_type: string | null;
   e_despatch_response_parasut_id: number | null;
   inbound_e_despatch_parasut_id: number | null;
+  print_url: string | null;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
+}
+
+interface InvoiceLinkRow {
+  sales_invoice_parasut_id: number;
+  sales_invoice_no: string | null;
 }
 
 interface InboundEDespatchRow {
@@ -79,15 +86,24 @@ interface ActivityRow {
   date: string | null;
   data_description: string | null;
   data_issue_date: string | null;
+  done_by_email: string | null;
   done_by_parasut_id: number | null;
+  done_by_type: string | null;
   done_by_name: string | null;
   done_by_user_email: string | null;
+  item_parasut_id: number | null;
+  item_type: string | null;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
   new_shipment_document: "İrsaliye oluşturuldu",
   shipment_document_update: "İrsaliye güncellendi",
+  shipment_document_legalize: "İrsaliye onaylandı",
+  shipment_document_archived: "İrsaliye arşivlendi",
 };
+
 
 function formatValue(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return "—";
@@ -127,6 +143,7 @@ const SevkiyatDetay = () => {
   const [inbound, setInbound] = useState<InboundEDespatchRow | null>(null);
   const [movements, setMovements] = useState<StockMovementRow[] | null>(null);
   const [activities, setActivities] = useState<ActivityRow[] | null>(null);
+  const [invoiceLinks, setInvoiceLinks] = useState<InvoiceLinkRow[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -140,7 +157,7 @@ const SevkiyatDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [docRes, movementsRes, activitiesRes] = await Promise.all([
+      const [docRes, movementsRes, activitiesRes, invoiceLinksRes] = await Promise.all([
         supabase.from("parasut_shipment_documents_demo").select("*").eq("parasut_id", parasutId).maybeSingle(),
         supabase
           .from("parasut_stock_movements_demo")
@@ -149,13 +166,19 @@ const SevkiyatDetay = () => {
           .eq("source_parasut_id", parasutId),
         supabase
           .from("parasut_shipment_document_activities_demo")
-          .select("parasut_id, activity_type, date, data_description, data_issue_date, done_by_parasut_id, done_by_name, done_by_user_email")
+          .select(
+            "parasut_id, activity_type, date, data_description, data_issue_date, done_by_email, done_by_parasut_id, done_by_type, done_by_name, done_by_user_email, item_parasut_id, item_type, parasut_created_at, parasut_updated_at",
+          )
+          .eq("shipment_document_parasut_id", parasutId),
+        supabase
+          .from("parasut_shipment_document_invoices_demo")
+          .select("sales_invoice_parasut_id, sales_invoice_no")
           .eq("shipment_document_parasut_id", parasutId),
       ]);
 
       if (cancelled) return;
 
-      const firstError = docRes.error?.message ?? movementsRes.error?.message ?? activitiesRes.error?.message;
+      const firstError = docRes.error?.message ?? movementsRes.error?.message ?? activitiesRes.error?.message ?? invoiceLinksRes.error?.message;
       if (firstError) {
         setLoadError(firstError);
         return;
@@ -165,6 +188,7 @@ const SevkiyatDetay = () => {
       setDoc(docRow);
       setMovements((movementsRes.data as StockMovementRow[] | null) ?? []);
       setActivities((activitiesRes.data as ActivityRow[] | null) ?? []);
+      setInvoiceLinks((invoiceLinksRes.data as InvoiceLinkRow[] | null) ?? []);
 
       if (docRow?.inbound_e_despatch_parasut_id) {
         const { data, error } = await supabase
@@ -288,9 +312,49 @@ const SevkiyatDetay = () => {
                   <Field label="Yazdırılma tarihi" value={formatApiTimestamp(doc.printed_at)} />
                   <Field label="Yazdırılan düzenleme tarihi" value={formatValue(doc.printed_issue_date)} />
                   <Field label="Yazdırma notu" value={formatValue(doc.print_note)} />
+                  <Field
+                    label="Yazdırma bağlantısı (print_url)"
+                    value={
+                      resolveEDocumentUrl(doc.print_url) ? (
+                        <a
+                          href={resolveEDocumentUrl(doc.print_url)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-electric-bright hover:underline"
+                        >
+                          Yazdırma sayfasını aç
+                        </a>
+                      ) : (
+                        "—"
+                      )
+                    }
+                  />
                   <Field label="Paraşüt'te oluşturulma" value={formatApiTimestamp(doc.parasut_created_at)} />
                   <Field label="Paraşüt'te güncellenme" value={formatApiTimestamp(doc.parasut_updated_at)} />
                   <Field label="Son sync" value={new Date(doc.synced_at).toLocaleString("tr-TR")} />
+                </Group>
+
+                <Group title="Bağlı satış faturaları (invoices)">
+                  {invoiceLinks === null ? (
+                    <Field label="Durum" value="Yükleniyor…" />
+                  ) : invoiceLinks.length === 0 ? (
+                    <Field label="Durum" value="Bağlı satış faturası yok." />
+                  ) : (
+                    invoiceLinks.map((link) => (
+                      <Field
+                        key={link.sales_invoice_parasut_id}
+                        label="Satış faturası"
+                        value={
+                          <Link
+                            to={`/satislar/faturalar/${link.sales_invoice_parasut_id}`}
+                            className="text-electric-bright hover:underline"
+                          >
+                            {link.sales_invoice_no ?? `#${link.sales_invoice_parasut_id}`}
+                          </Link>
+                        }
+                      />
+                    ))
+                  )}
                 </Group>
               </>
             )}
@@ -364,22 +428,54 @@ const SevkiyatDetay = () => {
             ) : activities.length === 0 ? (
               <p className="mt-2 text-white/50">Kayıt yok.</p>
             ) : (
-              <ul className="mt-3 space-y-2">
+              <div className="mt-3 space-y-3">
                 {activities.map((act) => (
-                  <li key={act.parasut_id} className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm">
+                  <div key={act.parasut_id} className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="text-white/90">{act.activity_type ? ACTIVITY_LABELS[act.activity_type] ?? act.activity_type : "—"}</span>
+                      <span className="font-medium text-white/90">
+                        {act.activity_type ? ACTIVITY_LABELS[act.activity_type] ?? act.activity_type : "—"}
+                      </span>
                       <span className="text-white/50">{formatApiTimestamp(act.date)}</span>
-                      {act.done_by_name && (
-                        <span className="text-white/50">
-                          {act.done_by_name}
-                          {act.done_by_user_email ? ` (${act.done_by_user_email})` : ""}
-                        </span>
-                      )}
                     </div>
-                  </li>
+
+                    <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <Field label="Activity Paraşüt ID" value={act.parasut_id} />
+                      <Field
+                        label="Yapan (done_by)"
+                        value={
+                          act.done_by_parasut_id ? (
+                            <>
+                              {act.done_by_name ?? `#${act.done_by_parasut_id}`}
+                              {act.done_by_user_email && <span className="text-white/50"> ({act.done_by_user_email})</span>}
+                            </>
+                          ) : (
+                            "—"
+                          )
+                        }
+                      />
+                      <Field
+                        label="İlgili kayıt (item)"
+                        value={
+                          act.item_parasut_id && act.item_type === "shipment_documents" ? (
+                            <Link to={`/stok/sevkiyat-irsaliyeleri/${act.item_parasut_id}`} className="text-electric-bright hover:underline">
+                              #{act.item_parasut_id}
+                            </Link>
+                          ) : act.item_parasut_id ? (
+                            `${act.item_type ?? "?"} #${act.item_parasut_id}`
+                          ) : (
+                            "—"
+                          )
+                        }
+                      />
+                      <Field label="done_by_email (activity alanı)" value={formatValue(act.done_by_email)} />
+                      <Field label="Paraşüt'te oluşturulma" value={formatApiTimestamp(act.parasut_created_at)} />
+                      <Field label="Paraşüt'te güncellenme" value={formatApiTimestamp(act.parasut_updated_at)} />
+                      <Field label="Açıklama (data.description)" value={formatValue(act.data_description)} />
+                      <Field label="Düzenleme tarihi (data.issue_date)" value={formatValue(act.data_issue_date)} />
+                    </dl>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </>
         )}

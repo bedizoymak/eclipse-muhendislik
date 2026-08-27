@@ -33,7 +33,12 @@ import { mapWarehouse } from "./resources/warehouses.ts";
 import { mapItemCategory } from "./resources/item_categories.ts";
 import { mapStockMovement } from "./resources/stock_movements.ts";
 import { mapCheck } from "./resources/checks.ts";
-import { mapInboundEDespatch, mapShipmentDocument, mapShipmentDocumentActivity } from "./resources/shipment_documents.ts";
+import {
+  invoiceIdsForShipmentDocument,
+  mapInboundEDespatch,
+  mapShipmentDocument,
+  mapShipmentDocumentActivity,
+} from "./resources/shipment_documents.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -595,12 +600,18 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
   // (verified: the list endpoint 400s on include=activities) -- each
   // document's activities are fetched individually via the single-record
   // endpoint, same established pattern as sales_offers.activities.
+  // invoices is a real to-many relationship (verified: 1/15 documents in
+  // this account has a real linked sales_invoice; the other 14 have a
+  // genuinely empty array) -- same list/single inconsistency as activities,
+  // the list endpoint 400s on include=invoices, so it is fetched alongside
+  // activities on the same per-record call.
   const activityPairs: { docParasutId: number; activity: JsonApiResource; doneByUser: JsonApiResource | null }[] = [];
+  const invoiceLinkPairs: { docParasutId: number; salesInvoiceParasutId: number }[] = [];
   if (!dryRun) {
     for (const doc of docItems) {
       const docParasutId = Number(doc.id);
-      const { included: docIncluded } = await fetchResource(accessToken, "shipment_documents", doc.id, {
-        include: "activities,activities.item,activities.done_by",
+      const { item: docSingle, included: docIncluded } = await fetchResource(accessToken, "shipment_documents", doc.id, {
+        include: "activities,activities.item,activities.done_by,invoices",
       });
       const usersByKey = new Map<string, JsonApiResource>();
       for (const resource of docIncluded) {
@@ -614,9 +625,16 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
           activityPairs.push({ docParasutId, activity: resource, doneByUser });
         }
       }
+      for (const invoiceId of invoiceIdsForShipmentDocument(docSingle)) {
+        const salesInvoiceParasutId = Number(invoiceId);
+        if (Number.isFinite(salesInvoiceParasutId)) {
+          invoiceLinkPairs.push({ docParasutId, salesInvoiceParasutId });
+        }
+      }
     }
   }
   const activityFetchedCount = activityPairs.length;
+  const invoiceLinkFetchedCount = invoiceLinkPairs.length;
 
   let docUpsertedCount = 0;
   let inboundUpsertedCount = 0;
@@ -651,6 +669,37 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
     activityUpsertedCount = activityResult.upsertedCount;
     errorCount += activityResult.errorCount;
     errorMessages.push(...activityResult.errorMessages);
+
+    // Junction rows have no single parasut_id and this sync is a full,
+    // authoritative listing of every real document -- so the safe way to
+    // guarantee no stale (document, invoice) pair survives is to clear
+    // every link for the documents just fetched, then re-insert exactly
+    // the pairs the API reports right now. Never touches
+    // parasut.sales_invoices itself, only the junction rows.
+    const currentDocIds = docItems.map((d) => Number(d.id));
+    const { error: clearError } = await db
+      .schema("parasut")
+      .from("shipment_document_invoices")
+      .delete()
+      .in("shipment_document_parasut_id", currentDocIds);
+    if (clearError) {
+      errorCount += 1;
+      errorMessages.push(`shipment_document_invoices (clear): ${clearError.message}`);
+    } else if (invoiceLinkPairs.length > 0) {
+      const { error: insertError } = await db
+        .schema("parasut")
+        .from("shipment_document_invoices")
+        .insert(
+          invoiceLinkPairs.map(({ docParasutId, salesInvoiceParasutId }) => ({
+            shipment_document_parasut_id: docParasutId,
+            sales_invoice_parasut_id: salesInvoiceParasutId,
+          })),
+        );
+      if (insertError) {
+        errorCount += 1;
+        errorMessages.push(`shipment_document_invoices (insert): ${insertError.message}`);
+      }
+    }
   }
 
   return {
@@ -674,6 +723,7 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
       inbound_e_despatch_upserted_count: dryRun ? 0 : inboundUpsertedCount,
       activity_fetched_count: dryRun ? 0 : activityFetchedCount,
       activity_upserted_count: dryRun ? 0 : activityUpsertedCount,
+      invoice_link_fetched_count: dryRun ? 0 : invoiceLinkFetchedCount,
       unresolved_count: unresolvedCount,
       total_count_reported: totalCountReported,
     },

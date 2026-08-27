@@ -70,10 +70,18 @@ export interface ShipmentDocumentRow {
   e_despatch_response_type: string | null;
   e_despatch_response_parasut_id: number | null;
   inbound_e_despatch_parasut_id: number | null;
+  print_url: string | null;
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
+}
+
+/** The sales_invoice ids a shipment document's own relationships.invoices lists. */
+export function invoiceIdsForShipmentDocument(item: JsonApiResource): string[] {
+  const rel = item.relationships?.["invoices"]?.data;
+  if (!rel || !Array.isArray(rel)) return [];
+  return rel.map((r) => r.id);
 }
 
 export function mapShipmentDocument(item: JsonApiResource): ShipmentDocumentRow {
@@ -130,6 +138,7 @@ export function mapShipmentDocument(item: JsonApiResource): ShipmentDocumentRow 
     e_despatch_response_type: eDespatchResponse.type,
     e_despatch_response_parasut_id: eDespatchResponse.id,
     inbound_e_despatch_parasut_id: inboundEDespatch.id,
+    print_url: attr(a, "print_url"),
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
