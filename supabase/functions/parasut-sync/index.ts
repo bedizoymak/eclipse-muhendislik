@@ -129,17 +129,36 @@ async function fetchActiveAndArchived(accessToken: string, path: string, extraPa
  * contact_people are synced alongside contacts via `include=contact_people`
  * on the same contacts list call (no standalone contact_people endpoint
  * exists -- verified: GET /contact_people and GET /contact_people/{id} both
- * 404 "No route matches."). The parent contact link is NEVER taken from the
- * contact_person's own `relationships.contact` (verified always
- * `{"meta":{}}`, no data, on every list-included resource) -- it is taken
- * only from the parent CONTACT's own `relationships.contact_people.data`
- * list (real id+type), which is the one place the genuine relationship
- * lives on the list endpoint. Contact NAME is never used for linking.
+ * 404 "No route matches."). The parent LINK (which contact this person
+ * belongs to) is taken from the parent CONTACT's own
+ * `relationships.contact_people.data` list (real id+type) -- the one place
+ * the genuine forward relationship lives on the LIST endpoint. Contact NAME
+ * is never used for linking.
+ *
+ * Phase 11.1 (parent TYPE): with the plain `include=contact_people`, the
+ * included contact_person's own `relationships.contact` is always
+ * `{"meta":{}}` (no data) -- verified in Phase 11. Also verified in this
+ * phase: the LIST endpoint rejects the nested `include=contact_people.contact`
+ * outright (`400 contact_people.contact is not a valid relation`), so it
+ * cannot be added to the bulk contacts fetch. The SINGLE endpoint
+ * (`GET /contacts/{id}?include=contact_people.contact`), however, DOES
+ * accept it (verified 200, real response) and is the one real API path
+ * where the parent contact's own type ("contacts") is exposed alongside the
+ * included contact_person. Since only contacts that actually have people
+ * need this (2 of 448 in this account), one extra real SINGLE call is made
+ * per such contact -- never a "contacts" string constant, never guessed.
  */
-function extractContactPeople(
+async function extractContactPeople(
+  accessToken: string,
   contacts: JsonApiResource[],
   included: JsonApiResource[],
-): { rows: ReturnType<typeof mapContactPerson>[]; duplicateCount: number; unresolvedCount: number } {
+): Promise<{
+  rows: ReturnType<typeof mapContactPerson>[];
+  duplicateCount: number;
+  unresolvedCount: number;
+  missingTypeCount: number;
+  typeMismatchCount: number;
+}> {
   const includedByKey = new Map<string, JsonApiResource>();
   for (const resource of included) {
     if (resource.type === "contact_people") includedByKey.set(`contact_people:${resource.id}`, resource);
@@ -149,11 +168,25 @@ function extractContactPeople(
   const seenPersonIds = new Set<string>();
   let duplicateCount = 0;
   let unresolvedCount = 0;
+  let missingTypeCount = 0;
+  let typeMismatchCount = 0;
 
   for (const contact of contacts) {
     const contactParasutId = Number(contact.id);
     const rel = contact.relationships?.["contact_people"]?.data;
     const personRefs = Array.isArray(rel) ? rel : rel ? [rel] : [];
+    if (personRefs.length === 0) continue;
+
+    // Real nested-include SINGLE call, only for contacts that genuinely
+    // have people -- verified real API path (see doc comment above).
+    const { item: nestedContact, included: nestedIncluded } = await fetchResource(accessToken, "contacts", contact.id, {
+      include: "contact_people.contact",
+    });
+    const nestedIncludedByKey = new Map<string, JsonApiResource>();
+    for (const resource of nestedIncluded) {
+      if (resource.type === "contact_people") nestedIncludedByKey.set(`contact_people:${resource.id}`, resource);
+    }
+
     for (const ref of personRefs) {
       const personResource = includedByKey.get(`contact_people:${ref.id}`);
       if (!personResource) {
@@ -165,11 +198,23 @@ function extractContactPeople(
         continue;
       }
       seenPersonIds.add(ref.id);
-      rows.push(mapContactPerson(personResource, contactParasutId));
+
+      const resourceType = personResource.type ?? null;
+      const nestedPersonResource = nestedIncludedByKey.get(`contact_people:${ref.id}`);
+      const nestedContactRel = nestedPersonResource?.relationships?.["contact"]?.data;
+      const nestedParentRef = !nestedContactRel || Array.isArray(nestedContactRel) ? null : nestedContactRel;
+      const contactType = nestedParentRef?.type ?? null;
+
+      if (resourceType === null || contactType === null) missingTypeCount += 1;
+      if (nestedParentRef && Number(nestedParentRef.id) !== contactParasutId) typeMismatchCount += 1;
+      if (ref.type !== resourceType) typeMismatchCount += 1;
+      if (nestedContact.type !== "contacts") typeMismatchCount += 1;
+
+      rows.push(mapContactPerson(personResource, contactParasutId, contactType));
     }
   }
 
-  return { rows, duplicateCount, unresolvedCount };
+  return { rows, duplicateCount, unresolvedCount, missingTypeCount, typeMismatchCount };
 }
 
 async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boolean) {
@@ -180,7 +225,13 @@ async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boo
 
   const allContacts = [...active.items, ...archived.items];
   const allIncluded = [...active.included, ...archived.included];
-  const { rows: contactPeopleRows, duplicateCount, unresolvedCount } = extractContactPeople(allContacts, allIncluded);
+  const {
+    rows: contactPeopleRows,
+    duplicateCount,
+    unresolvedCount,
+    missingTypeCount,
+    typeMismatchCount,
+  } = await extractContactPeople(accessToken, allContacts, allIncluded);
   // Any contact_people row genuinely present in the source this run but
   // whose parasut_id is no longer returned is a stale link: remove only
   // rows for parent contacts that WERE actually covered this run (full
@@ -241,6 +292,8 @@ async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boo
       contact_people_upserted_count: dryRun ? 0 : personUpsertedCount,
       contact_people_duplicate_count: duplicateCount,
       contact_people_unresolved_count: unresolvedCount,
+      contact_people_missing_type_count: missingTypeCount,
+      contact_people_type_mismatch_count: typeMismatchCount,
       contact_people_stale_removed_count: dryRun ? 0 : staleRemovedCount,
     },
     errorCount,

@@ -66,13 +66,28 @@ export interface ContactPersonRow {
   phone: string | null;
   notes: string | null;
   contact_parasut_id: number | null;
+  // Phase 11.1: the contact_person's OWN root `type` value, taken directly
+  // from the included resource's `type` field (e.g. "contact_people"). Never
+  // derived from the table name or route -- read from the real API resource
+  // object itself. Null only if the API resource genuinely had no `type`.
+  resource_type: string | null;
+  // Phase 11.1: the PARENT contact's real `type` value, taken only from the
+  // nested-include child's own `relationships.contact.data.type`
+  // (include=contact_people.contact) -- the one real API path where the
+  // parent's type is actually present alongside this person. Never a
+  // "contacts" string constant, never derived from the parent id or route.
+  contact_type: string | null;
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
 }
 
-export function mapContactPerson(item: JsonApiResource, contactParasutId: number): ContactPersonRow {
+export function mapContactPerson(
+  item: JsonApiResource,
+  contactParasutId: number,
+  contactType: string | null,
+): ContactPersonRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) {
@@ -86,6 +101,8 @@ export function mapContactPerson(item: JsonApiResource, contactParasutId: number
     phone: attr(a, "phone"),
     notes: attr(a, "notes"),
     contact_parasut_id: contactParasutId,
+    resource_type: item.type ?? null,
+    contact_type: contactType,
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),

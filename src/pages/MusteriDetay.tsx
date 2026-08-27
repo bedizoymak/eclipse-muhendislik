@@ -18,6 +18,11 @@ interface ContactDemoRow {
 // the real parent-contact relationship id (contact_parasut_id). No title,
 // department, role, or "primary contact" field exists on the API resource,
 // so none is rendered here.
+// Phase 11.1: resource_type is the contact_person's OWN real API root
+// `type` (always "contact_people" so far); contact_type is the PARENT
+// contact's real API `type` (always "contacts" so far), sourced only from
+// the nested include=contact_people.contact relationship on the sync side.
+// Neither is ever derived from the id, table name, or route.
 interface ContactPersonDemoRow {
   parasut_id: number;
   name: string | null;
@@ -25,6 +30,8 @@ interface ContactPersonDemoRow {
   phone: string | null;
   notes: string | null;
   contact_parasut_id: number | null;
+  resource_type: string | null;
+  contact_type: string | null;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
@@ -73,7 +80,9 @@ const MusteriDetay = () => {
     let cancelled = false;
     supabase
       .from("parasut_contact_people_demo")
-      .select("parasut_id, name, email, phone, notes, contact_parasut_id, parasut_created_at, parasut_updated_at, synced_at")
+      .select(
+        "parasut_id, name, email, phone, notes, contact_parasut_id, resource_type, contact_type, parasut_created_at, parasut_updated_at, synced_at",
+      )
       .eq("contact_parasut_id", parasutId)
       .order("parasut_id", { ascending: true })
       .then(({ data, error }) => {
@@ -169,8 +178,16 @@ const MusteriDetay = () => {
                             <dd className="mt-1 break-all">{person.parasut_id}</dd>
                           </div>
                           <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Resource type</dt>
+                            <dd className="mt-1 break-all">{person.resource_type ?? "—"}</dd>
+                          </div>
+                          <div>
                             <dt className="text-xs uppercase tracking-wide text-white/50">Bağlı müşteri (contact) ID</dt>
                             <dd className="mt-1 break-all">{person.contact_parasut_id ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Parent type</dt>
+                            <dd className="mt-1 break-all">{person.contact_type ?? "—"}</dd>
                           </div>
                           <div>
                             <dt className="text-xs uppercase tracking-wide text-white/50">E-posta</dt>
