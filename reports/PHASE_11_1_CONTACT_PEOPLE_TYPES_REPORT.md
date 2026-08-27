@@ -213,5 +213,5 @@ Tüm 6 kontrol PASS. Geçici CDP scripti (`cdp_check_phase111.mjs`) proje kökü
 
 ---
 
-**Kod commit SHA:** (bu bölüm bir sonraki commit'te doldurulacak)
+**Kod commit SHA:** 86ac96651483649da50a97804a23c2fc05d25fd3
 **Rapor commit SHA:** (bu commit)
