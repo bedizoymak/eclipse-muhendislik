@@ -27,6 +27,8 @@ const UrunDetay = lazy(() => import("./pages/UrunDetay.tsx"));
 const Depolar = lazy(() => import("./pages/Depolar.tsx"));
 const StokSeviyeleri = lazy(() => import("./pages/StokSeviyeleri.tsx"));
 const StokHareketleri = lazy(() => import("./pages/StokHareketleri.tsx"));
+const Sevkiyatlar = lazy(() => import("./pages/Sevkiyatlar.tsx"));
+const SevkiyatDetay = lazy(() => import("./pages/SevkiyatDetay.tsx"));
 const Cekler = lazy(() => import("./pages/Cekler.tsx"));
 const CekDetay = lazy(() => import("./pages/CekDetay.tsx"));
 const Teklifler = lazy(() => import("./pages/Teklifler.tsx"));
@@ -91,6 +93,8 @@ const App = () => (
               <Route path="/stok/depolar" element={<Depolar />} />
               <Route path="/stok/seviyeleri" element={<StokSeviyeleri />} />
               <Route path="/stok/hareketleri" element={<StokHareketleri />} />
+              <Route path="/stok/sevkiyat-irsaliyeleri" element={<Sevkiyatlar />} />
+              <Route path="/stok/sevkiyat-irsaliyeleri/:parasutId" element={<SevkiyatDetay />} />
               <Route path="/nakit/cekler" element={<Cekler />} />
               <Route path="/nakit/cekler/:parasutId" element={<CekDetay />} />
               <Route path="/satislar/teklifler" element={<Teklifler />} />

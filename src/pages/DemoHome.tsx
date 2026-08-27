@@ -175,6 +175,9 @@ const DemoHome = () => {
               <Link to="/nakit/cekler" className="text-sm text-electric-bright hover:underline">
                 Çekler →
               </Link>
+              <Link to="/stok/sevkiyat-irsaliyeleri" className="text-sm text-electric-bright hover:underline">
+                Sevkiyat irsaliyeleri →
+              </Link>
             </div>
 
             <div className="mt-8">

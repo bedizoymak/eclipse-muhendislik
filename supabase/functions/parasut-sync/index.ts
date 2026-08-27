@@ -33,6 +33,7 @@ import { mapWarehouse } from "./resources/warehouses.ts";
 import { mapItemCategory } from "./resources/item_categories.ts";
 import { mapStockMovement } from "./resources/stock_movements.ts";
 import { mapCheck } from "./resources/checks.ts";
+import { mapInboundEDespatch, mapShipmentDocument, mapShipmentDocumentActivity } from "./resources/shipment_documents.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -48,6 +49,7 @@ const SUPPORTED_RESOURCES = [
   "item_categories",
   "checks",
   "sales_offers",
+  "shipment_documents",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -532,6 +534,144 @@ async function syncSalesOffers(db: SupabaseClient, accessToken: string, dryRun: 
       offer_upserted_count: dryRun ? 0 : offerUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      activity_fetched_count: dryRun ? 0 : activityFetchedCount,
+      activity_upserted_count: dryRun ? 0 : activityUpsertedCount,
+      unresolved_count: unresolvedCount,
+      total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Shipment documents ("sevkiyat irsaliyeleri"). filter[archived] works
+ * (verified: =false -> 14, =true -> 1, total 15). Verified acceptable list
+ * includes (real 400 error message): contact, tags, warehouse_transfer(.*),
+ * inbound_e_despatch, e_despatch_response, custom_requirement_infos,
+ * stock_movements(.*). stock_movements is intentionally NOT included here --
+ * parasut.stock_movements already carries this exact link via its own
+ * source_type='shipment_documents'/source_parasut_id columns (verified: all
+ * 20 real pairs already match), so re-fetching it here would only
+ * duplicate work the existing stock_movements sync already does correctly.
+ * activities is real (verified: 2 real records on a sample document) but,
+ * same as sales_offers.activities, only resolves via the single-record
+ * endpoint.
+ */
+async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "shipment_documents", {
+    include: "contact,tags,warehouse_transfer,e_despatch_response,inbound_e_despatch,custom_requirement_infos",
+  });
+
+  const docItems = [...active.items, ...archived.items];
+  const docActiveFetchedCount = active.items.length;
+  const docArchivedFetchedCount = archived.items.length;
+  const docFetchedCount = docActiveFetchedCount + docArchivedFetchedCount;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of [...active.included, ...archived.included]) {
+    includedByKey.set(`${resource.type}:${resource.id}`, resource);
+  }
+
+  const inboundPairs: { docParasutId: number; despatch: JsonApiResource }[] = [];
+  const missingInboundRefs: string[] = [];
+  const unresolvedCount = docItems.filter((d) => !d.relationships?.contact?.data).length;
+
+  for (const doc of docItems) {
+    const docParasutId = Number(doc.id);
+    const rel = doc.relationships?.["inbound_e_despatch"]?.data;
+    if (!rel || Array.isArray(rel)) continue;
+    const despatch = includedByKey.get(`${rel.type}:${rel.id}`);
+    if (!despatch) {
+      missingInboundRefs.push(`document ${doc.id} -> inbound_e_despatch ${rel.type}:${rel.id}`);
+      continue;
+    }
+    inboundPairs.push({ docParasutId, despatch });
+  }
+  const inboundFetchedCount = inboundPairs.length;
+
+  // activities cannot be resolved via the list endpoint's include chain
+  // (verified: the list endpoint 400s on include=activities) -- each
+  // document's activities are fetched individually via the single-record
+  // endpoint, same established pattern as sales_offers.activities.
+  const activityPairs: { docParasutId: number; activity: JsonApiResource; doneByUser: JsonApiResource | null }[] = [];
+  if (!dryRun) {
+    for (const doc of docItems) {
+      const docParasutId = Number(doc.id);
+      const { included: docIncluded } = await fetchResource(accessToken, "shipment_documents", doc.id, {
+        include: "activities,activities.item,activities.done_by",
+      });
+      const usersByKey = new Map<string, JsonApiResource>();
+      for (const resource of docIncluded) {
+        if (resource.type === "users") usersByKey.set(resource.id, resource);
+      }
+      for (const resource of docIncluded) {
+        if (resource.type === "activities") {
+          const doneByRel = resource.relationships?.["done_by"]?.data;
+          const doneByUser =
+            doneByRel && !Array.isArray(doneByRel) ? usersByKey.get(doneByRel.id) ?? null : null;
+          activityPairs.push({ docParasutId, activity: resource, doneByUser });
+        }
+      }
+    }
+  }
+  const activityFetchedCount = activityPairs.length;
+
+  let docUpsertedCount = 0;
+  let inboundUpsertedCount = 0;
+  let activityUpsertedCount = 0;
+  let errorCount = missingInboundRefs.length;
+  const errorMessages: string[] = [];
+  if (missingInboundRefs.length > 0) {
+    errorMessages.push(
+      `${missingInboundRefs.length} inbound_e_despatch referenced but not present in the API response: ${missingInboundRefs
+        .slice(0, 20)
+        .join(", ")}${missingInboundRefs.length > 20 ? ", ..." : ""}`,
+    );
+  }
+
+  if (!dryRun) {
+    const docRows = docItems.map(mapShipmentDocument);
+    const docResult = await upsertBatched(db, "shipment_documents", docRows as unknown as Record<string, unknown>[]);
+    docUpsertedCount = docResult.upsertedCount;
+    errorCount += docResult.errorCount;
+    errorMessages.push(...docResult.errorMessages);
+
+    const inboundRows = inboundPairs.map(({ docParasutId, despatch }) => mapInboundEDespatch(despatch, docParasutId));
+    const inboundResult = await upsertBatched(db, "inbound_e_despatches", inboundRows as unknown as Record<string, unknown>[]);
+    inboundUpsertedCount = inboundResult.upsertedCount;
+    errorCount += inboundResult.errorCount;
+    errorMessages.push(...inboundResult.errorMessages);
+
+    const activityRows = activityPairs.map(({ docParasutId, activity, doneByUser }) =>
+      mapShipmentDocumentActivity(activity, docParasutId, doneByUser),
+    );
+    const activityResult = await upsertBatched(db, "shipment_document_activities", activityRows as unknown as Record<string, unknown>[]);
+    activityUpsertedCount = activityResult.upsertedCount;
+    errorCount += activityResult.errorCount;
+    errorMessages.push(...activityResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: docFetchedCount,
+      active_fetched_count: docActiveFetchedCount,
+      archived_fetched_count: docArchivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : docUpsertedCount,
+      detail_fetched_count: inboundFetchedCount,
+      detail_upserted_count: dryRun ? 0 : inboundUpsertedCount,
+      unresolved_count: unresolvedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      document_fetched_count: docFetchedCount,
+      document_active_fetched_count: docActiveFetchedCount,
+      document_archived_fetched_count: docArchivedFetchedCount,
+      document_upserted_count: dryRun ? 0 : docUpsertedCount,
+      inbound_e_despatch_fetched_count: inboundFetchedCount,
+      inbound_e_despatch_upserted_count: dryRun ? 0 : inboundUpsertedCount,
       activity_fetched_count: dryRun ? 0 : activityFetchedCount,
       activity_upserted_count: dryRun ? 0 : activityUpsertedCount,
       unresolved_count: unresolvedCount,
@@ -1280,6 +1420,7 @@ Deno.serve(async (req: Request) => {
       item_categories: syncItemCategories,
       checks: syncChecks,
       sales_offers: syncSalesOffers,
+      shipment_documents: syncShipmentDocuments,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
