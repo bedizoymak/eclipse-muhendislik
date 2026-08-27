@@ -205,5 +205,5 @@ Tüm 8 kontrol PASS.
 
 ---
 
-**Kod commit SHA:** (bu committen sonra doldurulacak)
+**Kod commit SHA:** a6cc4c2294f64a58aeb80b9de7f8823062500040
 **Rapor commit SHA:** (bu commit)
