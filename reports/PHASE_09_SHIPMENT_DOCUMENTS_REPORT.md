@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-27
 **Canlı URL:** https://demo.eclipsemuhendislik.com/stok/sevkiyat-irsaliyeleri
-**Kod commit SHA:** (aşağıda, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `4b703ba3123c2ecfe43303cd6cf3c2aa48ae6ef7`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Resmi dokümantasyon ve gerçek API
 
