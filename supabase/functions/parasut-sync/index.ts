@@ -20,7 +20,7 @@
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAllPages, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
-import { mapContact } from "./resources/contacts.ts";
+import { mapContact, mapContactPerson } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
 import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
 import { mapEArchive, mapEInvoice } from "./resources/e_documents.ts";
@@ -125,22 +125,101 @@ async function fetchActiveAndArchived(accessToken: string, path: string, extraPa
   return { active, archived };
 }
 
+/**
+ * contact_people are synced alongside contacts via `include=contact_people`
+ * on the same contacts list call (no standalone contact_people endpoint
+ * exists -- verified: GET /contact_people and GET /contact_people/{id} both
+ * 404 "No route matches."). The parent contact link is NEVER taken from the
+ * contact_person's own `relationships.contact` (verified always
+ * `{"meta":{}}`, no data, on every list-included resource) -- it is taken
+ * only from the parent CONTACT's own `relationships.contact_people.data`
+ * list (real id+type), which is the one place the genuine relationship
+ * lives on the list endpoint. Contact NAME is never used for linking.
+ */
+function extractContactPeople(
+  contacts: JsonApiResource[],
+  included: JsonApiResource[],
+): { rows: ReturnType<typeof mapContactPerson>[]; duplicateCount: number; unresolvedCount: number } {
+  const includedByKey = new Map<string, JsonApiResource>();
+  for (const resource of included) {
+    if (resource.type === "contact_people") includedByKey.set(`contact_people:${resource.id}`, resource);
+  }
+
+  const rows: ReturnType<typeof mapContactPerson>[] = [];
+  const seenPersonIds = new Set<string>();
+  let duplicateCount = 0;
+  let unresolvedCount = 0;
+
+  for (const contact of contacts) {
+    const contactParasutId = Number(contact.id);
+    const rel = contact.relationships?.["contact_people"]?.data;
+    const personRefs = Array.isArray(rel) ? rel : rel ? [rel] : [];
+    for (const ref of personRefs) {
+      const personResource = includedByKey.get(`contact_people:${ref.id}`);
+      if (!personResource) {
+        unresolvedCount += 1;
+        continue;
+      }
+      if (seenPersonIds.has(ref.id)) {
+        duplicateCount += 1;
+        continue;
+      }
+      seenPersonIds.add(ref.id);
+      rows.push(mapContactPerson(personResource, contactParasutId));
+    }
+  }
+
+  return { rows, duplicateCount, unresolvedCount };
+}
+
 async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boolean) {
-  const { active, archived } = await fetchActiveAndArchived(accessToken, "contacts");
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "contacts", { include: "contact_people" });
   const activeFetchedCount = active.items.length;
   const archivedFetchedCount = archived.items.length;
   const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
 
+  const allContacts = [...active.items, ...archived.items];
+  const allIncluded = [...active.included, ...archived.included];
+  const { rows: contactPeopleRows, duplicateCount, unresolvedCount } = extractContactPeople(allContacts, allIncluded);
+  // Any contact_people row genuinely present in the source this run but
+  // whose parasut_id is no longer returned is a stale link: remove only
+  // rows for parent contacts that WERE actually covered this run (full
+  // active+archived coverage, verified above) and are no longer linked to
+  // that person -- never delete anything if this run's contact coverage
+  // was itself incomplete (handled by the throw in fetchAllPages, which
+  // aborts the whole sync before we ever reach this point).
+  const currentPersonIds = contactPeopleRows.map((r) => r.parasut_id);
+
   let upsertedCount = 0;
+  let personUpsertedCount = 0;
+  let staleRemovedCount = 0;
   let errorCount = 0;
   const errorMessages: string[] = [];
 
   if (!dryRun) {
-    const rows = [...active.items, ...archived.items].map(mapContact);
+    const rows = allContacts.map(mapContact);
     const result = await upsertBatched(db, "contacts", rows as unknown as Record<string, unknown>[]);
     upsertedCount = result.upsertedCount;
     errorCount = result.errorCount;
     errorMessages.push(...result.errorMessages);
+
+    const personResult = await upsertBatched(db, "contact_people", contactPeopleRows as unknown as Record<string, unknown>[]);
+    personUpsertedCount = personResult.upsertedCount;
+    errorCount += personResult.errorCount;
+    errorMessages.push(...personResult.errorMessages);
+
+    if (errorCount === 0) {
+      const { error: deleteError, count } = await db
+        .schema("parasut")
+        .from("contact_people")
+        .delete({ count: "exact" })
+        .not("parasut_id", "in", `(${currentPersonIds.length > 0 ? currentPersonIds.join(",") : "-1"})`);
+      if (deleteError) {
+        errorMessages.push(`contact_people stale cleanup: ${deleteError.message}`);
+      } else {
+        staleRemovedCount = count ?? 0;
+      }
+    }
   }
 
   return {
@@ -158,6 +237,11 @@ async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boo
       archived_fetched_count: archivedFetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: totalCountReported,
+      contact_people_fetched_count: contactPeopleRows.length,
+      contact_people_upserted_count: dryRun ? 0 : personUpsertedCount,
+      contact_people_duplicate_count: duplicateCount,
+      contact_people_unresolved_count: unresolvedCount,
+      contact_people_stale_removed_count: dryRun ? 0 : staleRemovedCount,
     },
     errorCount,
     errorMessages,

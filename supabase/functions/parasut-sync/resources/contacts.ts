@@ -50,6 +50,49 @@ export interface ContactRow {
   synced_at: string;
 }
 
+// Maps a Parasut JSON:API "contact_people" resource to a
+// parasut.contact_people row. Real API discovery (Phase 11): attributes are
+// exactly name/email/phone/notes/created_at/updated_at; the resource's own
+// relationships.contact is always `{"meta":{}}` (no data) on every observed
+// record, so the real parent contact link is NEVER read from the person's
+// own relationship -- it is passed in explicitly as `contactParasutId`,
+// taken only from the PARENT contact's own relationships.contact_people.data
+// (id+type), which is the one place the real link genuinely lives. Contact
+// NAME is never used for linking.
+export interface ContactPersonRow {
+  parasut_id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  contact_parasut_id: number | null;
+  raw: JsonApiResource;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
+  synced_at: string;
+}
+
+export function mapContactPerson(item: JsonApiResource, contactParasutId: number): ContactPersonRow {
+  const a = item.attributes ?? {};
+  const parasutId = Number(item.id);
+  if (!Number.isFinite(parasutId)) {
+    throw new Error(`contact_people resource has a non-numeric id: ${item.id}`);
+  }
+
+  return {
+    parasut_id: parasutId,
+    name: attr(a, "name"),
+    email: attr(a, "email"),
+    phone: attr(a, "phone"),
+    notes: attr(a, "notes"),
+    contact_parasut_id: contactParasutId,
+    raw: item,
+    parasut_created_at: attr(a, "created_at"),
+    parasut_updated_at: attr(a, "updated_at"),
+    synced_at: new Date().toISOString(),
+  };
+}
+
 export function mapContact(item: JsonApiResource): ContactRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);

@@ -14,12 +14,30 @@ interface ContactDemoRow {
   synced_at: string;
 }
 
+// Real Parasut contact_people attributes only -- name/email/phone/notes plus
+// the real parent-contact relationship id (contact_parasut_id). No title,
+// department, role, or "primary contact" field exists on the API resource,
+// so none is rendered here.
+interface ContactPersonDemoRow {
+  parasut_id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  contact_parasut_id: number | null;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
+  synced_at: string;
+}
+
 // Phase 1: simple detail view reading the same curated demo view as the
 // list page. No mock data -- an unknown parasutId just shows "not found".
 const MusteriDetay = () => {
   const { parasutId } = useParams<{ parasutId: string }>();
   const [contact, setContact] = useState<ContactDemoRow | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [people, setPeople] = useState<ContactPersonDemoRow[] | undefined>(undefined);
+  const [peopleError, setPeopleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -41,6 +59,30 @@ const MusteriDetay = () => {
           return;
         }
         setContact((data as ContactDemoRow | null) ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parasutId]);
+
+  // Yetkili Kişiler (contact_people) -- real records only, linked via the
+  // real contact_parasut_id relationship column (never by name matching).
+  useEffect(() => {
+    if (!supabase || !parasutId) return;
+
+    let cancelled = false;
+    supabase
+      .from("parasut_contact_people_demo")
+      .select("parasut_id, name, email, phone, notes, contact_parasut_id, parasut_created_at, parasut_updated_at, synced_at")
+      .eq("contact_parasut_id", parasutId)
+      .order("parasut_id", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          setPeopleError(error.message);
+          return;
+        }
+        setPeople((data as ContactPersonDemoRow[] | null) ?? []);
       });
     return () => {
       cancelled = true;
@@ -96,6 +138,71 @@ const MusteriDetay = () => {
                 <dd className="mt-1">{new Date(contact.synced_at).toLocaleString("tr-TR")}</dd>
               </div>
             </dl>
+
+            <section className="mt-10">
+              <h2 className="font-display text-xl font-semibold">Yetkili Kişiler</h2>
+
+              {peopleError && (
+                <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                  Yetkili kişiler okunamadı: {peopleError}
+                </div>
+              )}
+
+              {!peopleError && people === undefined && <p className="mt-3 text-sm text-white/50">Yükleniyor…</p>}
+
+              {!peopleError && people && people.length === 0 && (
+                <p className="mt-3 text-sm text-white/50">İlişkili yetkili kişi yok.</p>
+              )}
+
+              {!peopleError && people && people.length > 0 && (
+                <div className="mt-3 space-y-4">
+                  {people.map((person) => (
+                    <div
+                      key={person.parasut_id}
+                      className="overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <div className="min-w-[16rem]">
+                        <div className="font-medium text-white">{person.name?.trim() || "—"}</div>
+                        <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt ID</dt>
+                            <dd className="mt-1 break-all">{person.parasut_id}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Bağlı müşteri (contact) ID</dt>
+                            <dd className="mt-1 break-all">{person.contact_parasut_id ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">E-posta</dt>
+                            <dd className="mt-1 break-all">{person.email?.trim() || "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Telefon</dt>
+                            <dd className="mt-1">{person.phone?.trim() || "—"}</dd>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Not</dt>
+                            <dd className="mt-1 whitespace-pre-wrap break-words">{person.notes?.trim() || "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Oluşturulma (UTC)</dt>
+                            <dd className="mt-1">
+                              {person.parasut_created_at ? new Date(person.parasut_created_at).toISOString() : "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs uppercase tracking-wide text-white/50">Güncellenme (UTC)</dt>
+                            <dd className="mt-1">
+                              {person.parasut_updated_at ? new Date(person.parasut_updated_at).toISOString() : "—"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </>
         )}
       </div>
