@@ -68,6 +68,8 @@ interface InboundEDespatchRow {
   response_type: string | null;
   expires_at: string | null;
   is_expired: boolean | null;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
 }
 
 interface StockMovementRow {
@@ -193,7 +195,9 @@ const SevkiyatDetay = () => {
       if (docRow?.inbound_e_despatch_parasut_id) {
         const { data, error } = await supabase
           .from("parasut_inbound_e_despatches_demo")
-          .select("parasut_id, uuid, despatch_no, contact_name, issue_date, from_tax_number, response_status, response_type, expires_at, is_expired")
+          .select(
+            "parasut_id, uuid, despatch_no, contact_name, issue_date, from_tax_number, response_status, response_type, expires_at, is_expired, parasut_created_at, parasut_updated_at",
+          )
           .eq("parasut_id", docRow.inbound_e_despatch_parasut_id)
           .maybeSingle();
         if (!cancelled && !error) setInbound((data as InboundEDespatchRow | null) ?? null);
@@ -377,6 +381,8 @@ const SevkiyatDetay = () => {
                   <Field label="Yanıt tipi" value={formatValue(inbound.response_type)} />
                   <Field label="Son geçerlilik (UTC)" value={formatApiTimestamp(inbound.expires_at)} />
                   <Field label="Süresi doldu mu" value={formatValue(inbound.is_expired)} />
+                  <Field label="Paraşüt'te oluşturulma" value={formatApiTimestamp(inbound.parasut_created_at)} />
+                  <Field label="Paraşüt'te güncellenme" value={formatApiTimestamp(inbound.parasut_updated_at)} />
                 </dl>
               )}
             </div>
@@ -440,6 +446,7 @@ const SevkiyatDetay = () => {
 
                     <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <Field label="Activity Paraşüt ID" value={act.parasut_id} />
+                      <Field label="activity_type (ham değer)" value={formatValue(act.activity_type)} />
                       <Field
                         label="Yapan (done_by)"
                         value={
