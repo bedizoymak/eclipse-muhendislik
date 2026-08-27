@@ -147,6 +147,9 @@ const Giderler = () => {
           <Link to="/giderler/odemeler" className="text-electric-bright hover:underline">
             Gider ödemeleri →
           </Link>
+          <Link to="/giderler/calisanlar" className="text-electric-bright hover:underline">
+            Çalışanlar →
+          </Link>
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

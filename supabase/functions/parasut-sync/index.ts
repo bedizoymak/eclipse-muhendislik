@@ -39,6 +39,7 @@ import {
   mapShipmentDocument,
   mapShipmentDocumentActivity,
 } from "./resources/shipment_documents.ts";
+import { mapEmployee } from "./resources/employees.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -55,6 +56,7 @@ const SUPPORTED_RESOURCES = [
   "checks",
   "sales_offers",
   "shipment_documents",
+  "employees",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -726,6 +728,92 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
       invoice_link_fetched_count: dryRun ? 0 : invoiceLinkFetchedCount,
       unresolved_count: unresolvedCount,
       total_count_reported: totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * Real list-endpoint includes (verified via a real 400 error message):
+ * category, managed_by_user, managed_by_user_role, tags. activities and
+ * comments 400 on the list endpoint but resolve as real, genuinely empty
+ * `data:[]` via the single-record endpoint (same list/single inconsistency
+ * as shipment_documents.activities). In this account all 6 real employees
+ * have every one of these six relationships genuinely empty -- nothing is
+ * fabricated to fill that gap; tags_resolved/activities_resolved/
+ * comments_resolved just record that the API was actually asked and
+ * genuinely answered "none", vs. never having been asked.
+ */
+async function syncEmployees(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { active, archived } = await fetchActiveAndArchived(accessToken, "employees", {
+    include: "category,managed_by_user,managed_by_user_role,tags",
+  });
+
+  const items = [...active.items, ...archived.items];
+  const activeFetchedCount = active.items.length;
+  const archivedFetchedCount = archived.items.length;
+  const fetchedCount = activeFetchedCount + archivedFetchedCount;
+  const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
+
+  // activities/comments only resolve via the single-record endpoint -- one
+  // extra GET per real employee (cheap: 6 records in this account).
+  const resolvedByParasutId = new Map<string, JsonApiResource>();
+  if (!dryRun) {
+    for (const item of items) {
+      const { item: single } = await fetchResource(accessToken, "employees", item.id, {
+        include: "activities,comments",
+      });
+      resolvedByParasutId.set(item.id, single);
+    }
+  }
+
+  const rows = items.map((item) => {
+    const single = resolvedByParasutId.get(item.id);
+    const merged: JsonApiResource = single
+      ? {
+          ...item,
+          relationships: {
+            ...item.relationships,
+            activities: single.relationships?.["activities"],
+            comments: single.relationships?.["comments"],
+          },
+        }
+      : item;
+    return mapEmployee(merged);
+  });
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const result = await upsertBatched(db, "employees", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = result.upsertedCount;
+    errorCount = result.errorCount;
+    errorMessages.push(...result.errorMessages);
+  }
+
+  const categoryResolvedCount = rows.filter((r) => r.category_parasut_id !== null).length;
+  const managedByUserResolvedCount = rows.filter((r) => r.managed_by_user_parasut_id !== null).length;
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      total_count_reported: totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      active_fetched_count: activeFetchedCount,
+      archived_fetched_count: archivedFetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: totalCountReported,
+      category_resolved_count: categoryResolvedCount,
+      managed_by_user_resolved_count: managedByUserResolvedCount,
     },
     errorCount,
     errorMessages,
@@ -1471,6 +1559,7 @@ Deno.serve(async (req: Request) => {
       checks: syncChecks,
       sales_offers: syncSalesOffers,
       shipment_documents: syncShipmentDocuments,
+      employees: syncEmployees,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
