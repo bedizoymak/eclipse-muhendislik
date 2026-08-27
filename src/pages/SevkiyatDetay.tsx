@@ -80,6 +80,8 @@ interface StockMovementRow {
   product_name: string | null;
   warehouse_parasut_id: number | null;
   warehouse_name: string | null;
+  source_type: string | null;
+  source_parasut_id: number | null;
 }
 
 interface ActivityRow {
@@ -163,7 +165,7 @@ const SevkiyatDetay = () => {
         supabase.from("parasut_shipment_documents_demo").select("*").eq("parasut_id", parasutId).maybeSingle(),
         supabase
           .from("parasut_stock_movements_demo")
-          .select("parasut_id, date, quantity, product_parasut_id, product_name, warehouse_parasut_id, warehouse_name")
+          .select("parasut_id, date, quantity, product_parasut_id, product_name, warehouse_parasut_id, warehouse_name, source_type, source_parasut_id")
           .eq("source_type", "shipment_documents")
           .eq("source_parasut_id", parasutId),
         supabase
@@ -249,7 +251,7 @@ const SevkiyatDetay = () => {
               <Field label="Ticari mi" value={formatValue(doc.is_commercial)} />
               <Field label="Arşivlendi mi" value={formatValue(doc.archived)} />
               <Field label="Düzenleme tarihi" value={formatValue(doc.issue_date)} />
-              <Field label="Sevkiyat tarihi (UTC)" value={formatApiTimestamp(doc.shipment_date)} />
+              <Field label="Sevkiyat tarihi" value={formatValue(doc.shipment_date)} />
             </Group>
 
             <Group title="Durum ve belge">
@@ -394,19 +396,22 @@ const SevkiyatDetay = () => {
               <p className="mt-2 text-white/50">İlişkili stok hareketi yok.</p>
             ) : (
               <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-white/5 text-white/50">
                     <tr>
+                      <th className="px-4 py-2 font-medium">Stok hareketi ID</th>
                       <th className="px-4 py-2 font-medium">Tarih</th>
                       <th className="px-4 py-2 font-medium">Miktar</th>
                       <th className="px-4 py-2 font-medium">Ürün</th>
                       <th className="px-4 py-2 font-medium">Depo</th>
+                      <th className="px-4 py-2 font-medium">Kaynak</th>
                     </tr>
                   </thead>
                   <tbody>
                     {movements.map((m) => (
                       <tr key={m.parasut_id} className="border-t border-white/5">
-                        <td className="px-4 py-2">{formatValue(m.date)}</td>
+                        <td className="px-4 py-2">{m.parasut_id}</td>
+                        <td className="px-4 py-2 text-white/70">{formatValue(m.date)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(m.quantity)}</td>
                         <td className="px-4 py-2 text-white/70">
                           {m.product_parasut_id ? (
@@ -418,6 +423,10 @@ const SevkiyatDetay = () => {
                           )}
                         </td>
                         <td className="px-4 py-2 text-white/70">{m.warehouse_name ?? (m.warehouse_parasut_id ? `#${m.warehouse_parasut_id}` : "—")}</td>
+                        <td className="px-4 py-2 text-white/70">
+                          {formatValue(m.source_type)}
+                          {m.source_parasut_id ? ` #${m.source_parasut_id}` : ""}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -460,6 +469,8 @@ const SevkiyatDetay = () => {
                           )
                         }
                       />
+                      <Field label="done_by_parasut_id" value={formatValue(act.done_by_parasut_id)} />
+                      <Field label="done_by_type" value={formatValue(act.done_by_type)} />
                       <Field
                         label="İlgili kayıt (item)"
                         value={
@@ -474,6 +485,8 @@ const SevkiyatDetay = () => {
                           )
                         }
                       />
+                      <Field label="item_parasut_id" value={formatValue(act.item_parasut_id)} />
+                      <Field label="item_type" value={formatValue(act.item_type)} />
                       <Field label="done_by_email (activity alanı)" value={formatValue(act.done_by_email)} />
                       <Field label="Paraşüt'te oluşturulma" value={formatApiTimestamp(act.parasut_created_at)} />
                       <Field label="Paraşüt'te güncellenme" value={formatApiTimestamp(act.parasut_updated_at)} />
