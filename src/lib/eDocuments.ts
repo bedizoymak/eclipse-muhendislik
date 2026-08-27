@@ -45,6 +45,8 @@ export interface EInvoiceRow {
   pdf_url: string | null;
   signed_ubl_url: string | null;
   html_url: string | null;
+  gtb_ref_no: string | null;
+  migration_source: string | null;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
@@ -66,6 +68,7 @@ export interface EArchiveRow {
   pdf_url: string | null;
   signed_ubl_url: string | null;
   html_url: string | null;
+  migration_source: string | null;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string;
@@ -118,3 +121,12 @@ export const E_DOCUMENT_TYPE_LABELS: Record<string, string> = {
   e_invoices: "e-Fatura",
   e_archives: "e-Arşiv",
 };
+
+// Distinguishes real null from real false/0/"" -- never collapses a real
+// falsy value into the same "--" shown for null/undefined.
+export function formatEDocValue(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "Evet" : "Hayır";
+  if (typeof value === "string" && value.trim() === "") return "—";
+  return String(value);
+}
