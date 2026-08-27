@@ -745,10 +745,53 @@ async function syncShipmentDocuments(db: SupabaseClient, accessToken: string, dr
  * comments_resolved just record that the API was actually asked and
  * genuinely answered "none", vs. never having been asked.
  */
+/**
+ * Upserts one real employee_sync_meta row per filter_scope from the real,
+ * verbatim links/meta block of the employee LIST response. Never called on
+ * dry runs (dry runs never write). Never merges scopes: "active" and
+ * "archived" are stored as two independent rows, each overwritten with the
+ * current authoritative API value every real sync -- never averaged, never
+ * copied onto employee rows. See supabase/migrations/
+ * 20260829010000_parasut_employee_sync_meta.sql for the full real-value
+ * verification (payable_total/advance_total/export_url meaning, currency
+ * absence, page-to-page identical value, export_url security decision).
+ */
+async function upsertEmployeeSyncMeta(
+  db: SupabaseClient,
+  filterScope: "active" | "archived",
+  meta: { current_page?: number; total_pages?: number; total_count?: number; per_page?: number; payable_total?: string; advance_total?: string; export_url?: string } | null,
+): Promise<void> {
+  if (!meta) return;
+  const { error } = await db.schema("parasut").from("employee_sync_meta").upsert(
+    {
+      resource: "employees",
+      filter_scope: filterScope,
+      payable_total: meta.payable_total ?? null,
+      advance_total: meta.advance_total ?? null,
+      export_url: meta.export_url ?? null,
+      source_total_count: meta.total_count ?? null,
+      source_current_page: meta.current_page ?? null,
+      source_total_pages: meta.total_pages ?? null,
+      source_per_page: meta.per_page ?? null,
+      fetched_at: new Date().toISOString(),
+      raw_meta: meta,
+    },
+    { onConflict: "resource,filter_scope" },
+  );
+  if (error) {
+    throw new Error(`employee_sync_meta upsert (${filterScope}) failed: ${error.message}`);
+  }
+}
+
 async function syncEmployees(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const { active, archived } = await fetchActiveAndArchived(accessToken, "employees", {
     include: "category,managed_by_user,managed_by_user_role,tags",
   });
+
+  if (!dryRun) {
+    await upsertEmployeeSyncMeta(db, "active", active.lastMeta ?? null);
+    await upsertEmployeeSyncMeta(db, "archived", archived.lastMeta ?? null);
+  }
 
   const items = [...active.items, ...archived.items];
   const activeFetchedCount = active.items.length;

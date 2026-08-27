@@ -156,6 +156,10 @@ interface JsonApiListResponse {
     current_page?: number;
     total_pages?: number;
     total_count?: number;
+    per_page?: number;
+    payable_total?: string;
+    advance_total?: string;
+    export_url?: string;
   };
 }
 
@@ -289,12 +293,22 @@ export async function fetchAllPages(
   path: string,
   pageSize = 25,
   extraParams: Record<string, string> = {},
-): Promise<{ items: JsonApiResource[]; included: JsonApiResource[]; totalCountReported: number | null }> {
+): Promise<{
+  items: JsonApiResource[];
+  included: JsonApiResource[];
+  totalCountReported: number | null;
+  /** Real, verbatim links/meta of the LAST page fetched (verified identical
+   * across all pages of a single filter_scope for payable_total/
+   * advance_total/export_url -- never averaged/merged, just the last
+   * observed real value). Null if the stream fetched zero pages. */
+  lastMeta: JsonApiListResponse["meta"] | null;
+}> {
   const items: JsonApiResource[] = [];
   const includedByKey = new Map<string, JsonApiResource>();
   let page = 1;
   let totalPages: number | null = null;
   let totalCountReported: number | null = null;
+  let lastMeta: JsonApiListResponse["meta"] | null = null;
 
   while (true) {
     const result = await fetchPage(accessToken, path, page, pageSize, extraParams);
@@ -303,6 +317,7 @@ export async function fetchAllPages(
       includedByKey.set(`${resource.type}:${resource.id}`, resource);
     }
 
+    if (result.meta) lastMeta = result.meta;
     if (result.meta?.total_pages != null) totalPages = result.meta.total_pages;
     if (result.meta?.total_count != null) totalCountReported = result.meta.total_count;
 
@@ -319,5 +334,5 @@ export async function fetchAllPages(
     );
   }
 
-  return { items, included: [...includedByKey.values()], totalCountReported };
+  return { items, included: [...includedByKey.values()], totalCountReported, lastMeta };
 }

@@ -15,6 +15,16 @@ interface EmployeeDemoRow {
   category_parasut_id: number | null;
 }
 
+interface EmployeeMetaDemoRow {
+  resource: string;
+  filter_scope: string;
+  payable_total: number | null;
+  advance_total: number | null;
+  export_url: string | null;
+  source_total_count: number | null;
+  fetched_at: string | null;
+}
+
 type ArchivedFilter = "active" | "archived" | "all";
 
 const ARCHIVED_FILTERS: { value: ArchivedFilter; label: string }[] = [
@@ -35,6 +45,24 @@ const Calisanlar = () => {
   const [rows, setRows] = useState<EmployeeDemoRow[] | null>(null);
   const [counts, setCounts] = useState<{ active: number; archived: number; all: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [metaRows, setMetaRows] = useState<EmployeeMetaDemoRow[] | null>(null);
+
+  // Real Paraşüt LIST-response meta (payable_total/advance_total/export_url),
+  // one row per filter_scope -- never derived/summed locally, always the
+  // verbatim API value from the last real sync. See migration
+  // 20260829010000_parasut_employee_sync_meta.sql.
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("parasut_employee_meta_demo").select("*");
+      if (cancelled) return;
+      if (!error) setMetaRows((data as EmployeeMetaDemoRow[] | null) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Durable, row-limit-proof counters -- single-row SQL aggregate view
   // (Phase 8.3 pattern), not a full-row fetch counted client-side.
@@ -115,6 +143,44 @@ const Calisanlar = () => {
             ))}
           </div>
         </div>
+
+        {metaRows && metaRows.length > 0 && (
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+            <h2 className="text-sm font-semibold text-white/80">API Özeti</h2>
+            <p className="mt-1 text-xs text-white/40">
+              Paraşüt çalışan listesi yanıtının <code>meta</code> alanları — tek tek çalışana ait değil, listenin tamamına ait gerçek değerler.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="text-white/50">
+                  <tr>
+                    <th className="px-3 py-1.5 font-medium">Kapsam</th>
+                    <th className="px-3 py-1.5 font-medium">payable_total</th>
+                    <th className="px-3 py-1.5 font-medium">advance_total</th>
+                    <th className="px-3 py-1.5 font-medium">total_count</th>
+                    <th className="px-3 py-1.5 font-medium">export_url</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metaRows.map((m) => (
+                    <tr key={m.filter_scope} className="border-t border-white/10">
+                      <td className="px-3 py-1.5 text-white/70">{m.filter_scope === "active" ? "Aktif" : "Arşivli"}</td>
+                      <td className="px-3 py-1.5 text-white/70">{formatValue(m.payable_total)}</td>
+                      <td className="px-3 py-1.5 text-white/70">{formatValue(m.advance_total)}</td>
+                      <td className="px-3 py-1.5 text-white/70">{formatValue(m.source_total_count)}</td>
+                      <td className="px-3 py-1.5 max-w-[280px] truncate text-white/50" title={m.export_url ?? undefined}>
+                        {formatValue(m.export_url)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] text-white/30">
+              Not: API para birimi belirtmiyor, bu yüzden burada da belirtilmiyor. <code>export_url</code> yalnızca API'nin döndürdüğü uç nokta referansıdır, kimlik doğrulama gerektirir — tıklanabilir bağlantı değildir.
+            </p>
+          </div>
+        )}
 
         {loadError && (
           <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
