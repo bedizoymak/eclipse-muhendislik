@@ -1,7 +1,7 @@
 # Phase 08.0 — Paraşüt API Kapsam Envanteri ve Sonraki Modül Seçimi
 
 **Tarih:** 2026-08-27
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Rapor commit SHA:** (bu commit)
 **Not:** Bu fazda kod/migration/deploy değişikliği yapılmadı. Yalnızca kanıt toplama (salt okunur SQL sorguları + güvenli GET istekleri) ve bu rapor.
 
 ## 1. Tamamlanan modüller matrisi
