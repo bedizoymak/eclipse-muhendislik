@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { E_DOCUMENT_TYPE_LABELS } from "@/lib/eDocuments";
 
 interface BillDemoRow {
   parasut_id: number;
@@ -20,6 +21,7 @@ interface BillDemoRow {
   supplier_name: string | null;
   spender_parasut_id: number | null;
   spender_name: string | null;
+  active_e_document_type: string | null;
 }
 
 type ArchivedFilter = "active" | "archived" | "all";
@@ -74,7 +76,7 @@ const Giderler = () => {
       let listQuery = supabase
         .from("parasut_purchase_bills_demo")
         .select(
-          "parasut_id, invoice_no, description, issue_date, due_date, currency, net_total, gross_total, total_vat, total_paid, remaining, payment_status, archived, supplier_parasut_id, supplier_name, spender_parasut_id, spender_name",
+          "parasut_id, invoice_no, description, issue_date, due_date, currency, net_total, gross_total, total_vat, total_paid, remaining, payment_status, archived, supplier_parasut_id, supplier_name, spender_parasut_id, spender_name, active_e_document_type",
         );
       if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
       if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
@@ -205,7 +207,7 @@ const Giderler = () => {
               <p className="text-white/50">Bu filtrede gider yok.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-white/10">
-                <table className="w-full min-w-[1040px] text-left text-sm">
+                <table className="w-full min-w-[1160px] text-left text-sm">
                   <thead className="bg-white/5 text-white/50">
                     <tr>
                       <th className="px-4 py-2 font-medium">Belge no</th>
@@ -218,6 +220,7 @@ const Giderler = () => {
                       <th className="px-4 py-2 font-medium">Ödenen</th>
                       <th className="px-4 py-2 font-medium">Kalan</th>
                       <th className="px-4 py-2 font-medium">Durum</th>
+                      <th className="px-4 py-2 font-medium">E-Belge</th>
                       <th className="px-4 py-2 font-medium">Arşiv</th>
                     </tr>
                   </thead>
@@ -247,6 +250,9 @@ const Giderler = () => {
                         <td className="px-4 py-2 text-white/70">{formatAmount(b.remaining, b.currency)}</td>
                         <td className="px-4 py-2 text-white/70">
                           {b.payment_status ? PAYMENT_LABELS[b.payment_status] ?? b.payment_status : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-white/70">
+                          {b.active_e_document_type ? E_DOCUMENT_TYPE_LABELS[b.active_e_document_type] ?? b.active_e_document_type : "—"}
                         </td>
                         <td className="px-4 py-2 text-white/70">{b.archived ? "Arşivli" : "Aktif"}</td>
                       </tr>

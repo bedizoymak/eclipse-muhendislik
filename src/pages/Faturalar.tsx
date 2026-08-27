@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { E_DOCUMENT_TYPE_LABELS } from "@/lib/eDocuments";
 
 interface InvoiceDemoRow {
   parasut_id: number;
@@ -16,6 +17,7 @@ interface InvoiceDemoRow {
   archived: boolean | null;
   contact_parasut_id: number | null;
   contact_name: string | null;
+  active_e_document_type: string | null;
 }
 
 type ArchivedFilter = "active" | "archived" | "all";
@@ -60,7 +62,7 @@ const Faturalar = () => {
       let listQuery = supabase
         .from("parasut_sales_invoices_demo")
         .select(
-          "parasut_id, invoice_no, issue_date, due_date, currency, net_total, gross_total, total_vat, remaining, payment_status, archived, contact_parasut_id, contact_name",
+          "parasut_id, invoice_no, issue_date, due_date, currency, net_total, gross_total, total_vat, remaining, payment_status, archived, contact_parasut_id, contact_name, active_e_document_type",
         );
       if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
       if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
@@ -165,7 +167,7 @@ const Faturalar = () => {
               <p className="text-white/50">Bu filtrede fatura yok.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-white/10">
-                <table className="w-full min-w-[960px] text-left text-sm">
+                <table className="w-full min-w-[1080px] text-left text-sm">
                   <thead className="bg-white/5 text-white/50">
                     <tr>
                       <th className="px-4 py-2 font-medium">Fatura No</th>
@@ -177,6 +179,7 @@ const Faturalar = () => {
                       <th className="px-4 py-2 font-medium">KDV</th>
                       <th className="px-4 py-2 font-medium">Kalan</th>
                       <th className="px-4 py-2 font-medium">Durum</th>
+                      <th className="px-4 py-2 font-medium">E-Belge</th>
                       <th className="px-4 py-2 font-medium">Arşiv</th>
                     </tr>
                   </thead>
@@ -205,6 +208,9 @@ const Faturalar = () => {
                         <td className="px-4 py-2 text-white/70">{formatAmount(inv.remaining, inv.currency)}</td>
                         <td className="px-4 py-2 text-white/70">
                           {inv.payment_status ? PAYMENT_LABELS[inv.payment_status] ?? inv.payment_status : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-white/70">
+                          {inv.active_e_document_type ? E_DOCUMENT_TYPE_LABELS[inv.active_e_document_type] ?? inv.active_e_document_type : "—"}
                         </td>
                         <td className="px-4 py-2 text-white/70">{inv.archived ? "Arşivli" : "Aktif"}</td>
                       </tr>

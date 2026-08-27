@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { E_DOCUMENT_TYPE_LABELS, fetchActiveEDocument, type EDocument } from "@/lib/eDocuments";
 
 interface BillDemoRow {
   parasut_id: number;
@@ -27,6 +28,8 @@ interface BillDemoRow {
   pay_to_parasut_id: number | null;
   pay_to_name: string | null;
   synced_at: string;
+  active_e_document_type: string | null;
+  active_e_document_parasut_id: number | null;
 }
 
 interface DetailRow {
@@ -66,11 +69,21 @@ function formatAmount(value: number | null, currency: string | null): string {
   return currency ? `${formatted} ${currency}` : formatted;
 }
 
+// Displays the API's own timestamp as-is -- formatting only, never shifting
+// the underlying instant to the browser's local timezone.
+function formatApiTimestamp(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleString("tr-TR", { timeZone: "UTC" })} UTC`;
+}
+
 const GiderDetay = () => {
   const { parasutId } = useParams<{ parasutId: string }>();
   const [bill, setBill] = useState<BillDemoRow | null | undefined>(undefined);
   const [details, setDetails] = useState<DetailRow[] | null>(null);
   const [payments, setPayments] = useState<ExpensePaymentRow[] | null>(null);
+  const [eDoc, setEDoc] = useState<EDocument | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,9 +116,20 @@ const GiderDetay = () => {
         return;
       }
 
-      setBill((billRes.data as BillDemoRow | null) ?? null);
+      const billRow = (billRes.data as BillDemoRow | null) ?? null;
+      setBill(billRow);
       setDetails((detailsRes.data as DetailRow[] | null) ?? []);
       setPayments((paymentsRes.data as ExpensePaymentRow[] | null) ?? []);
+
+      if (billRow) {
+        const { doc, error } = await fetchActiveEDocument(billRow.active_e_document_type, billRow.active_e_document_parasut_id);
+        if (!cancelled) {
+          if (error) setLoadError(error);
+          else setEDoc(doc);
+        }
+      } else {
+        setEDoc(null);
+      }
     })();
 
     return () => {
@@ -261,6 +285,175 @@ const GiderDetay = () => {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            <h2 className="mt-8 text-lg font-semibold">E-Belge</h2>
+            {eDoc === undefined ? (
+              <p className="mt-2 text-white/50">Yükleniyor…</p>
+            ) : eDoc === null ? (
+              <p className="mt-2 text-white/50">E-belge yok.</p>
+            ) : eDoc.kind === "e_invoices" ? (
+              <dl className="mt-3 grid grid-cols-1 gap-4 rounded-xl border border-white/10 bg-white/5 p-4 sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Belge tipi</dt>
+                  <dd className="mt-1">{E_DOCUMENT_TYPE_LABELS.e_invoices}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Belge Paraşüt ID</dt>
+                  <dd className="mt-1">{eDoc.row.parasut_id}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Durum</dt>
+                  <dd className="mt-1">{eDoc.row.status ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Belge no (external_id)</dt>
+                  <dd className="mt-1">{eDoc.row.external_id ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">UUID</dt>
+                  <dd className="mt-1 break-all">{eDoc.row.uuid ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Yön</dt>
+                  <dd className="mt-1">{eDoc.row.direction ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Senaryo</dt>
+                  <dd className="mt-1">{eDoc.row.scenario ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Düzenleme tarihi</dt>
+                  <dd className="mt-1">{eDoc.row.issue_date ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Son geçerlilik</dt>
+                  <dd className="mt-1">{eDoc.row.expires_at ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Net toplam</dt>
+                  <dd className="mt-1">{formatAmount(eDoc.row.net_total, eDoc.row.currency)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">KDV</dt>
+                  <dd className="mt-1">{formatAmount(eDoc.row.total_vat, eDoc.row.currency)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Gönderen VKN</dt>
+                  <dd className="mt-1">{eDoc.row.from_vkn ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Alıcı VKN</dt>
+                  <dd className="mt-1">{eDoc.row.to_vkn ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te oluşturulma</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.parasut_created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te güncellenme</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.parasut_updated_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">PDF</dt>
+                  <dd className="mt-1">
+                    {eDoc.row.pdf_url ? (
+                      <a href={eDoc.row.pdf_url} target="_blank" rel="noopener noreferrer" className="text-electric-bright hover:underline">
+                        PDF'i görüntüle
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">İmzalı UBL</dt>
+                  <dd className="mt-1">
+                    {eDoc.row.signed_ubl_url ? (
+                      <a href={eDoc.row.signed_ubl_url} target="_blank" rel="noopener noreferrer" className="text-electric-bright hover:underline">
+                        UBL'i görüntüle
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <dl className="mt-3 grid grid-cols-1 gap-4 rounded-xl border border-white/10 bg-white/5 p-4 sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Belge tipi</dt>
+                  <dd className="mt-1">{E_DOCUMENT_TYPE_LABELS.e_archives}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Belge Paraşüt ID</dt>
+                  <dd className="mt-1">{eDoc.row.parasut_id}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Durum</dt>
+                  <dd className="mt-1">{eDoc.row.status ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Fatura no</dt>
+                  <dd className="mt-1">{eDoc.row.invoice_number ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">UUID</dt>
+                  <dd className="mt-1 break-all">{eDoc.row.uuid ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">VKN</dt>
+                  <dd className="mt-1">{eDoc.row.vkn ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Yazdırıldı mı</dt>
+                  <dd className="mt-1">{eDoc.row.is_printed ? "Evet" : "Hayır"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">İmzalı mı</dt>
+                  <dd className="mt-1">{eDoc.row.is_signed ? "Evet" : "Hayır"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Yazdırılma tarihi</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.printed_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">İptal edilebilirlik son tarihi</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.cancellable_until)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te oluşturulma</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.parasut_created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">Paraşüt'te güncellenme</dt>
+                  <dd className="mt-1">{formatApiTimestamp(eDoc.row.parasut_updated_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">PDF</dt>
+                  <dd className="mt-1">
+                    {eDoc.row.pdf_url ? (
+                      <a href={eDoc.row.pdf_url} target="_blank" rel="noopener noreferrer" className="text-electric-bright hover:underline">
+                        PDF'i görüntüle
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/50">İmzalı UBL</dt>
+                  <dd className="mt-1">
+                    {eDoc.row.signed_ubl_url ? (
+                      <a href={eDoc.row.signed_ubl_url} target="_blank" rel="noopener noreferrer" className="text-electric-bright hover:underline">
+                        UBL'i görüntüle
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
             )}
           </>
         )}

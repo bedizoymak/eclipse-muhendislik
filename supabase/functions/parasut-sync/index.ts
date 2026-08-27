@@ -23,6 +23,7 @@ import { fetchAllPages, fetchResource, getAccessToken, type JsonApiResource } fr
 import { mapContact } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
 import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
+import { mapEArchive, mapEInvoice } from "./resources/e_documents.ts";
 import { mapAccount } from "./resources/accounts.ts";
 import { mapPayment, paymentIdsForInvoice } from "./resources/payments.ts";
 import { mapTransaction } from "./resources/transactions.ts";
@@ -154,6 +155,147 @@ async function syncContacts(db: SupabaseClient, accessToken: string, dryRun: boo
   };
 }
 
+interface EDocumentSyncResult {
+  eInvoiceFetchedCount: number;
+  eInvoiceUpsertedCount: number;
+  eArchiveFetchedCount: number;
+  eArchiveUpsertedCount: number;
+  parentLinkedCount: number;
+  parentWithoutDocumentCount: number;
+  duplicateCount: number;
+  unresolvedCount: number;
+  staleLinkRemovedCount: number;
+  errorCount: number;
+  errorMessages: string[];
+}
+
+/**
+ * Resolves and stores the real active_e_document child (e_invoices or
+ * e_archives) for a batch of already-fetched sales_invoices/purchase_bills
+ * parents. Must be called with `include=active_e_document` already applied
+ * to the parent fetch -- this function only reads relationships/included,
+ * it never issues its own requests.
+ *
+ * The parent link is always taken from the PARENT's own
+ * relationships.active_e_document.data (id+type) -- never from the child,
+ * whose own back-reference relationships are verified empty
+ * (`{"meta":{}}`) even when included. e_invoices is genuinely polymorphic
+ * (attaches to both sales_invoices and purchase_bills in this account);
+ * e_archives has only ever been observed attached to sales_invoices, so an
+ * e_archive found under a purchase_bill is treated as unresolved/unexpected
+ * rather than silently stored under an assumption that has never been true.
+ */
+async function syncActiveEDocuments(
+  db: SupabaseClient,
+  dryRun: boolean,
+  parentType: "sales_invoices" | "purchase_bills",
+  parentItems: JsonApiResource[],
+  includedByKey: Map<string, JsonApiResource>,
+): Promise<EDocumentSyncResult> {
+  const eInvoicePairs: { parentParasutId: number; doc: JsonApiResource }[] = [];
+  const eArchivePairs: { parentParasutId: number; doc: JsonApiResource }[] = [];
+  const errorMessages: string[] = [];
+  let parentLinkedCount = 0;
+  let parentWithoutDocumentCount = 0;
+  let unresolvedCount = 0;
+
+  for (const parent of parentItems) {
+    const parentParasutId = Number(parent.id);
+    const rel = parent.relationships?.["active_e_document"]?.data;
+    if (!rel || Array.isArray(rel)) {
+      parentWithoutDocumentCount++;
+      continue;
+    }
+    const doc = includedByKey.get(`${rel.type}:${rel.id}`);
+    if (!doc) {
+      unresolvedCount++;
+      errorMessages.push(`${parentType} ${parent.id} -> active_e_document ${rel.type}:${rel.id} not present in the API response`);
+      continue;
+    }
+    if (rel.type === "e_invoices") {
+      parentLinkedCount++;
+      eInvoicePairs.push({ parentParasutId, doc });
+    } else if (rel.type === "e_archives" && parentType === "sales_invoices") {
+      parentLinkedCount++;
+      eArchivePairs.push({ parentParasutId, doc });
+    } else {
+      // A real but unexpected combination (e.g. e_archives on a
+      // purchase_bill, never observed in this account) -- not fabricated,
+      // not silently stored under a wrong assumption either.
+      unresolvedCount++;
+      errorMessages.push(`${parentType} ${parent.id} -> unexpected active_e_document type "${rel.type}"`);
+    }
+  }
+
+  const eInvoiceIds = eInvoicePairs.map(({ doc }) => Number(doc.id));
+  const duplicateCount = eInvoiceIds.length - new Set(eInvoiceIds).size;
+
+  let eInvoiceUpsertedCount = 0;
+  let eArchiveUpsertedCount = 0;
+  let staleLinkRemovedCount = 0;
+  let errorCount = unresolvedCount;
+
+  if (!dryRun) {
+    if (eInvoicePairs.length > 0) {
+      const rows = eInvoicePairs.map(({ parentParasutId, doc }) => mapEInvoice(doc, parentType, parentParasutId));
+      const result = await upsertBatched(db, "e_invoices", rows as unknown as Record<string, unknown>[]);
+      eInvoiceUpsertedCount = result.upsertedCount;
+      errorCount += result.errorCount;
+      errorMessages.push(...result.errorMessages);
+    }
+
+    if (parentType === "sales_invoices" && eArchivePairs.length > 0) {
+      const rows = eArchivePairs.map(({ parentParasutId, doc }) => mapEArchive(doc, parentParasutId));
+      const result = await upsertBatched(db, "e_archives", rows as unknown as Record<string, unknown>[]);
+      eArchiveUpsertedCount = result.upsertedCount;
+      errorCount += result.errorCount;
+      errorMessages.push(...result.errorMessages);
+    }
+
+    // Stale-link cleanup: this fetch is a full listing of every parent of
+    // `parentType`, so it is authoritative -- any e_invoices row still
+    // pointing at this parentType but no longer among the currently
+    // resolved ids is stale and must have its parent link cleared. The
+    // document row itself is never deleted (it is real Parasut data).
+    const eInvoiceIdList = eInvoiceIds.length > 0 ? eInvoiceIds.join(",") : "0";
+    const { data: staleEInvoices } = await db
+      .schema("parasut")
+      .from("e_invoices")
+      .update({ parent_type: null, parent_parasut_id: null })
+      .eq("parent_type", parentType)
+      .not("parasut_id", "in", `(${eInvoiceIdList})`)
+      .select("parasut_id");
+    staleLinkRemovedCount += staleEInvoices?.length ?? 0;
+
+    if (parentType === "sales_invoices") {
+      const eArchiveIds = eArchivePairs.map(({ doc }) => Number(doc.id));
+      const eArchiveIdList = eArchiveIds.length > 0 ? eArchiveIds.join(",") : "0";
+      const { data: staleEArchives } = await db
+        .schema("parasut")
+        .from("e_archives")
+        .update({ sales_invoice_parasut_id: null })
+        .not("sales_invoice_parasut_id", "is", null)
+        .not("parasut_id", "in", `(${eArchiveIdList})`)
+        .select("parasut_id");
+      staleLinkRemovedCount += staleEArchives?.length ?? 0;
+    }
+  }
+
+  return {
+    eInvoiceFetchedCount: eInvoicePairs.length,
+    eInvoiceUpsertedCount: dryRun ? 0 : eInvoiceUpsertedCount,
+    eArchiveFetchedCount: eArchivePairs.length,
+    eArchiveUpsertedCount: dryRun ? 0 : eArchiveUpsertedCount,
+    parentLinkedCount,
+    parentWithoutDocumentCount,
+    duplicateCount,
+    unresolvedCount,
+    staleLinkRemovedCount: dryRun ? 0 : staleLinkRemovedCount,
+    errorCount,
+    errorMessages,
+  };
+}
+
 async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   // Verified against the live API (not the swagger doc, which incorrectly
   // lists details.warehouse as acceptable here and gets a 400 rejecting it):
@@ -162,7 +304,7 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
   // tags, refunds, refund_of, sharings, recurrence_plan, active_e_document,
   // failed_e_invoice.
   const { active, archived } = await fetchActiveAndArchived(accessToken, "sales_invoices", {
-    include: "details,details.product,contact",
+    include: "details,details.product,contact,active_e_document",
   });
 
   const invoiceItems = [...active.items, ...archived.items];
@@ -222,6 +364,10 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
     errorMessages.push(...detailResult.errorMessages);
   }
 
+  const eDocResult = await syncActiveEDocuments(db, dryRun, "sales_invoices", invoiceItems, includedByKey);
+  errorCount += eDocResult.errorCount;
+  errorMessages.push(...eDocResult.errorMessages);
+
   return {
     dbFields: {
       fetched_count: invoiceFetchedCount,
@@ -231,6 +377,7 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
       upserted_count: dryRun ? 0 : invoiceUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
+      unresolved_count: eDocResult.unresolvedCount,
       error_count: errorCount,
     },
     responseFields: {
@@ -241,6 +388,15 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
       total_count_reported: totalCountReported,
+      e_invoice_fetched_count: eDocResult.eInvoiceFetchedCount,
+      e_invoice_upserted_count: eDocResult.eInvoiceUpsertedCount,
+      e_archive_fetched_count: eDocResult.eArchiveFetchedCount,
+      e_archive_upserted_count: eDocResult.eArchiveUpsertedCount,
+      parent_linked_count: eDocResult.parentLinkedCount,
+      parent_without_document_count: eDocResult.parentWithoutDocumentCount,
+      duplicate_count: eDocResult.duplicateCount,
+      unresolved_count: eDocResult.unresolvedCount,
+      stale_link_removed_count: eDocResult.staleLinkRemovedCount,
     },
     errorCount,
     errorMessages,
@@ -580,7 +736,7 @@ async function syncTransactions(db: SupabaseClient, accessToken: string, dryRun:
  */
 async function syncPurchaseBills(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "purchase_bills", 25, {
-    include: "supplier,spender,pay_to,details,details.product",
+    include: "supplier,spender,pay_to,details,details.product,active_e_document",
   });
 
   const billItems = result.items;
@@ -637,6 +793,10 @@ async function syncPurchaseBills(db: SupabaseClient, accessToken: string, dryRun
     errorMessages.push(...detailResult.errorMessages);
   }
 
+  const eDocResult = await syncActiveEDocuments(db, dryRun, "purchase_bills", billItems, includedByKey);
+  errorCount += eDocResult.errorCount;
+  errorMessages.push(...eDocResult.errorMessages);
+
   return {
     dbFields: {
       fetched_count: fetchedCount,
@@ -646,7 +806,7 @@ async function syncPurchaseBills(db: SupabaseClient, accessToken: string, dryRun
       upserted_count: dryRun ? 0 : billUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
-      unresolved_count: supplierUnresolvedCount,
+      unresolved_count: supplierUnresolvedCount + eDocResult.unresolvedCount,
       error_count: errorCount,
     },
     responseFields: {
@@ -660,6 +820,15 @@ async function syncPurchaseBills(db: SupabaseClient, accessToken: string, dryRun
       supplier_unresolved_count: supplierUnresolvedCount,
       total_count_reported: result.totalCountReported,
       note: "filter[archived] is not supported by the live API for purchase_bills; active/archived counts are derived from a single full listing, not independently cross-checked",
+      e_invoice_fetched_count: eDocResult.eInvoiceFetchedCount,
+      e_invoice_upserted_count: eDocResult.eInvoiceUpsertedCount,
+      e_archive_fetched_count: eDocResult.eArchiveFetchedCount,
+      e_archive_upserted_count: eDocResult.eArchiveUpsertedCount,
+      parent_linked_count: eDocResult.parentLinkedCount,
+      parent_without_document_count: eDocResult.parentWithoutDocumentCount,
+      duplicate_count: eDocResult.duplicateCount,
+      e_document_unresolved_count: eDocResult.unresolvedCount,
+      stale_link_removed_count: eDocResult.staleLinkRemovedCount,
     },
     errorCount,
     errorMessages,
