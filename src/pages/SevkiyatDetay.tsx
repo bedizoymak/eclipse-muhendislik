@@ -396,13 +396,15 @@ const SevkiyatDetay = () => {
               <p className="mt-2 text-white/50">İlişkili stok hareketi yok.</p>
             ) : (
               <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <table className="w-full min-w-[960px] text-left text-sm">
                   <thead className="bg-white/5 text-white/50">
                     <tr>
                       <th className="px-4 py-2 font-medium">Stok hareketi ID</th>
                       <th className="px-4 py-2 font-medium">Tarih</th>
                       <th className="px-4 py-2 font-medium">Miktar</th>
+                      <th className="px-4 py-2 font-medium">Ürün ID</th>
                       <th className="px-4 py-2 font-medium">Ürün</th>
+                      <th className="px-4 py-2 font-medium">Depo ID</th>
                       <th className="px-4 py-2 font-medium">Depo</th>
                       <th className="px-4 py-2 font-medium">Kaynak</th>
                     </tr>
@@ -413,6 +415,7 @@ const SevkiyatDetay = () => {
                         <td className="px-4 py-2">{m.parasut_id}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(m.date)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(m.quantity)}</td>
+                        <td className="px-4 py-2 text-white/70">{formatValue(m.product_parasut_id)}</td>
                         <td className="px-4 py-2 text-white/70">
                           {m.product_parasut_id ? (
                             <Link to={`/urunler/${m.product_parasut_id}`} className="hover:text-electric-bright hover:underline">
@@ -422,7 +425,8 @@ const SevkiyatDetay = () => {
                             "—"
                           )}
                         </td>
-                        <td className="px-4 py-2 text-white/70">{m.warehouse_name ?? (m.warehouse_parasut_id ? `#${m.warehouse_parasut_id}` : "—")}</td>
+                        <td className="px-4 py-2 text-white/70">{formatValue(m.warehouse_parasut_id)}</td>
+                        <td className="px-4 py-2 text-white/70">{formatValue(m.warehouse_name)}</td>
                         <td className="px-4 py-2 text-white/70">
                           {formatValue(m.source_type)}
                           {m.source_parasut_id ? ` #${m.source_parasut_id}` : ""}
