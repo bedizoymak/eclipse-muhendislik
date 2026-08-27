@@ -2,8 +2,8 @@
 
 **Tarih:** 2026-08-27
 **Canlı URL:** https://demo.eclipsemuhendislik.com/satislar/faturalar
-**Kod commit SHA:** (aşağıda, ikinci commit'te doldurulacak)
-**Rapor commit SHA:** (push sonrası doldurulacak)
+**Kod commit SHA:** `3e16793e45b987f7027fc0264c0960fa033cfb3b`
+**Rapor commit SHA:** (bu commit)
 
 ## 1. Gerçek API envanteri
 
