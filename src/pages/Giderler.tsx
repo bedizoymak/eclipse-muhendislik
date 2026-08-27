@@ -65,16 +65,15 @@ const Giderler = () => {
       .then(({ data }) => setSuppliers((data as { parasut_id: number; name: string | null }[] | null) ?? []));
   }, []);
 
-  // Tab counts are derived once from the same real, unfiltered "archived"
-  // column every list row already comes from -- not from separate
-  // count=exact HEAD requests (those were firing 3 concurrent, Range-less
-  // HEAD calls per page load and returning a reproducible 503 from
-  // Supabase). Fetching the full archived column once is cheap (811 rows)
-  // and gives an authoritative, real count with a single request. This
-  // "archived" value is the real column the /purchase_bills sync stores
-  // from each bill's own attribute (the API itself has no filter[archived]
-  // for this resource -- see syncPurchaseBills -- but the stored value is
-  // real, not invented).
+  // Tab counts come from a single-row aggregate view (count(*) filter (...)
+  // done in SQL), not from fetching real rows and counting them client-side
+  // -- that approach silently truncates past PostgREST's default
+  // max-rows=1000 (already observed on products/e_invoices). An aggregate
+  // query returns exactly one row no matter how many real records exist.
+  // This "archived" value is the real column the /purchase_bills sync
+  // stores from each bill's own attribute (the API itself has no
+  // filter[archived] for this resource -- see syncPurchaseBills -- but the
+  // stored value is real, not invented).
   useEffect(() => {
     if (!supabase) {
       setLoadError("Supabase yapılandırılmamış.");
@@ -83,16 +82,18 @@ const Giderler = () => {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase.from("parasut_purchase_bills_demo").select("archived");
+      const { data, error } = await supabase.from("parasut_purchase_bill_counts_demo").select("*").maybeSingle();
       if (cancelled) return;
       if (error) {
         setLoadError(error.message);
         return;
       }
-      const rows = (data as { archived: boolean | null }[] | null) ?? [];
-      const active = rows.filter((r) => r.archived === false).length;
-      const archived = rows.filter((r) => r.archived === true).length;
-      setCounts({ active, archived, all: rows.length });
+      const row = data as { active_count: number; archived_count: number; total_count: number } | null;
+      if (!row) {
+        setLoadError("Sayaç verisi alınamadı.");
+        return;
+      }
+      setCounts({ active: row.active_count, archived: row.archived_count, all: row.total_count });
     })();
 
     return () => {
