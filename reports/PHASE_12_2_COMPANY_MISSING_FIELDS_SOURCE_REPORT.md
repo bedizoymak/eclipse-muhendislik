@@ -126,6 +126,6 @@ Kaynak gerçekten değişmediği için sayılar aynı bırakıldı, zorlanan/uyd
 
 ---
 
-**Kod commit SHA:** (bu committen sonra doldurulacak)
+**Kod commit SHA:** 2e69fcf61d845b96990ea6537e878ab4f64615ba
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
