@@ -1,6 +1,6 @@
 # Phase 13.7: Not Found console ve sahte detay başlığı düzeltmesi
 
-Kod commit SHA: (aşağıda doldurulacak)
+Kod commit SHA: `fb8ca48ee67cc885adecb0bb498ac624d5aad3f0`
 Rapor commit SHA: (bu commit)
 
 Düzeltilen önceki faz: Phase 13.6 (`reports/PHASE_13_6_ROUTE_GUARD_NOT_FOUND_REPORT.md`, kod commit `226c1abbaa9ac95c4d3a1694eafa1fe4e1c4b0e9`) kendine PASS verdi ancak iki gereksinim gerçekte karşılanmamıştı.
