@@ -71,6 +71,7 @@ const SUPPORTED_RESOURCES = [
   "taxes",
   "tags",
   "e_invoice_inboxes",
+  "e_invoices",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -2149,6 +2150,143 @@ async function syncEInvoiceInboxes(_db: SupabaseClient, _accessToken: string, _d
 }
 
 /**
+ * Phase 14.2: standalone e_invoices full-universe sync.
+ *
+ * `GET /e_invoices` is a genuine, separately-paginated, global list
+ * endpoint independent of the sales_invoices/purchase_bills-scoped
+ * `active_e_document` include that `syncActiveEDocuments()` (defined
+ * above, called from syncSalesInvoices/syncPurchaseBills) already
+ * covers. As of Phase 14.1's discovery, that active-parent path only
+ * ever reaches e_invoices rows with a resolvable real parent -- but the
+ * standalone endpoint returns MORE rows than that (1693 total vs 1238
+ * parent-linked, verified in this phase), because a real e-invoice can
+ * exist with no resolvable `invoice` relationship (`invoice.data` is
+ * null in the real API response) or with a parent the active-document
+ * sync has not (yet) linked.
+ *
+ * Two important, verified-in-this-phase API facts:
+ *   - The plain `GET /e_invoices?page[size]=...` response's `invoice`
+ *     relationship is ALWAYS `{"meta":{}}` (no `data` key) -- it does
+ *     NOT surface real relationship data unless `include=invoice` is
+ *     explicitly requested. This sync always requests `include=invoice`
+ *     so the real relationship evidence is genuinely read, never
+ *     defaulted or guessed.
+ *   - With `include=invoice`, of 1693 real records: 1242 have a real
+ *     non-null `invoice.data` (431 sales_invoices, 811 purchase_bills)
+ *     and 451 have a real null `invoice.data` (no parent -- a genuine
+ *     scope, not a sync bug, per Phase 14.1's sampled confirmation).
+ *
+ * This sync writes through `parasut.upsert_e_invoices_standalone()`
+ * (Phase 14.2 migration), which COALESCEs parent_type/parent_parasut_id
+ * so a null relationship from this call NEVER overwrites an existing
+ * real parent link that `syncActiveEDocuments()` (or a prior standalone
+ * run) already established -- while a real non-null value from this
+ * call's own fresh relationship read is always written. Every other
+ * real column is always overwritten with the fresh fetch. Never a
+ * physical delete: absent-from-source rows are left untouched (see
+ * Phase 14.2 report, section 5, for the stale-semantics decision);
+ * `last_seen_at` is stamped on every row this run observed, so a
+ * future phase could report (never silently act on) stale candidates
+ * by comparing `last_seen_at` against the sync run time.
+ */
+async function syncEInvoicesStandalone(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "e_invoices", 100, {
+    include: "invoice",
+  });
+
+  const items = result.items;
+  const fetchedCount = items.length;
+
+  const idSet = new Set(items.map((item) => item.id));
+  const duplicateCount = fetchedCount - idSet.size;
+
+  let linkedSalesInvoiceCount = 0;
+  let linkedPurchaseBillCount = 0;
+  let unlinkedCount = 0;
+  let unresolvedRelationshipCount = 0;
+
+  const rows = items.map((item) => {
+    const rel = item.relationships?.invoice as
+      | { data?: { id?: string; type?: string } | null }
+      | undefined;
+    let parentType: string | null = null;
+    let parentParasutId: number | null = null;
+    if (rel && rel.data && rel.data.id && rel.data.type) {
+      if (rel.data.type === "sales_invoices") {
+        parentType = "sales_invoices";
+        linkedSalesInvoiceCount++;
+      } else if (rel.data.type === "purchase_bills") {
+        parentType = "purchase_bills";
+        linkedPurchaseBillCount++;
+      } else {
+        // A real relationship pointing at a type this account has never
+        // shown before -- preserve the real id/type, never guess it into
+        // one of the two known buckets, never drop it.
+        parentType = rel.data.type;
+        unresolvedRelationshipCount++;
+      }
+      const parsedId = Number(rel.data.id);
+      parentParasutId = Number.isFinite(parsedId) ? parsedId : null;
+    } else {
+      unlinkedCount++;
+    }
+
+    return {
+      ...mapEInvoice(item, (parentType ?? "sales_invoices") as "sales_invoices" | "purchase_bills", parentParasutId ?? 0),
+      // mapEInvoice always requires a non-null parentType/parentParasutId
+      // (it is also used by the active-document path, which always has
+      // one) -- override with the real values for this row, which may
+      // genuinely be null. This is intentional: the standalone sync's own
+      // row may have no parent at all, and that must be preserved as null.
+      parent_type: parentType,
+      parent_parasut_id: parentParasutId,
+    };
+  });
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { data, error } = await db
+        .schema("parasut")
+        .rpc("upsert_e_invoices_standalone", { payload: batch as unknown as Record<string, unknown>[] });
+      if (error) {
+        errorCount += batch.length;
+        errorMessages.push(`e_invoices (standalone rpc): ${error.message}`);
+      } else {
+        upsertedCount += (data as unknown as number) ?? batch.length;
+      }
+    }
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      unresolved_count: unresolvedRelationshipCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      e_invoice_fetched_count: fetchedCount,
+      e_invoice_upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+      linked_sales_invoice_count: linkedSalesInvoiceCount,
+      linked_purchase_bill_count: linkedPurchaseBillCount,
+      unlinked_count: unlinkedCount,
+      unresolved_relationship_count: unresolvedRelationshipCount,
+      duplicate_count: duplicateCount,
+      note: "GET /e_invoices with include=invoice -- global standalone universe, independent of the active-document sync inside sales_invoices/purchase_bills. Null relationship rows are stored with parent_type/parent_parasut_id = null and never guessed.",
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
  * stock_movements: a real, global, paginated list endpoint (no per-warehouse
  * iteration needed, unlike transactions in Phase 3). No archived concept.
  * Upserting on parasut_id is naturally idempotent -- no duplicate risk from
@@ -2406,6 +2544,7 @@ Deno.serve(async (req: Request) => {
       taxes: syncTaxes,
       tags: syncTags,
       e_invoice_inboxes: syncEInvoiceInboxes,
+      e_invoices: syncEInvoicesStandalone,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 

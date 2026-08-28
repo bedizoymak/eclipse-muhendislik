@@ -126,6 +126,9 @@ const Faturalar = () => {
           <Link to="/satislar/e-fatura-mukellefleri" className="text-electric-bright hover:underline">
             E-Fatura mükellef sorgulama →
           </Link>
+          <Link to="/satislar/e-faturalar" className="text-electric-bright hover:underline">
+            Tüm e-Faturalar →
+          </Link>
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
