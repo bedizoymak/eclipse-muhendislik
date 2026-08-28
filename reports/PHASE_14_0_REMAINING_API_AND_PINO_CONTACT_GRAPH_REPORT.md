@@ -1,7 +1,7 @@
 # Phase 14.0 — Kalan API Kapsamı ve Pino Makina Müşteri Veri Grafiği
 
 **Tarih:** 2026-08-28
-**Rapor commit SHA:** (bu commit — push sonrası doldurulacak)
+**Rapor commit SHA:** `53e09a2` (bu dosyanın ilk commit'i; SHA doldurma commit'i ayrıca push edildi)
 **Kapsam:** Yalnızca keşif/rapor. Bu fazda hiçbir migration, Edge Function, frontend, deploy değişikliği yapılmadı. Tüm bulgular salt-okunur SQL (`select count(*)`, `select` sorguları) ve salt-okunur `GET` istekleriyle (gerçek Parasut hesabı, `PARASUT_COMPANY_ID=666034`) bu fazda canlı olarak toplandı. Hiçbir POST/PATCH/PUT/DELETE Parasut'a gönderilmedi; hiçbir INSERT/UPDATE/DELETE/DDL Supabase'e gönderilmedi.
 
 **Standart veri sınıflandırması (bu raporda tekrar kullanılıyor):** PARASUT_RAW, PARASUT_AUTHORITATIVE, PARASUT_AUTHORITATIVE_QUERY_RESULT, PARASUT_WRITE_CAPABILITY, ERP_DERIVED, ERP_USER_ENTERED, UNKNOWN_OR_BLOCKED.
