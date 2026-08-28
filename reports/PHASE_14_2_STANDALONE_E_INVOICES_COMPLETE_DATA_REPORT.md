@@ -1,7 +1,7 @@
 # Phase 14.2 — Standalone e_invoices Tam Veri Evreni
 
 **Tarih:** 2026-08-28/29
-**Kod commit SHA:** (bu commit'ten sonra doldurulacak)
+**Kod commit SHA:** de56a27f09ce5f914a00862b0373f2fb3fb8a3d2
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com
 
