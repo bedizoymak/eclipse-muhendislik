@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import ParasutIdRoute from "@/components/ParasutIdRoute";
 import { getDetectedLanguage, getSavedLanguage, LanguageProvider } from "@/i18n/LanguageContext";
 import type { PageKey } from "@/content/site";
 
@@ -89,45 +90,138 @@ const App = () => (
             <Routes>
               <Route path="/" element={<DemoHome />} />
               <Route path="/musteriler" element={<Musteriler />} />
-              <Route path="/musteriler/:parasutId" element={<MusteriDetay />} />
+              <Route
+                path="/musteriler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <MusteriDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/satislar/faturalar" element={<Faturalar />} />
-              <Route path="/satislar/faturalar/:parasutId" element={<FaturaDetay />} />
+              <Route
+                path="/satislar/faturalar/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <FaturaDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/satislar/tahsilatlar" element={<Tahsilatlar />} />
-              <Route path="/satislar/tahsilatlar/:parasutId" element={<TahsilatDetay />} />
+              <Route
+                path="/satislar/tahsilatlar/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <TahsilatDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/nakit/hesaplar" element={<Hesaplar />} />
               <Route path="/nakit/hesap-hareketleri" element={<HesapHareketleri />} />
               <Route path="/giderler" element={<Giderler />} />
               <Route path="/giderler/tedarikciler" element={<Tedarikciler />} />
               <Route path="/giderler/odemeler" element={<GiderOdemeleri />} />
               <Route path="/giderler/calisanlar" element={<Calisanlar />} />
-              <Route path="/giderler/calisanlar/:parasutId" element={<CalisanDetay />} />
+              <Route
+                path="/giderler/calisanlar/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <CalisanDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/giderler/maaslar" element={<Maaslar />} />
-              <Route path="/giderler/maaslar/:parasutId" element={<MaasDetay />} />
+              <Route
+                path="/giderler/maaslar/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <MaasDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/giderler/vergiler" element={<Vergiler />} />
-              <Route path="/giderler/vergiler/:parasutId" element={<VergiDetay />} />
-              <Route path="/giderler/:parasutId" element={<GiderDetay />} />
+              <Route
+                path="/giderler/vergiler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <VergiDetay />
+                  </ParasutIdRoute>
+                }
+              />
+              <Route
+                path="/giderler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <GiderDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/urunler" element={<Urunler />} />
-              <Route path="/urunler/:parasutId" element={<UrunDetay />} />
+              <Route
+                path="/urunler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <UrunDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/stok/depolar" element={<Depolar />} />
               <Route path="/stok/seviyeleri" element={<StokSeviyeleri />} />
               <Route path="/stok/hareketleri" element={<StokHareketleri />} />
               <Route path="/stok/sevkiyat-irsaliyeleri" element={<Sevkiyatlar />} />
-              <Route path="/stok/sevkiyat-irsaliyeleri/:parasutId" element={<SevkiyatDetay />} />
+              <Route
+                path="/stok/sevkiyat-irsaliyeleri/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <SevkiyatDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/nakit/cekler" element={<Cekler />} />
-              <Route path="/nakit/cekler/:parasutId" element={<CekDetay />} />
+              <Route
+                path="/nakit/cekler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <CekDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/satislar/teklifler" element={<Teklifler />} />
-              <Route path="/satislar/teklifler/:parasutId" element={<TeklifDetay />} />
+              <Route
+                path="/satislar/teklifler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <TeklifDetay />
+                  </ParasutIdRoute>
+                }
+              />
               <Route path="/sirket-bilgileri" element={<SirketBilgileri />} />
               <Route path="/ayarlar/etiketler" element={<Etiketler />} />
-              <Route path="/ayarlar/etiketler/:parasutId" element={<EtiketDetay />} />
+              <Route
+                path="/ayarlar/etiketler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <EtiketDetay />
+                  </ParasutIdRoute>
+                }
+              />
               {/* Phase 13.1: renamed from /satislar/e-fatura-kutulari -- real Swagger
                   spec has no single-GET endpoint for this resource and its actual
                   purpose is a VKN-keyed e-invoice-taxpayer lookup, not an "inbox"
                   list; see EFaturaKutulari.tsx and the Phase 13.1 report. */}
               <Route path="/satislar/e-fatura-mukellefleri" element={<EFaturaKutulari />} />
               <Route path="/stok/kategoriler" element={<UrunKategorileri />} />
-              <Route path="/stok/kategoriler/:parasutId" element={<UrunKategoriDetay />} />
-              <Route path="*" element={<DemoHome />} />
+              <Route
+                path="/stok/kategoriler/:parasutId"
+                element={
+                  <ParasutIdRoute>
+                    <UrunKategoriDetay />
+                  </ParasutIdRoute>
+                }
+              />
+              {/* Phase 13.6: undefined routes must land on a genuine Not
+                  Found screen, not silently fall through to DemoHome. */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           ) : (
             <Routes>

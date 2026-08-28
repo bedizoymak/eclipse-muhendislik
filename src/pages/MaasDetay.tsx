@@ -50,8 +50,14 @@ const MaasDetay = () => {
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState<string | null>(null);
 
+  // Phase 13.6: the tags junction is a secondary relationship query, so
+  // it must only run once the main salary record has been confirmed to
+  // exist (`row` truthy) -- never while it is still loading (undefined
+  // means "not resolved yet") and never for a genuinely nonexistent
+  // record (null), where showing a real "no linked tags" result would
+  // wrongly imply a real parent record exists.
   useEffect(() => {
-    if (!supabase || !parasutId) return;
+    if (!supabase || !parasutId || !row) return;
     let cancelled = false;
     supabase
       .from("parasut_salary_tags_demo")
@@ -63,7 +69,7 @@ const MaasDetay = () => {
     return () => {
       cancelled = true;
     };
-  }, [parasutId]);
+  }, [parasutId, row]);
 
   // Phase 13.4 section 4: resolve employee/category names once the base
   // row (with employee_parasut_id/category_parasut_id) has loaded, and
@@ -152,28 +158,35 @@ const MaasDetay = () => {
           { label: "Güncellenme (UTC)", render: (r) => r.parasut_updated_at ?? "—" },
         ]}
       />
-      <div className="mx-auto max-w-2xl px-6 pb-10 text-white">
-        <h2 className="mt-2 text-sm font-medium text-white/60">Etiketler (tags ilişkisi)</h2>
-        {tags.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">
-            Bu maaş kaydı için bağlı etiket yok (parasut.salary_tags junction tablosu -- gerçek ilişki, bugün 0 satır).
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm text-white/70">
-            {tags.map((t) => (
-              <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
-                {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
-              </li>
-            ))}
-          </ul>
-        )}
+      {/* Phase 13.6: the relationship section itself only renders once a
+          real parent record has been confirmed to exist -- a nonexistent
+          `/giderler/maaslar/{id}` must show only "Kayıt bulunamadı" from
+          EmptyResourceDetail above, never a tags section (real or
+          empty-state) that would imply a real parent record exists. */}
+      {row && (
+        <div className="mx-auto max-w-2xl px-6 pb-10 text-white">
+          <h2 className="mt-2 text-sm font-medium text-white/60">Etiketler (tags ilişkisi)</h2>
+          {tags.length === 0 ? (
+            <p className="mt-2 text-sm text-white/40">
+              Bu maaş kaydı için bağlı etiket yok (parasut.salary_tags junction tablosu -- gerçek ilişki, bugün 0 satır).
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-sm text-white/70">
+              {tags.map((t) => (
+                <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
+                  {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
+                </li>
+              ))}
+            </ul>
+          )}
 
-        {/* Phase 13.4 section 4: activities is SCHEMA_BLOCKED for Salary
-            (real swagger.json documents no `activities` relationship key
-            and no /salaries/{id}/activities path -- see the Phase 13.4
-            report section 3). No UI section is built for it -- building
-            one would fabricate a relationship the API does not have. */}
-      </div>
+          {/* Phase 13.4 section 4: activities is SCHEMA_BLOCKED for Salary
+              (real swagger.json documents no `activities` relationship key
+              and no /salaries/{id}/activities path -- see the Phase 13.4
+              report section 3). No UI section is built for it -- building
+              one would fabricate a relationship the API does not have. */}
+        </div>
+      )}
     </>
   );
 };

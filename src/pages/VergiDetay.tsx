@@ -42,8 +42,11 @@ const VergiDetay = () => {
   const [row, setRow] = useState<TaxDemoRow | null>(null);
   const [categoryName, setCategoryName] = useState<string | null>(null);
 
+  // Phase 13.6: secondary relationship query -- only run once the main
+  // tax record has been confirmed to exist (see MaasDetay.tsx for the
+  // same fix and rationale).
   useEffect(() => {
-    if (!supabase || !parasutId) return;
+    if (!supabase || !parasutId || !row) return;
     let cancelled = false;
     supabase
       .from("parasut_tax_tags_demo")
@@ -55,7 +58,7 @@ const VergiDetay = () => {
     return () => {
       cancelled = true;
     };
-  }, [parasutId]);
+  }, [parasutId, row]);
 
   useEffect(() => {
     if (!supabase || !row || row.category_parasut_id == null) return;
@@ -111,22 +114,26 @@ const VergiDetay = () => {
           { label: "Güncellenme (UTC)", render: (r) => r.parasut_updated_at ?? "—" },
         ]}
       />
-      <div className="mx-auto max-w-2xl px-6 pb-10 text-white">
-        <h2 className="mt-2 text-sm font-medium text-white/60">Etiketler (tags ilişkisi)</h2>
-        {tags.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">
-            Bu vergi kaydı için bağlı etiket yok (parasut.tax_tags junction tablosu -- gerçek ilişki, bugün 0 satır).
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm text-white/70">
-            {tags.map((t) => (
-              <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
-                {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* Phase 13.6: only render once a real parent record exists -- see
+          MaasDetay.tsx for the same fix and rationale. */}
+      {row && (
+        <div className="mx-auto max-w-2xl px-6 pb-10 text-white">
+          <h2 className="mt-2 text-sm font-medium text-white/60">Etiketler (tags ilişkisi)</h2>
+          {tags.length === 0 ? (
+            <p className="mt-2 text-sm text-white/40">
+              Bu vergi kaydı için bağlı etiket yok (parasut.tax_tags junction tablosu -- gerçek ilişki, bugün 0 satır).
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-sm text-white/70">
+              {tags.map((t) => (
+                <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
+                  {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </>
   );
 };
