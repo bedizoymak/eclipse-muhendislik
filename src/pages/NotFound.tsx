@@ -1,22 +1,20 @@
-import { Link, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 
-// Phase 13.6: single shared Not Found screen for both the demo app and
+// Phase 13.6/13.7: single shared Not Found screen for both the demo app and
 // the marketing site. It never derives any business text/explanation
-// from the user-entered path (only logs the raw pathname to the console
-// for diagnostics) and never runs a Supabase query. The home link is a
-// fixed, hardcoded "/" -- resolved by the app's own root route (DemoHome
+// from the user-entered path and never runs a Supabase query. The home link
+// is a fixed, hardcoded "/" -- resolved by the app's own root route (DemoHome
 // in demo mode, AutoHome/marketing home otherwise) -- never a guessed
 // 1:1 redirect target derived from the invalid path itself.
+//
+// Phase 13.7: reaching this page on an unknown route is an EXPECTED user
+// navigation outcome, not an application error -- it must never call
+// console.error/console.warn. If route-not-found telemetry is ever needed,
+// that requires a separate, safely-designed task (e.g. batched, sampled,
+// server-side logging) -- not a client console log on every render.
 const isDemoApp = import.meta.env.MODE === "demo";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-navy-deep px-6 text-center text-white">
       <div>

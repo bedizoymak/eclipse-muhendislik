@@ -89,7 +89,7 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
           ← {backLabel}
         </Link>
         <h1 className="mt-4 font-display text-3xl font-semibold">
-          {title} #{parasutId}
+          {!loadError && row ? `${title} #${row.parasut_id}` : title}
         </h1>
 
         {loadError && (
