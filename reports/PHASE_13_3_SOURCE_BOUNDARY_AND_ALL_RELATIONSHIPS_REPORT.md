@@ -2,7 +2,7 @@
 
 **Kaynak fazı raporu:** `reports/PHASE_13_2_EMPTY_RESOURCE_COMPLETE_RELATIONSHIPS_REPORT.md` (kod commit `2866c43c7f3bceb4888dd6138feafc63be58e9a0`)
 **Canlı:** https://demo.eclipsemuhendislik.com
-**Kod commit SHA:** `(PLACEHOLDER — bu commit oluşturulduktan sonra dolduruldu, aşağıya bakınız)`
+**Kod commit SHA:** `f8257fd915d7561b9d0820fee36200d7f8cc4f31`
 **Rapor commit SHA:** `(bu commit)`
 
 ---
