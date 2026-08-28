@@ -14,6 +14,7 @@ function attr<T>(attributes: Record<string, unknown>, key: string): T | null {
 
 export interface TagRow {
   parasut_id: number;
+  parasut_type: string | null;
   name: string | null;
   raw: JsonApiResource;
   parasut_created_at: string | null;
@@ -30,6 +31,7 @@ export function mapTag(item: JsonApiResource): TagRow {
 
   return {
     parasut_id: parasutId,
+    parasut_type: (item as unknown as { type?: string }).type ?? null,
     name: attr(a, "name"),
     raw: item,
     parasut_created_at: attr(a, "created_at"),

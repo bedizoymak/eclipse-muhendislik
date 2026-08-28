@@ -15,6 +15,13 @@ function attr<T>(attributes: Record<string, unknown>, key: string): T | null {
 
 export interface EInvoiceInboxRow {
   parasut_id: number;
+  parasut_type: string | null;
+  // Phase 13.2: the VKN this row was queried FOR (ERP_USER_ENTERED /
+  // caller-supplied input), kept separate from attributes.vkn below
+  // (Parasut's own PARASUT_AUTHORITATIVE echo of the queried taxpayer).
+  // Only ever set when the caller actually ran a filter[vkn] query --
+  // this mapper never invents one.
+  query_vkn: string | null;
   vkn: string | null;
   e_invoice_address: string | null;
   name: string | null;
@@ -24,10 +31,18 @@ export interface EInvoiceInboxRow {
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
+  queried_at: string | null;
   synced_at: string;
 }
 
-export function mapEInvoiceInbox(item: JsonApiResource): EInvoiceInboxRow {
+/**
+ * `queriedVkn` is the real filter[vkn] value used for the request that
+ * produced `item`, when known (passed by the caller, never guessed by
+ * this mapper). Today's bulk sync calls this resource unfiltered (no
+ * `filter[vkn]` at all -- see index.ts syncEInvoiceInboxes), so callers
+ * of the unfiltered sync path pass `null`.
+ */
+export function mapEInvoiceInbox(item: JsonApiResource, queriedVkn: string | null = null): EInvoiceInboxRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) {
@@ -36,6 +51,8 @@ export function mapEInvoiceInbox(item: JsonApiResource): EInvoiceInboxRow {
 
   return {
     parasut_id: parasutId,
+    parasut_type: (item as unknown as { type?: string }).type ?? null,
+    query_vkn: queriedVkn,
     vkn: attr(a, "vkn"),
     e_invoice_address: attr(a, "e_invoice_address"),
     name: attr(a, "name"),
@@ -45,6 +62,7 @@ export function mapEInvoiceInbox(item: JsonApiResource): EInvoiceInboxRow {
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
+    queried_at: queriedVkn ? new Date().toISOString() : null,
     synced_at: new Date().toISOString(),
   };
 }

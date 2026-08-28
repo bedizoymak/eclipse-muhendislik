@@ -33,6 +33,23 @@ interface EmptyResourceListProps<Row extends { parasut_id: number }> {
    * row ever links to a route that doesn't exist.
    */
   detailBase?: string;
+  /**
+   * Phase 13.2: the count view's column name. Defaults to "total_count"
+   * (a real global-resource aggregate). Resources whose count is a
+   * query-result cache, not a global total (e_invoice_inboxes), must pass
+   * their real column name here (e.g. "cached_query_result_count") so the
+   * UI never presents a lookup-cache size as if it were a company total.
+   */
+  countColumn?: string;
+  /** Phase 13.2: label shown before the count (default "Toplam kayıt"). */
+  countLabel?: string;
+  /**
+   * Phase 13.2: when true, this resource has no "0 records exist in the
+   * account" semantics at all (e.g. a lookup service where nothing has
+   * ever been queried) -- the empty state must say so, never imply a
+   * global collection is empty.
+   */
+  emptyMeansNoQueryYet?: boolean;
 }
 
 function EmptyResourceList<Row extends { parasut_id: number }>({
@@ -46,6 +63,9 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
   columns,
   emptyExplanation,
   detailBase,
+  countColumn = "total_count",
+  countLabel = "Toplam kayıt",
+  emptyMeansNoQueryYet = false,
 }: EmptyResourceListProps<Row>) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -60,7 +80,7 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
 
     Promise.all([
       supabase.from(listView).select(selectColumns).limit(1000),
-      supabase.from(countView).select("total_count").single(),
+      supabase.from(countView).select(countColumn).single(),
     ]).then(([listResult, countResult]) => {
       if (cancelled) return;
       if (listResult.error) {
@@ -72,13 +92,13 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
         return;
       }
       setRows((listResult.data as Row[] | null) ?? []);
-      setTotalCount((countResult.data as { total_count: number } | null)?.total_count ?? 0);
+      setTotalCount((countResult.data as Record<string, number> | null)?.[countColumn] ?? 0);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [listView, countView, selectColumns]);
+  }, [listView, countView, selectColumns, countColumn]);
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">
@@ -89,7 +109,7 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
         <h1 className="mt-4 font-display text-3xl font-semibold">{title}</h1>
         <p className="mt-1 text-white/60">{description}</p>
         <p className="mt-2 text-sm text-white/40">
-          Toplam kayıt: <span className="font-medium text-white/70">{totalCount === null ? "…" : totalCount}</span>
+          {countLabel}: <span className="font-medium text-white/70">{totalCount === null ? "…" : totalCount}</span>
         </p>
 
         {loadError && (
@@ -104,11 +124,14 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
               <p className="text-white/50">Yükleniyor…</p>
             ) : rows.length === 0 ? (
               <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-sm text-white/60">
-                <p className="font-medium text-white/80">Henüz kayıt bulunmuyor.</p>
+                <p className="font-medium text-white/80">
+                  {emptyMeansNoQueryYet ? "Henüz VKN sorgusu yapılmadı." : "Henüz kayıt bulunmuyor."}
+                </p>
                 <p className="mt-2">{emptyExplanation}</p>
                 <p className="mt-2 text-white/40">
-                  Bu kaynak için senkronizasyon altyapısı hazır — Paraşüt hesabında gerçek bir kayıt oluştuğunda
-                  otomatik olarak burada listelenecek.
+                  {emptyMeansNoQueryYet
+                    ? "Bu kaynak bir sorgu sonucu önbelleğidir — güvenli, yetkili bir arka uç tarafından gerçekten sorgulanan VKN'ler burada listelenecek."
+                    : "Bu kaynak için senkronizasyon altyapısı hazır — Paraşüt hesabında gerçek bir kayıt oluştuğunda otomatik olarak burada listelenecek."}
                 </p>
               </div>
             ) : (

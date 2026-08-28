@@ -17,8 +17,15 @@ function relatedId(item: JsonApiResource, key: string): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
+function relatedType(item: JsonApiResource, key: string): string | null {
+  const rel = item.relationships?.[key]?.data;
+  if (!rel || Array.isArray(rel)) return null;
+  return (rel as { type?: string }).type ?? null;
+}
+
 export interface TaxRow {
   parasut_id: number;
+  parasut_type: string | null;
   description: string | null;
   issue_date: string | null;
   due_date: string | null;
@@ -28,6 +35,7 @@ export interface TaxRow {
   remaining_in_trl: number | null;
   archived: boolean | null;
   category_parasut_id: number | null;
+  category_parasut_type: string | null;
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
@@ -43,6 +51,10 @@ export function mapTax(item: JsonApiResource): TaxRow {
 
   return {
     parasut_id: parasutId,
+    // Phase 13.2: the real runtime item.type is always stored verbatim.
+    // Swagger documents TaxAttributes.type enum as ["bank_fees"], a known
+    // documentation bug -- this value is never coerced against that enum.
+    parasut_type: (item as unknown as { type?: string }).type ?? null,
     description: attr(a, "description"),
     issue_date: attr(a, "issue_date"),
     due_date: attr(a, "due_date"),
@@ -52,6 +64,7 @@ export function mapTax(item: JsonApiResource): TaxRow {
     remaining_in_trl: attr(a, "remaining_in_trl"),
     archived: attr(a, "archived"),
     category_parasut_id: relatedId(item, "category"),
+    category_parasut_type: relatedType(item, "category"),
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),

@@ -18,8 +18,33 @@ function relatedId(item: JsonApiResource, key: string): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
+function relatedType(item: JsonApiResource, key: string): string | null {
+  const rel = item.relationships?.[key]?.data;
+  if (!rel || Array.isArray(rel)) return null;
+  return (rel as { type?: string }).type ?? null;
+}
+
+/** Real relationships.tags.data[] entries -- {id,type} verbatim, never fabricated. */
+export interface RelatedRef {
+  id: number;
+  type: string;
+}
+
+export function relatedManyRefs(item: JsonApiResource, key: string): RelatedRef[] {
+  const rel = item.relationships?.[key]?.data;
+  if (!Array.isArray(rel)) return [];
+  const out: RelatedRef[] = [];
+  for (const entry of rel) {
+    const id = Number((entry as { id?: unknown }).id);
+    const type = (entry as { type?: string }).type;
+    if (Number.isFinite(id) && type) out.push({ id, type });
+  }
+  return out;
+}
+
 export interface SalaryRow {
   parasut_id: number;
+  parasut_type: string | null;
   description: string | null;
   currency: string | null;
   issue_date: string | null;
@@ -31,7 +56,9 @@ export interface SalaryRow {
   remaining_in_trl: number | null;
   archived: boolean | null;
   employee_parasut_id: number | null;
+  employee_parasut_type: string | null;
   category_parasut_id: number | null;
+  category_parasut_type: string | null;
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
@@ -47,6 +74,7 @@ export function mapSalary(item: JsonApiResource): SalaryRow {
 
   return {
     parasut_id: parasutId,
+    parasut_type: (item as unknown as { type?: string }).type ?? null,
     description: attr(a, "description"),
     currency: attr(a, "currency"),
     issue_date: attr(a, "issue_date"),
@@ -58,7 +86,9 @@ export function mapSalary(item: JsonApiResource): SalaryRow {
     remaining_in_trl: attr(a, "remaining_in_trl"),
     archived: attr(a, "archived"),
     employee_parasut_id: relatedId(item, "employee"),
+    employee_parasut_type: relatedType(item, "employee"),
     category_parasut_id: relatedId(item, "category"),
+    category_parasut_type: relatedType(item, "category"),
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
