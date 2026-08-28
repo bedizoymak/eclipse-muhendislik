@@ -1,7 +1,7 @@
 # Phase 13.6 — Route Guard, Not Found ve Var Olmayan Kayıt Davranışı
 
-- Kod commit SHA: `PENDING`
-- Rapor commit SHA: `PENDING`
+- Kod commit SHA: `226c1abbaa9ac95c4d3a1694eafa1fe4e1c4b0e9`
+- Rapor commit SHA: (bu commit)
 - Önceki phase (temel alınan): Phase 13.5, kod commit `ad8d084`
 - Canlı: https://demo.eclipsemuhendislik.com
 
