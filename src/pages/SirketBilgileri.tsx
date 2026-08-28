@@ -17,7 +17,9 @@ interface CompanyProfileRow {
   primary_job: string | null;
   app_url: string | null;
   logo_url: string | null;
+  logo_is_processing: boolean | null;
   credit_balance: number | null;
+  last_consumption_date: string | null;
   new_subscription_status: string | null;
   valid_until: string | null;
   e_invoicing_enabled: boolean | null;
@@ -88,12 +90,19 @@ interface CompanyProfileRow {
   ai_features_enabled: boolean | null;
   owner_parasut_id: number | null;
   owner_parasut_type: string | null;
+  default_warehouse_parasut_id: number | null;
+  default_warehouse_parasut_type: string | null;
   address_parasut_id: number | null;
   address_parasut_type: string | null;
   address_name: string | null;
   address_text: string | null;
   address_phone: string | null;
   address_fax: string | null;
+  address_own_parasut_type: string | null;
+  address_addressable_type: string | null;
+  address_addressable_parasut_id: number | null;
+  address_created_at: string | null;
+  address_updated_at: string | null;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
   synced_at: string | null;
@@ -104,6 +113,10 @@ interface UserRelationRow {
   user_parasut_type: string;
   user_name: string | null;
   user_email: string | null;
+  user_created_at: string | null;
+  user_updated_at: string | null;
+  profile_parasut_id: number | null;
+  profile_parasut_type: string | null;
   user_phone: string | null;
   relation_parasut_id: number;
   relation_parasut_type: string;
@@ -210,6 +223,8 @@ const FIELD_LABELS: Record<string, string> = {
   pending_qr_code_migration: "QR Kod Geçişi Bekliyor",
   ai_support_rag: "AI Destek (RAG)",
   ai_features_enabled: "AI Özellikleri Aktif",
+  logo_is_processing: "Logo İşleniyor mu",
+  last_consumption_date: "Son Tüketim Tarihi (UTC)",
 };
 
 const BOOLEAN_FIELDS = new Set([
@@ -230,12 +245,15 @@ const BOOLEAN_FIELDS = new Set([
   "fibabanka_credit_application_enabled", "inbound_edocument_page_enabled", "batch_updated_vat_rates",
   "invoice_note_enabled", "has_odeal_integration", "has_507_and_509", "footer_aggregate_enabled",
   "contact_transfer_enabled", "pending_qr_code_migration", "ai_support_rag", "ai_features_enabled",
+  "logo_is_processing",
 ]);
 
 const DATE_FIELDS = new Set([
   "e_invoicing_activated_at", "e_archiving_activated_at", "e_despatch_activated_at", "valid_until",
   "e_smm_activated_at", "e_archiving_only_activated_at",
 ]);
+
+const TIMESTAMP_FIELDS = new Set(["last_consumption_date"]);
 
 const SirketBilgileri = () => {
   const [company, setCompany] = useState<CompanyProfileRow | null | undefined>(undefined);
@@ -355,6 +373,56 @@ const SirketBilgileri = () => {
                     {company.owner_parasut_id ? `#${company.owner_parasut_id} (${company.owner_parasut_type})` : "—"}
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Varsayılan Depo ID</dt>
+                  <dd className="text-sm">
+                    {company.default_warehouse_parasut_id ? `#${company.default_warehouse_parasut_id}` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Logo İşleniyor mu</dt>
+                  <dd className="text-sm">{b(company.logo_is_processing)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Son Tüketim Tarihi (UTC)</dt>
+                  <dd className="text-sm">{utcTimestamp(company.last_consumption_date)}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 p-6">
+              <h3 className="text-sm font-semibold text-white/70">Adres Detayı</h3>
+              <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Adres ID / Tür</dt>
+                  <dd className="text-sm">
+                    {company.address_parasut_id ? `#${company.address_parasut_id} (${company.address_own_parasut_type ?? "—"})` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">İsim</dt>
+                  <dd className="text-sm">{s(company.address_name)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Faks</dt>
+                  <dd className="text-sm">{s(company.address_fax)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Bağlı Olduğu Kaynak (Addressable)</dt>
+                  <dd className="text-sm">
+                    {company.address_addressable_parasut_id
+                      ? `#${company.address_addressable_parasut_id} (${company.address_addressable_type ?? "—"})`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Adres Oluşturulma (UTC)</dt>
+                  <dd className="text-sm">{utcTimestamp(company.address_created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Adres Güncellenme (UTC)</dt>
+                  <dd className="text-sm">{utcTimestamp(company.address_updated_at)}</dd>
+                </div>
               </dl>
             </div>
 
@@ -393,6 +461,10 @@ const SirketBilgileri = () => {
                 <h3 className="text-sm font-semibold text-white/70">Paraşüt Kullanıcısı</h3>
                 <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                   <div>
+                    <dt className="text-xs uppercase tracking-wide text-white/40">Kullanıcı ID / Tür</dt>
+                    <dd className="text-sm">#{relation.user_parasut_id} ({relation.user_parasut_type})</dd>
+                  </div>
+                  <div>
                     <dt className="text-xs uppercase tracking-wide text-white/40">Ad</dt>
                     <dd className="text-sm">{s(relation.user_name)}</dd>
                   </div>
@@ -403,6 +475,20 @@ const SirketBilgileri = () => {
                   <div>
                     <dt className="text-xs uppercase tracking-wide text-white/40">Telefon</dt>
                     <dd className="text-sm">{s(relation.user_phone)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-white/40">Kullanıcı Oluşturulma (UTC)</dt>
+                    <dd className="text-sm">{utcTimestamp(relation.user_created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-white/40">Kullanıcı Güncellenme (UTC)</dt>
+                    <dd className="text-sm">{utcTimestamp(relation.user_updated_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-white/40">Profil ID / Tür</dt>
+                    <dd className="text-sm">
+                      {relation.profile_parasut_id ? `#${relation.profile_parasut_id} (${relation.profile_parasut_type ?? "—"})` : "—"}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-wide text-white/40">Kullanıcı–Şirket İlişkisi</dt>
@@ -441,6 +527,7 @@ const SirketBilgileri = () => {
                       let display: string;
                       if (BOOLEAN_FIELDS.has(key)) display = b(raw as boolean | null);
                       else if (DATE_FIELDS.has(key)) display = dateOnly(raw as string | null);
+                      else if (TIMESTAMP_FIELDS.has(key)) display = utcTimestamp(raw as string | null);
                       else display = s(raw as string | number | null);
                       return (
                         <tr key={key} className="border-t border-white/5">

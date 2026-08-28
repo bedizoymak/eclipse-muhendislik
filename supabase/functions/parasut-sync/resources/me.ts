@@ -47,6 +47,9 @@ function relatedRef(item: JsonApiResource, key: string): { id: number | null; ty
 
 export interface UserRow {
   parasut_id: number;
+  // Real value from item.type (root /v4/me resource envelope) -- never a
+  // hardcoded "users" string constant.
+  parasut_type: string;
   name: string | null;
   email: string | null;
   unconfirmed_email: string | null;
@@ -64,6 +67,9 @@ export interface UserRow {
 
 export interface ProfileRow {
   parasut_id: number;
+  // Real value from item.type (included "profiles" resource envelope) --
+  // never a hardcoded "profiles" string constant.
+  parasut_type: string;
   user_parasut_id: number | null;
   phone: string | null;
   job_title: string | null;
@@ -77,6 +83,9 @@ export interface ProfileRow {
 
 export interface UserRoleRow {
   parasut_id: number;
+  // Real value from item.type (included "user_roles" resource envelope) --
+  // never a hardcoded "user_roles" string constant.
+  parasut_type: string;
   user_parasut_id: number | null;
   company_parasut_id: number | null;
   sales_invoices: string | null;
@@ -106,6 +115,10 @@ export interface CompanyRow {
   primary_job: string | null;
   app_url: string | null;
   logo_url: string | null;
+  // Phase 12.2: logo.is_processing is a SEPARATE real boolean from the
+  // logo.url that already backs logo_url -- it cannot be represented by
+  // the URL string and must be stored/shown as its own value.
+  logo_is_processing: boolean | null;
   credit_balance: number | null;
   last_consumption_date: string | null;
   new_subscription_status: string | null;
@@ -200,6 +213,10 @@ export interface CompanyRow {
 
 export interface AddressRow {
   parasut_id: number;
+  // Phase 12.2: the address resource's OWN JSON:API `type`, taken verbatim
+  // from `item.type` (the real included resource envelope) -- never a
+  // hardcoded "addresses" string constant.
+  parasut_type: string;
   name: string | null;
   address: string | null;
   phone: string | null;
@@ -262,6 +279,7 @@ export function mapUser(item: JsonApiResource): UserRow {
   if (!Number.isFinite(parasutId)) throw new Error(`User resource has a non-numeric id: ${item.id}`);
   return {
     parasut_id: parasutId,
+    parasut_type: item.type,
     name: attr(a, "name"),
     email: attr(a, "email"),
     unconfirmed_email: attr(a, "unconfirmed_email"),
@@ -284,6 +302,7 @@ export function mapProfile(item: JsonApiResource, userParasutId: number | null):
   if (!Number.isFinite(parasutId)) throw new Error(`Profile resource has a non-numeric id: ${item.id}`);
   return {
     parasut_id: parasutId,
+    parasut_type: item.type,
     user_parasut_id: userParasutId,
     phone: attr(a, "phone"),
     job_title: attr(a, "job_title"),
@@ -303,6 +322,7 @@ export function mapUserRole(item: JsonApiResource, userParasutId: number | null)
   const company = relatedRef(item, "company");
   return {
     parasut_id: parasutId,
+    parasut_type: item.type,
     user_parasut_id: userParasutId,
     company_parasut_id: company.id,
     sales_invoices: attr(a, "sales_invoices"),
@@ -325,7 +345,6 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
   if (!Number.isFinite(parasutId)) throw new Error(`Company resource has a non-numeric id: ${item.id}`);
   const owner = relatedRef(item, "owner");
   const address = relatedRef(item, "address");
-  const defaultWarehouse = relatedRef(item, "default_warehouse");
 
   const extraFlags: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(a)) {
@@ -346,6 +365,10 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
     primary_job: attr(a, "primary_job"),
     app_url: attr(a, "app_url"),
     logo_url: attr(a, "logo_url"),
+    logo_is_processing: (() => {
+      const logo = a["logo"] as { is_processing?: boolean } | null | undefined;
+      return logo && typeof logo === "object" ? (logo.is_processing ?? null) : null;
+    })(),
     credit_balance: attr(a, "credit_balance"),
     last_consumption_date: attr(a, "last_consumption_date"),
     new_subscription_status: attr(a, "new_subscription_status"),
@@ -371,7 +394,13 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
     has_iyzico_integration: attr(a, "has_iyzico_integration"),
     owner_parasut_id: owner.id,
     address_parasut_id: address.id,
-    default_warehouse_parasut_id: defaultWarehouse.id,
+    // Phase 12.2 fix: relationships.default_warehouse is {"meta":{}} on this
+    // account (empty -- no linked warehouse resource, never fabricated) but
+    // attributes.default_warehouse_id is a SEPARATE real, independently
+    // populated integer (1000122982) -- it must be sourced from the
+    // attribute, not the (always-null on this account) relationship
+    // pointer, or the real value would be silently dropped.
+    default_warehouse_parasut_id: attr(a, "default_warehouse_id"),
     allowed_inspection_at: attr(a, "allowed_inspection_at"),
     e_invoice_vkn: attr(a, "e_invoice_vkn"),
     display_exchange_rate_in_offer_pdf: attr(a, "display_exchange_rate_in_offer_pdf"),
@@ -447,6 +476,10 @@ export function mapMeAddress(item: JsonApiResource, addressableType: string | nu
   if (!Number.isFinite(parasutId)) throw new Error(`Address resource has a non-numeric id: ${item.id}`);
   return {
     parasut_id: parasutId,
+    // Real value from item.type (the address's own JSON:API resource
+    // envelope, as returned live by /v4/me's included array) -- proven by
+    // the API, not constructed from a constant.
+    parasut_type: item.type,
     name: attr(a, "name"),
     address: attr(a, "address"),
     phone: attr(a, "phone"),

@@ -1067,7 +1067,10 @@ async function syncMe(db: SupabaseClient, accessToken: string, dryRun: boolean) 
     if (!addrRef || Array.isArray(addrRef)) continue;
     const addrItem = addressResources.find((a) => a.id === addrRef.id);
     if (!addrItem) continue;
-    addressRows.push(mapMeAddress(addrItem, "companies", Number(companyItem.id)));
+    // Phase 12.2: addressable_type must come from the real API resource
+    // type of the parent (companyItem.type, as returned by /v4/me), never
+    // a hardcoded "companies" string literal.
+    addressRows.push(mapMeAddress(addrItem, companyItem.type, Number(companyItem.id)));
   }
 
   let userUpserted = 0;
