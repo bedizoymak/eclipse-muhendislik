@@ -104,6 +104,9 @@ const Urunler = () => {
         <h1 className="mt-4 font-display text-3xl font-semibold">Ürünler</h1>
         <p className="mt-1 text-white/60">Paraşüt'ten senkronize edilen gerçek ürün/hizmet kayıtları (ilk 200 gösterilir).</p>
         <div className="mt-2 flex flex-wrap gap-4 text-sm">
+          <Link to="/stok/kategoriler" className="text-electric-bright hover:underline">
+            Ürün kategorileri →
+          </Link>
           <Link to="/stok/depolar" className="text-electric-bright hover:underline">
             Depolar →
           </Link>

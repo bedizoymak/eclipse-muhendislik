@@ -43,8 +43,11 @@ import { mapEmployee } from "./resources/employees.ts";
 import { mapSalary, relatedManyRefs, type RelatedRef } from "./resources/salaries.ts";
 import { mapTax } from "./resources/taxes.ts";
 import { mapTag } from "./resources/tags.ts";
-import { mapEInvoiceInbox } from "./resources/e_invoice_inboxes.ts";
-import { detectUnknownKeys, detectTypeMismatch } from "./schema_guard.ts";
+// Phase 13.3: mapEInvoiceInbox is no longer called from the sync path here
+// (this resource is lookup-only and blocked pending secure-auth -- see
+// syncEInvoiceInboxes below) but stays exported from its module for the
+// future secure lookup flow to import directly.
+import { detectUnknownKeys, detectTypeMismatch, expectedTypeStatus } from "./schema_guard.ts";
 import { findCompanyListEntry, mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
 
 const SUPPORTED_RESOURCES = [
@@ -193,6 +196,76 @@ async function refreshManyRelationshipJunction(
         .eq(parentIdColumn, parasutId)
         .eq("tag_parasut_id", stale.tag_parasut_id)
         .eq("tag_type", stale.tag_type);
+      if (deleteError) errorMessages.push(`${table} (stale delete): ${deleteError.message}`);
+    }
+  }
+
+  return { upsertedCount, errorCount, errorMessages };
+}
+
+/**
+ * Phase 13.3: same diff/upsert/stale-delete behavior as
+ * refreshManyRelationshipJunction, generalized to arbitrary related-id/
+ * related-type column names (used for salary_payments/tax_payments,
+ * whose related column is payment_parasut_id/payment_type, not
+ * tag_parasut_id/tag_type). Never fabricates a related row's own
+ * attributes -- only the real {id,type} link is stored.
+ */
+async function refreshManyRelationshipJunctionGeneric(
+  db: SupabaseClient,
+  table: string,
+  parentIdColumn: string,
+  relatedIdColumn: string,
+  relatedTypeColumn: string,
+  items: { parasutId: number; refs: RelatedRef[] }[],
+): Promise<{ upsertedCount: number; errorCount: number; errorMessages: string[] }> {
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  for (const { parasutId, refs } of items) {
+    const currentKeys = new Set(refs.map((r) => `${r.id}:${r.type}`));
+
+    if (refs.length > 0) {
+      const rows = refs.map((r) => ({
+        [parentIdColumn]: parasutId,
+        [relatedIdColumn]: r.id,
+        [relatedTypeColumn]: r.type,
+      }));
+      const onConflict = `${parentIdColumn},${relatedIdColumn},${relatedTypeColumn}`;
+      const { error, count } = await db
+        .schema("parasut")
+        .from(table)
+        .upsert(rows, { onConflict, count: "exact" })
+        .select(relatedIdColumn, { count: "exact", head: true });
+      if (error) {
+        errorCount += rows.length;
+        errorMessages.push(`${table}: ${error.message}`);
+        continue;
+      }
+      upsertedCount += count ?? rows.length;
+    }
+
+    const { data: existing, error: selectError } = await db
+      .schema("parasut")
+      .from(table)
+      .select(`${relatedIdColumn}, ${relatedTypeColumn}`)
+      .eq(parentIdColumn, parasutId);
+    if (selectError) {
+      errorMessages.push(`${table}: ${selectError.message}`);
+      continue;
+    }
+    const staleMatchers = (existing ?? []).filter(
+      (row: Record<string, unknown>) => !currentKeys.has(`${row[relatedIdColumn]}:${row[relatedTypeColumn]}`),
+    );
+    for (const stale of staleMatchers as Record<string, unknown>[]) {
+      const { error: deleteError } = await db
+        .schema("parasut")
+        .from(table)
+        .delete()
+        .eq(parentIdColumn, parasutId)
+        .eq(relatedIdColumn, stale[relatedIdColumn] as number)
+        .eq(relatedTypeColumn, stale[relatedTypeColumn] as string);
       if (deleteError) errorMessages.push(`${table} (stale delete): ${deleteError.message}`);
     }
   }
@@ -1731,9 +1804,12 @@ async function syncWarehouses(db: SupabaseClient, accessToken: string, dryRun: b
  * (verified against the schema), so there is no active/archived split to
  * attempt -- a single full listing is the complete, correct fetch.
  */
+const ITEM_CATEGORY_EXPECTED_TYPES = ["item_categories"] as const;
+
 async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "item_categories");
   const fetchedCount = result.items.length;
+  const typeStatus = expectedTypeStatus(result.items, ITEM_CATEGORY_EXPECTED_TYPES);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1753,11 +1829,13 @@ async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRu
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
+      metadata: { type_status: typeStatus },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: result.totalCountReported,
+      type_status: typeStatus,
     },
     errorCount,
     errorMessages,
@@ -1806,6 +1884,7 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
   let errorCount = 0;
   const errorMessages: string[] = [];
   let junctionUpsertedCount = 0;
+  let salaryPaymentsJunctionUpserted = 0;
 
   if (!dryRun) {
     const rows = result.items.map(mapSalary);
@@ -1825,7 +1904,23 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
     junctionUpsertedCount = junctionResult.upsertedCount;
     errorCount += junctionResult.errorCount;
     errorMessages.push(...junctionResult.errorMessages);
+
+    // Phase 13.3: real Salary.relationships.payments to-many relationship
+    // -> parasut.salary_payments junction (id/type preserved, never
+    // copies parasut.payments rows in, never fabricates amount/name).
+    const paymentJunctionInputs = result.items.map((item) => ({
+      parasutId: Number(item.id),
+      refs: relatedManyRefs(item, "payments") as RelatedRef[],
+    })).filter((x) => Number.isFinite(x.parasutId));
+    const paymentJunctionResult = await refreshManyRelationshipJunctionGeneric(
+      db, "salary_payments", "salary_parasut_id", "payment_parasut_id", "payment_type", paymentJunctionInputs,
+    );
+    salaryPaymentsJunctionUpserted = paymentJunctionResult.upsertedCount;
+    errorCount += paymentJunctionResult.errorCount;
+    errorMessages.push(...paymentJunctionResult.errorMessages);
   }
+
+  const typeStatus = expectedTypeStatus(result.items, SALARY_EXPECTED_TYPES);
 
   return {
     dbFields: {
@@ -1833,7 +1928,13 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
-      metadata: { unknown_keys: unknownKeys, type_mismatches: typeMismatches, salary_tags_junction_upserted: junctionUpsertedCount },
+      metadata: {
+        unknown_keys: unknownKeys,
+        type_mismatches: typeMismatches,
+        salary_tags_junction_upserted: junctionUpsertedCount,
+        salary_payments_junction_upserted: salaryPaymentsJunctionUpserted,
+        type_status: typeStatus,
+      },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
@@ -1842,6 +1943,8 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
       unknown_keys: unknownKeys,
       type_mismatches: typeMismatches,
       salary_tags_junction_upserted: junctionUpsertedCount,
+      salary_payments_junction_upserted: salaryPaymentsJunctionUpserted,
+      type_status: typeStatus,
     },
     errorCount,
     errorMessages,
@@ -1862,10 +1965,16 @@ const TAX_KNOWN_ATTRIBUTE_KEYS = [
 ] as const;
 const TAX_KNOWN_RELATIONSHIP_KEYS = ["category", "tags"] as const;
 const TAX_SWAGGER_RELATIONSHIP_KEYS = ["category", "tags", "payments"] as const;
-// Swagger documents TaxAttributes.type enum as ["bank_fees"] -- a known
-// documentation bug (this resource's real runtime type is "taxes"). The
-// expected-types list intentionally matches the REAL runtime type, not
-// the buggy Swagger enum, per Phase 13.2 problem #4.
+// Phase 13.3: Swagger documents TaxAttributes.type enum as ["bank_fees"],
+// believed to be a documentation error, but with 0 real runtime tax
+// records in this account there is no live example to prove that belief.
+// TAX_EXPECTED_TYPES is used ONLY as a diagnostic comparison set (never
+// coerces/derives the stored value, never treated as proven real-source
+// evidence) -- see expected_type_status in syncTaxes's return value,
+// which explicitly reads "UNKNOWN_OR_BLOCKED — no runtime resource
+// observed" while fetchedCount is 0. Once a real record arrives, the
+// runtime item.type is reported verbatim (mapTax) alongside
+// TAX_EXPECTED_TYPES as two clearly separate fields, never merged.
 const TAX_EXPECTED_TYPES = ["taxes"] as const;
 
 async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
@@ -1884,6 +1993,7 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
   let errorCount = 0;
   const errorMessages: string[] = [];
   let junctionUpsertedCount = 0;
+  let taxPaymentsJunctionUpserted = 0;
 
   if (!dryRun) {
     const rows = result.items.map(mapTax);
@@ -1900,7 +2010,21 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
     junctionUpsertedCount = junctionResult.upsertedCount;
     errorCount += junctionResult.errorCount;
     errorMessages.push(...junctionResult.errorMessages);
+
+    // Phase 13.3: real Tax.relationships.payments -> parasut.tax_payments.
+    const paymentJunctionInputs = result.items.map((item) => ({
+      parasutId: Number(item.id),
+      refs: relatedManyRefs(item, "payments") as RelatedRef[],
+    })).filter((x) => Number.isFinite(x.parasutId));
+    const paymentJunctionResult = await refreshManyRelationshipJunctionGeneric(
+      db, "tax_payments", "tax_parasut_id", "payment_parasut_id", "payment_type", paymentJunctionInputs,
+    );
+    taxPaymentsJunctionUpserted = paymentJunctionResult.upsertedCount;
+    errorCount += paymentJunctionResult.errorCount;
+    errorMessages.push(...paymentJunctionResult.errorMessages);
   }
+
+  const typeStatus = expectedTypeStatus(result.items, TAX_EXPECTED_TYPES);
 
   return {
     dbFields: {
@@ -1908,7 +2032,13 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
-      metadata: { unknown_keys: unknownKeys, type_mismatches: typeMismatches, tax_tags_junction_upserted: junctionUpsertedCount },
+      metadata: {
+        unknown_keys: unknownKeys,
+        type_mismatches: typeMismatches,
+        tax_tags_junction_upserted: junctionUpsertedCount,
+        tax_payments_junction_upserted: taxPaymentsJunctionUpserted,
+        type_status: typeStatus,
+      },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
@@ -1917,6 +2047,8 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
       unknown_keys: unknownKeys,
       type_mismatches: typeMismatches,
       tax_tags_junction_upserted: junctionUpsertedCount,
+      tax_payments_junction_upserted: taxPaymentsJunctionUpserted,
+      type_status: typeStatus,
     },
     errorCount,
     errorMessages,
@@ -1938,6 +2070,7 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
   const fetchedCount = result.items.length;
   const unknownKeys = detectUnknownKeys(result.items, TAG_KNOWN_ATTRIBUTE_KEYS, TAG_KNOWN_RELATIONSHIP_KEYS);
   const typeMismatches = detectTypeMismatch(result.items, TAG_EXPECTED_TYPES);
+  const typeStatus = expectedTypeStatus(result.items, TAG_EXPECTED_TYPES);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1957,7 +2090,7 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
-      metadata: { unknown_keys: unknownKeys, type_mismatches: typeMismatches },
+      metadata: { unknown_keys: unknownKeys, type_mismatches: typeMismatches, type_status: typeStatus },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
@@ -1965,6 +2098,7 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
       total_count_reported: result.totalCountReported,
       unknown_keys: unknownKeys,
       type_mismatches: typeMismatches,
+      type_status: typeStatus,
     },
     errorCount,
     errorMessages,
@@ -1972,19 +2106,25 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
 }
 
 /**
- * e_invoice_inboxes: Phase 13.2 problem #1 -- this is NOT a global inbox
- * record list. The real, official endpoint is a taxpayer LOOKUP service
- * (`GET /e_invoice_inboxes?filter[vkn]=...`); an unfiltered call has no
- * documented "list all" semantics (Swagger's only real filter is
- * filter[vkn], no sort/include). This sync intentionally calls it
- * UNFILTERED (fetchAllPages with no filter[vkn]) purely to keep the same
- * schema/unknown-key-detection plumbing warm as the other 3 empty
- * resources -- it is NEVER a live per-VKN lookup, and mapEInvoiceInbox()
- * is called with queriedVkn=null here, so query_vkn/queried_at stay null
- * for every row this sync writes. A real per-VKN lookup (with query_vkn
- * populated) can only be added by a future secure-auth phase -- see
- * EFaturaMukellefSorgulama.tsx BLOCKED note. Result is classified
- * PARASUT_AUTHORITATIVE_QUERY_RESULT (cache), never EMPTY_RESOURCE.
+ * e_invoice_inboxes: Phase 13.3 fix -- this is a taxpayer LOOKUP service
+ * (`GET /e_invoice_inboxes?filter[vkn]=...`), never a global inbox record
+ * list. Phase 13.2 still called it unfiltered as a "keep the plumbing
+ * warm" sync; that is itself the bug this phase removes. As of this
+ * phase:
+ *   - This resource is REMOVED from the general full/scheduled sync list
+ *     (scripts/sync_parasut.py LIST_ENDPOINTS) -- see that file.
+ *   - A direct call to this Edge Function with resource=e_invoice_inboxes
+ *     and no real `vkn` argument NEVER performs an unfiltered fetch. It
+ *     returns status "lookup_required" / blocked_reason
+ *     "BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH" and touches zero rows.
+ *   - A real per-VKN lookup additionally requires secure caller
+ *     authentication, which does not exist yet (still BLOCKED pending a
+ *     future secure-auth phase -- see EFaturaMukellefSorgulama.tsx). So
+ *     even when a `vkn` argument is supplied today, the call is still
+ *     blocked (auth prerequisite not met) -- this keeps the architecture
+ *     ready without opening a live public VKN form.
+ *   - No global collection count and no global stale-deletion are ever
+ *     produced for this resource.
  */
 const E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS = [
   "vkn", "e_invoice_address", "name", "inbox_type", "address_registered_at",
@@ -1993,54 +2133,37 @@ const E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS = [
 const E_INVOICE_INBOX_KNOWN_RELATIONSHIP_KEYS = [] as const;
 const E_INVOICE_INBOX_EXPECTED_TYPES = ["e_invoice_inboxes"] as const;
 
-async function syncEInvoiceInboxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
-  const result = await fetchAllPages(accessToken, "e_invoice_inboxes");
-  const fetchedCount = result.items.length;
-  const unknownKeys = detectUnknownKeys(
-    result.items,
-    E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS,
-    E_INVOICE_INBOX_KNOWN_RELATIONSHIP_KEYS,
-  );
-  const typeMismatches = detectTypeMismatch(result.items, E_INVOICE_INBOX_EXPECTED_TYPES);
-
-  let upsertedCount = 0;
-  let errorCount = 0;
-  const errorMessages: string[] = [];
-
-  if (!dryRun) {
-    const rows = result.items.map((item) => mapEInvoiceInbox(item, null));
-    const upsertResult = await upsertBatched(db, "e_invoice_inboxes", rows as unknown as Record<string, unknown>[]);
-    upsertedCount = upsertResult.upsertedCount;
-    errorCount = upsertResult.errorCount;
-    errorMessages.push(...upsertResult.errorMessages);
-  }
-
+async function syncEInvoiceInboxes(_db: SupabaseClient, _accessToken: string, _dryRun: boolean) {
+  // Phase 13.3: never runs an unfiltered fetch. Secure per-VKN auth is not
+  // implemented yet, so every call today is blocked -- deliberately, to
+  // never let this public demo function write user input into the
+  // parasut mirror or run a global sync for a lookup-only resource.
   return {
     dbFields: {
-      fetched_count: fetchedCount,
-      total_count_reported: result.totalCountReported,
-      upserted_count: dryRun ? 0 : upsertedCount,
-      error_count: errorCount,
-      // cached_query_result_count deliberately lives only in metadata
-      // (jsonb), never as a top-level sync_runs column named after
-      // fetched_count -- see comment above: this is NEVER a global total.
+      fetched_count: 0,
+      total_count_reported: null,
+      upserted_count: 0,
+      error_count: 0,
+      status: "lookup_required",
       metadata: {
-        unknown_keys: unknownKeys,
-        type_mismatches: typeMismatches,
         resource_class: "PARASUT_AUTHORITATIVE_QUERY_RESULT",
-        cached_query_result_count: fetchedCount,
+        blocked_reason: "BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH",
+        cached_query_result_count: null,
+        known_attribute_keys: E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS,
+        known_relationship_keys: E_INVOICE_INBOX_KNOWN_RELATIONSHIP_KEYS,
+        expected_types: E_INVOICE_INBOX_EXPECTED_TYPES,
       },
     },
     responseFields: {
-      total_fetched_count: fetchedCount,
-      cached_query_result_count: fetchedCount,
-      upserted_count: dryRun ? 0 : upsertedCount,
-      total_count_reported: result.totalCountReported,
-      type_mismatches: typeMismatches,
-      unknown_keys: unknownKeys,
+      status: "lookup_required",
+      blocked_reason: "BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH",
+      total_fetched_count: 0,
+      cached_query_result_count: null,
+      upserted_count: 0,
+      total_count_reported: null,
     },
-    errorCount,
-    errorMessages,
+    errorCount: 0,
+    errorMessages: [] as string[],
   };
 }
 
@@ -2215,11 +2338,21 @@ Deno.serve(async (req: Request) => {
   const runId = runRow.id as string;
 
   const finishRun = async (patch: Record<string, unknown>) => {
-    await db
+    // Phase 13.3 bug fix: this update's error was previously ignored --
+    // a status value the sync_runs CHECK constraint rejects (this
+    // actually happened for "lookup_required" before the constraint was
+    // widened) silently left the row stuck at status='running' forever,
+    // permanently holding the one-run-per-resource lock. Now logged loudly
+    // so a future constraint mismatch is visible in function logs instead
+    // of manifesting only as a mysterious permanent lock.
+    const { error } = await db
       .schema("parasut")
       .from("sync_runs")
       .update({ finished_at: new Date().toISOString(), ...patch })
       .eq("id", runId);
+    if (error) {
+      console.error(`finishRun failed to update sync_runs id=${runId}: ${error.message}`);
+    }
   };
 
   try {
@@ -2268,16 +2401,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Phase 13.3 fix: a syncer (e_invoice_inboxes) may return its own
+    // dbFields.status (e.g. "lookup_required") that must win over the
+    // generic dry_run/success default -- never silently overwritten back
+    // to "success", which would misreport a blocked lookup as a
+    // successful global sync in sync_runs.
+    const defaultStatus = dryRun ? "dry_run" : "success";
+    const runStatus = (result.dbFields as { status?: string }).status ?? defaultStatus;
+
     await finishRun({
       ...result.dbFields,
-      status: dryRun ? "dry_run" : "success",
+      status: runStatus,
     });
 
     return jsonResponse({
       resource,
       dry_run: dryRun,
-      status: dryRun ? "dry_run" : "success",
       ...result.responseFields,
+      status: runStatus,
       error_count: 0,
     });
   } catch (err) {

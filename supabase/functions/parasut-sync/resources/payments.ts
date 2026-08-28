@@ -63,7 +63,13 @@ export interface PaymentRow {
 export function mapPayment(
   item: JsonApiResource,
   payableParasutId: number,
-  payableType: "sales_invoices" | "purchase_bills" | "checks" = "sales_invoices",
+  // Phase 13.3: salaries/taxes added -- their real relationships.payments
+  // relation is documented in swagger.json's per-endpoint `include`
+  // parameter (`Available: category, tags, payments, activities, employee`
+  // for salaries; `category, tags, payments` for taxes), verified live
+  // this session, even though the resource-schema `relationships` block
+  // omits it (a known Swagger doc gap, same pattern as other resources).
+  payableType: "sales_invoices" | "purchase_bills" | "checks" | "salaries" | "taxes" = "sales_invoices",
 ): PaymentRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);

@@ -309,7 +309,12 @@ LIST_ENDPOINTS = [
     ("sales_offers", "/{company_id}/sales_offers", "contact,sales_invoice"),
     ("shipment_documents", "/{company_id}/shipment_documents", "contact,tags,stock_movements"),
     ("stock_movements", "/{company_id}/stock_movements", "warehouse,product,source,contact"),
-    ("e_invoice_inboxes", "/{company_id}/e_invoice_inboxes", None),
+    # Phase 13.3: e_invoice_inboxes REMOVED from the general full-sync list.
+    # This endpoint is a taxpayer LOOKUP service (filter[vkn]=...), not a
+    # global collection -- an unfiltered call has no "list all" semantics
+    # and must never be reported as a successful global sync. See
+    # supabase/functions/parasut-sync/index.ts syncEInvoiceInboxes
+    # (BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH) for the lookup-only path.
 ]
 
 # Parasut only embeds forward linkage (parent -> child ids) on the PARENT

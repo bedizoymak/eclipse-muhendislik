@@ -43,6 +43,8 @@ const VergiDetay = lazy(() => import("./pages/VergiDetay.tsx"));
 const Etiketler = lazy(() => import("./pages/Etiketler.tsx"));
 const EtiketDetay = lazy(() => import("./pages/EtiketDetay.tsx"));
 const EFaturaKutulari = lazy(() => import("./pages/EFaturaKutulari.tsx"));
+const UrunKategorileri = lazy(() => import("./pages/UrunKategorileri.tsx"));
+const UrunKategoriDetay = lazy(() => import("./pages/UrunKategoriDetay.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -123,6 +125,8 @@ const App = () => (
                   purpose is a VKN-keyed e-invoice-taxpayer lookup, not an "inbox"
                   list; see EFaturaKutulari.tsx and the Phase 13.1 report. */}
               <Route path="/satislar/e-fatura-mukellefleri" element={<EFaturaKutulari />} />
+              <Route path="/stok/kategoriler" element={<UrunKategorileri />} />
+              <Route path="/stok/kategoriler/:parasutId" element={<UrunKategoriDetay />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

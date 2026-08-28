@@ -178,6 +178,9 @@ const DemoHome = () => {
               <Link to="/urunler" className="text-sm text-electric-bright hover:underline">
                 Ürünler →
               </Link>
+              <Link to="/stok/kategoriler" className="text-sm text-electric-bright hover:underline">
+                Ürün kategorileri →
+              </Link>
               <Link to="/stok/depolar" className="text-sm text-electric-bright hover:underline">
                 Depolar →
               </Link>

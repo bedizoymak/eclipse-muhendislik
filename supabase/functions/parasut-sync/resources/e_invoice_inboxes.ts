@@ -16,12 +16,13 @@ function attr<T>(attributes: Record<string, unknown>, key: string): T | null {
 export interface EInvoiceInboxRow {
   parasut_id: number;
   parasut_type: string | null;
-  // Phase 13.2: the VKN this row was queried FOR (ERP_USER_ENTERED /
-  // caller-supplied input), kept separate from attributes.vkn below
-  // (Parasut's own PARASUT_AUTHORITATIVE echo of the queried taxpayer).
-  // Only ever set when the caller actually ran a filter[vkn] query --
-  // this mapper never invents one.
-  query_vkn: string | null;
+  // Phase 13.3: query_vkn is INTENTIONALLY never written by this mapper.
+  // The Phase 13.2 approach (storing the caller-supplied VKN on this
+  // parasut.* mirror row) violated the ERP/Parasut schema boundary --
+  // ERP_USER_ENTERED data must never live in a parasut.* mirror table.
+  // The caller-supplied VKN now lives only in
+  // erp.e_invoice_lookup_requests.query_vkn (see index.ts syncEInvoiceInboxes),
+  // which this mapper has no access to and never touches.
   vkn: string | null;
   e_invoice_address: string | null;
   name: string | null;
@@ -36,13 +37,15 @@ export interface EInvoiceInboxRow {
 }
 
 /**
- * `queriedVkn` is the real filter[vkn] value used for the request that
- * produced `item`, when known (passed by the caller, never guessed by
- * this mapper). Today's bulk sync calls this resource unfiltered (no
- * `filter[vkn]` at all -- see index.ts syncEInvoiceInboxes), so callers
- * of the unfiltered sync path pass `null`.
+ * Phase 13.3: as of this phase, this resource is a lookup-only endpoint --
+ * a real fetch only ever happens with a real filter[vkn] behind
+ * secure-auth (still BLOCKED today, see index.ts syncEInvoiceInboxes /
+ * BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH). `wasQueried` marks whether this
+ * item came from a real filter[vkn] call (sets queried_at); the VKN value
+ * itself is never accepted by or stored in this mapper -- it lives only
+ * in erp.e_invoice_lookup_requests.
  */
-export function mapEInvoiceInbox(item: JsonApiResource, queriedVkn: string | null = null): EInvoiceInboxRow {
+export function mapEInvoiceInbox(item: JsonApiResource, wasQueried = false): EInvoiceInboxRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) {
@@ -52,7 +55,6 @@ export function mapEInvoiceInbox(item: JsonApiResource, queriedVkn: string | nul
   return {
     parasut_id: parasutId,
     parasut_type: (item as unknown as { type?: string }).type ?? null,
-    query_vkn: queriedVkn,
     vkn: attr(a, "vkn"),
     e_invoice_address: attr(a, "e_invoice_address"),
     name: attr(a, "name"),
@@ -62,7 +64,7 @@ export function mapEInvoiceInbox(item: JsonApiResource, queriedVkn: string | nul
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
-    queried_at: queriedVkn ? new Date().toISOString() : null,
+    queried_at: wasQueried ? new Date().toISOString() : null,
     synced_at: new Date().toISOString(),
   };
 }

@@ -3,7 +3,6 @@ import EmptyResourceList from "./EmptyResourceList";
 interface EInvoiceLookupResultDemoRow {
   parasut_id: number;
   parasut_type: string | null;
-  query_vkn: string | null;
   vkn: string | null;
   name: string | null;
   e_invoice_address: string | null;
@@ -24,12 +23,20 @@ interface EInvoiceLookupResultDemoRow {
 // requires the Parasut access token, which must never reach the public,
 // anonymous frontend. Today's demo has no authenticated-user backend to
 // gate that call behind, so a live query form is intentionally NOT
-// built here -- BLOCKED pending a future secure-auth phase. This page
-// only ever displays rows a secure backend already queried and stored
-// (query_vkn/queried_at populated by that future backend, not by this
-// demo's own bulk sync, which calls this endpoint unfiltered purely to
-// keep schema/unknown-key detection plumbing warm -- see
-// supabase/functions/parasut-sync/index.ts syncEInvoiceInboxes comment).
+// built here -- BLOCKED pending a future secure-auth phase (see
+// index.ts syncEInvoiceInboxes: status "lookup_required" /
+// BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH, never an unfiltered global call).
+//
+// Phase 13.3 fix: query_vkn (ERP_USER_ENTERED -- who asked for what VKN)
+// is no longer read from or exposed by this page at all. It never
+// belonged on the Parasut mirror row in the first place (that was the
+// Phase 13.2 schema-boundary bug this phase fixes) and the caller-supplied
+// VKN now lives only in erp.e_invoice_lookup_requests, which is not
+// exposed to anon/public and would need RLS/tenant scoping (out of scope
+// until the future secure-auth phase) before any UI could safely show
+// "who queried what". This page only ever shows the Parasut-authoritative
+// echo (attributes.vkn, name, e_invoice_address, inbox_type) of rows a
+// secure backend already queried and stored -- never a global inbox list.
 const EFaturaKutulari = () => (
   <EmptyResourceList<EInvoiceLookupResultDemoRow>
     backTo="/satislar/faturalar"
@@ -40,11 +47,10 @@ const EFaturaKutulari = () => (
     countView="parasut_e_invoice_lookup_result_counts_demo"
     countColumn="cached_query_result_count"
     countLabel="Önbellekteki sorgu sonucu"
-    selectColumns="parasut_id, parasut_type, query_vkn, vkn, name, e_invoice_address, inbox_type"
+    selectColumns="parasut_id, parasut_type, vkn, name, e_invoice_address, inbox_type"
     emptyMeansNoQueryYet
-    emptyExplanation="Canlı VKN sorgusu, güvenli kimlik doğrulamalı bir arka uç gerektirir ve bu genel demo üzerinden AÇILMAMIŞTIR (BLOCKED) -- Paraşüt erişim anahtarı hiçbir zaman genel/anonim ön yüze açılmaz. Bu ekran yalnızca gelecekte güvenli bir arka ucun gerçekten sorgulayıp kaydettiği sonuçları gösterecektir."
+    emptyExplanation="Canlı VKN sorgusu, güvenli kimlik doğrulamalı bir arka uç gerektirir ve bu genel demo üzerinden AÇILMAMIŞTIR (BLOCKED) -- Paraşüt erişim anahtarı hiçbir zaman genel/anonim ön yüze açılmaz. Sorgulanan VKN değeri (kullanıcı girdisi) artık hiçbir zaman bu görünümde yer almaz; yalnızca Paraşüt'ün kendi yanıtı (vkn, ad, e-fatura adresi) gösterilir. Bu ekran yalnızca gelecekte güvenli bir arka ucun gerçekten sorgulayıp kaydettiği sonuçları gösterecektir."
     columns={[
-      { header: "Sorgulanan VKN", render: (r) => r.query_vkn ?? "—" },
       { header: "VKN (Paraşüt yanıtı)", render: (r) => r.vkn ?? "—" },
       { header: "Ad", render: (r) => r.name ?? "—" },
       { header: "E-Fatura Adresi", render: (r) => r.e_invoice_address ?? "—" },

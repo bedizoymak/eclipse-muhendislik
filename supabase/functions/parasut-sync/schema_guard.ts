@@ -99,6 +99,44 @@ export function detectUnknownKeys(
  * coerce or replace the stored value -- the raw runtime type is always
  * what gets persisted; this is purely a diagnostic flag.
  */
+/**
+ * Phase 13.3 problem #3: the runtime type of an empty (0-record) resource
+ * must never be reported as "expected: X" when no real X has ever been
+ * observed -- that phrasing implies proof that does not exist yet.
+ * Returns:
+ *  - `{ status: "UNKNOWN_OR_BLOCKED", note }` when 0 real items have ever
+ *    been fetched -- the only honest statement about an unobserved type.
+ *  - `{ status: "OBSERVED", observed_runtime_type, swagger_documented_type,
+ *    mismatch }` once a real item exists -- the runtime value is reported
+ *    verbatim, the Swagger-documented type is reported verbatim, and
+ *    `mismatch` is a plain boolean comparison. Neither value is ever
+ *    coerced into the other.
+ */
+export function expectedTypeStatus(
+  items: JsonApiResource[],
+  swaggerDocumentedTypes: readonly string[],
+): {
+  status: "UNKNOWN_OR_BLOCKED" | "OBSERVED";
+  note?: string;
+  observed_runtime_type?: string;
+  swagger_documented_type?: string[];
+  mismatch?: boolean;
+} {
+  if (items.length === 0) {
+    return {
+      status: "UNKNOWN_OR_BLOCKED",
+      note: "UNKNOWN_OR_BLOCKED — no runtime resource observed",
+    };
+  }
+  const runtimeType = (items[0] as unknown as { type?: string }).type ?? "";
+  return {
+    status: "OBSERVED",
+    observed_runtime_type: runtimeType,
+    swagger_documented_type: [...swaggerDocumentedTypes],
+    mismatch: !swaggerDocumentedTypes.includes(runtimeType),
+  };
+}
+
 export function detectTypeMismatch(
   items: JsonApiResource[],
   expectedSwaggerTypes: readonly string[],
