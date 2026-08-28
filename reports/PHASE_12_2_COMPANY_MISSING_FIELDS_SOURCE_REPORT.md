@@ -129,3 +129,153 @@ Kaynak gerçekten değişmediği için sayılar aynı bırakıldı, zorlanan/uyd
 **Kod commit SHA:** 2e69fcf61d845b96990ea6537e878ab4f64615ba
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
+
+---
+
+## EK DENETİM — Tüm Projede Sabit/Üretilmiş Veri Taraması
+
+**Tarih:** 2026-08-28/29
+**Kapsam:** Phase 12.2'de değil, tüm proje (`src/`, `supabase/functions/`, `supabase/migrations/`) — sadece şirket profili değil, tüm tamamlanmış modüller (contacts, contact_people, employees, company profile, shipment_documents, sales_offers, e-documents, products, sales_invoices, purchase_bills, checks, payments, transactions, accounts).
+
+### Taranan dosya sayısı
+
+`src/**/*.ts(x)`: 113 dosya. `supabase/functions/**/*.ts`: 18 dosya. `supabase/migrations/*.sql`: 28 dosya (denetim başında; +2 yeni migration bu fazda eklendi). Toplam taranan: 159 dosya.
+
+### Kullanılan arama desenleri (gerçek komutlar)
+
+```
+grep -rn "666034\|800086\|295028\|1000110946\|1023810918" src supabase
+grep -rn '"companies"\|"contacts"\|"addresses"\|"users"\|"profiles"\|"user_roles"\|"employees"\|"products"\|"sales_invoices"\|"purchase_bills"\|"checks"\|"e_documents"\|"shipment_documents"\|"sales_offers"' src supabase/functions --include=*.ts --include=*.tsx
+grep -rnE '\|\|\s*"[A-Za-zÇĞİÖŞÜçğıöşü0-9]' src --include=*.tsx --include=*.ts
+grep -rnE '\?\?\s*"[A-Za-zÇĞİÖŞÜçğıöşü0-9]' src/pages src/lib src/components --include=*.tsx --include=*.ts
+grep -rn "\.length" src/pages --include=*.tsx | grep -iE "count|toplam|adet|badge|say"
+grep -rln "count" src/pages --include=*.tsx   # + per-file "count:" inspection, all 19 list pages
+grep -rn "Record<string" src/lib src/pages --include=*.ts --include=*.tsx | grep -iE "status|currency|label|map"   # + per-map usage-site inspection for silent-drop fallback
+find src -iname "*.test.*" -o -iname "*.spec.*" -o -path "*__tests__*"
+grep -rln -i "mock\|fixture" src/pages src/lib src/components --include=*.ts --include=*.tsx
+grep -rnE "AS [a-z_]+_type|'[a-z_]+'::text" supabase/migrations/*.sql
+grep -n "relatedRef(" supabase/functions/parasut-sync/resources/*.ts   # + per-callsite check: is .type stored or discarded
+```
+
+### Aday sabit sayısı
+
+İlk grep taramalarında toplam ~140 eşleşme satırı üretildi (tip literalleri, `||`/`??` fallback'leri, `count`/`.length` kullanımları, label map'leri, migration'lardaki `'...'::text` literalleri). Tek tek incelendi; aşağıda sınıflandırılmıştır.
+
+### İzin verilen sabitler (kategori bazında, gerekçeli)
+
+- **ALLOWED_TECHNICAL_CONSTANT** — `supabase/functions/parasut-sync/index.ts` içindeki `"contacts"`, `"sales_invoices"`, `"purchase_bills"`, `"products"`, `"checks"`, `"sales_offers"`, `"shipment_documents"`, `"employees"` dizeleri: Parasut API endpoint şablonları / `upsertBatched(db, "<table>", ...)` çağrılarındaki hedef tablo adları — iş verisi değil, kaynak kod rotası. `resource.type === "users"` / `"companies"` gibi karşılaştırmalar: gerçek API'den gelen bir `type` alanını doğrulamak için kullanılıyor (atama değil, eşitlik kontrolü) — kabul edilen kural (§5, "display mappings... must not alter the source value").
+- **ALLOWED_TECHNICAL_CONSTANT** — `src/pages/CekDetay.tsx:92` `.eq("payable_type","checks")`, `src/pages/DemoHome.tsx:62` `.eq("resource","contacts")`, `src/pages/SevkiyatDetay.tsx:169` `.eq("source_type","shipment_documents")`: sayfa bağlamına göre kendi log/activity tablosunu filtreleyen sorgu parametreleri (örn. çek detay sayfası sadece "checks" tipi ödemeleri gösterir) — iş verisi üretmiyor, mevcut sayfanın kapsamını sabitliyor.
+- **ALLOWED_UI_CONSTANT** — `PAYMENT_LABELS`, `ACCOUNT_TYPE_LABELS`, `ACTIVITY_LABELS`, `SOURCE_TYPE_LABELS`, `E_DOCUMENT_TYPE_LABELS` (6 dosya): tüm kullanım noktalarında `LABELS[code] ?? code` deseni doğrulandı — bilinmeyen/yeni bir API kodu haritada yoksa ham kod fallback olarak gösteriliyor, hiçbir zaman kayboluyor değil (kural §5 ile uyumlu).
+- **ALLOWED_UI_CONSTANT** — `src/components/ui/chart.tsx` içindeki `"value"` fallback'leri: shadcn/ui chart kütüphanesi boilerplate'i, iş verisiyle ilgisi yok.
+- **ALLOWED_UI_CONSTANT** — `src/components/sections/CaseStudies.tsx`, `src/components/marketing/Visuals.tsx`: ana pazarlama sitesinin (eclipsemuhendislik.com kurumsal sayfası) portföy/istatistik bileşenleri — Parasut demo (`/pages` altındaki demo sayfaları) ile aynı kod tabanında ama tamamen ayrı bir veri kaynağına (proje CMS içeriği) bağlı, kapsam dışı.
+- **ALLOWED_TECHNICAL_CONSTANT** — tüm 19 liste sayfasındaki sayaçlar tek tek incelendi: hepsi ya PostgREST `{ count: "exact", head: true }` gerçek agregat sorgusu ya da Phase 8.3/9/10.1'de kurulan dayanıklı `active_count`/`archived_count`/`total_count` view satırından okunuyor — hiçbiri `.length` veya sabit sayı değil (bkz. "Sayaç kaynakları" altında modül modül liste).
+- **TEST_ONLY** — `src/test/example.test.ts`: tek test dosyası, `expect(true).toBe(true)` içeren trivial placeholder, hiçbir fixture/mock veri içermiyor, production koduna import edilmiyor.
+
+### Yasak sabitler — bulundu ve düzeltildi
+
+**Bulgu 1 (FORBIDDEN_HARDCODED_DATA):** `supabase/functions/parasut-sync/resources/me.ts` içindeki `mapMeCompany()` ve `mapUserRole()` fonksiyonları, `relatedRef()` yardımcı fonksiyonuyla ilişkinin gerçek `type` alanını (`relationships.owner.data.type`, `relationships.address.data.type`, `relationships.company.data.type`) ve kaynağın kendi `item.type` alanını API'den zaten okuyordu — ama sadece `.id` saklanıyor, `.type` atılıyordu. Bunun yerine `public.parasut_company_profile_demo` / `public.parasut_user_company_relation_demo` view'ları bu değerleri `'companies'::text`, `'users'::text`, `'companies'::text` SQL string sabitleriyle üretiyordu. Bu, denetim görevinin §2 maddesinde açıkça yasaklanan desenin ta kendisi ("Hardcoding a type field with `"contacts"`, `"companies"`, `"addresses"` etc. as a constant") — Phase 12.2 §8'de `addressable_type` için tam olarak aynı bulgu bir kez düzeltilmişti, ama bu dört alan (company'nin kendi `parasut_type`'ı, `owner_parasut_type`, `address_parasut_type`, `company_parasut_type`) gözden kaçmıştı.
+
+| Dosya | Satır/desen | Sabit değer | Sınıf | Kaynak veri mi | Sonuç |
+|---|---|---|---|---|---|
+| `supabase/migrations/20260901000000_...sql` (önceki hal) | `'companies'::text as parasut_type` | `"companies"` | FORBIDDEN_HARDCODED_DATA | Hayır — gerçek `item.type` koddan atılıyordu | Düzeltildi |
+| aynı dosya | `'users'::text as owner_parasut_type` | `"users"` | FORBIDDEN_HARDCODED_DATA | Hayır — gerçek `owner.type` (relatedRef) koddan atılıyordu | Düzeltildi |
+| aynı dosya | `case when c.address_parasut_id is not null then 'addresses' end as address_parasut_type` | `"addresses"` | FORBIDDEN_HARDCODED_DATA | Hayır — gerçek `address.type` (relatedRef) koddan atılıyordu | Düzeltildi |
+| aynı dosya | `'companies'::text as company_parasut_type` | `"companies"` | FORBIDDEN_HARDCODED_DATA | Hayır — gerçek `company.type` (relatedRef, `mapUserRole` içinde) koddan atılıyordu | Düzeltildi |
+
+**Öncesi/sonrası (kod, `supabase/functions/parasut-sync/resources/me.ts`):**
+```ts
+// ÖNCESİ — mapMeCompany(): owner.type / address.type hesaplanıyor, atılıyordu
+const owner = relatedRef(item, "owner");
+const address = relatedRef(item, "address");
+return {
+  ...
+  owner_parasut_id: owner.id,
+  address_parasut_id: address.id,
+  ...
+};
+// (CompanyRow'da parasut_type / owner_parasut_type / address_parasut_type alanı yoktu)
+
+// SONRASI
+return {
+  parasut_id: parasutId,
+  parasut_type: item.type,           // yeni: gerçek, item.type'tan
+  ...
+  owner_parasut_id: owner.id,
+  owner_parasut_type: owner.type,     // yeni: gerçek, relatedRef'ten
+  address_parasut_id: address.id,
+  address_parasut_type: address.type, // yeni: gerçek, relatedRef'ten
+  ...
+};
+```
+```ts
+// ÖNCESİ — mapUserRole(): company.type hesaplanıyor, atılıyordu
+const company = relatedRef(item, "company");
+return { ..., company_parasut_id: company.id, ... };
+
+// SONRASI
+return { ..., company_parasut_id: company.id, company_parasut_type: company.type, ... };
+```
+
+**Öncesi/sonrası (SQL view, `supabase/migrations/20260901010000_audit_fix_relationship_type_constants.sql`):** `'companies'::text as parasut_type` → `c.parasut_type`; `'users'::text as owner_parasut_type` → `c.owner_parasut_type`; `case when c.address_parasut_id is not null then 'addresses' end as address_parasut_type` → `c.address_parasut_type`; `'companies'::text as company_parasut_type` → `ur.company_parasut_type`.
+
+**Düzeltme sonrası gerçek veri zinciri (her 4 alan için):** `GET /v4/me` JSON → `relationships.{owner,address,company}.data.type` / kaynağın kendi `data.type` → `relatedRef()` / `item.type` (Edge Function, `me.ts`) → `parasut.companies.{parasut_type,owner_parasut_type,address_parasut_type}` / `parasut.user_roles.company_parasut_type` (yeni sütunlar, migration `20260901010000`) → `public.parasut_company_profile_demo` / `public.parasut_user_company_relation_demo` (view, artık literal değil sütun okuyor) → `CompanyProfileRow`/`UserCompanyRelationRow` TS tipi (`src/pages/SirketBilgileri.tsx` — alan adları değişmedi, zaten bu isimlerle tüketiliyordu) → mevcut UI satırları (`company.parasut_type`, `company.owner_parasut_type`, `company.address_parasut_type`, `relation.company_parasut_type`).
+
+**`default_warehouse_parasut_type` bilinçli olarak literal bırakıldı (NEEDS_SOURCE_PROOF değil, kanıtlı ALLOWED_TECHNICAL_CONSTANT):** `relationships.default_warehouse` bu hesapta kalıcı olarak `{"meta":{}}` (boş) — API hiçbir zaman gerçek bir `type` değeri döndürmüyor, dolayısıyla atılacak bir gerçek değer yok (owner/address'ten farklı olarak). `'warehouses'` etiketi sadece bağımsız `default_warehouse_parasut_id` gerçek dolu olduğunda gösteriliyor, hiçbir isim/link uydurulmuyor — Phase 12.2 §9 kuralıyla birebir aynı, değiştirilmedi.
+
+### Kaynağı kanıtlanamayan değerler (BLOCKED)
+
+Yok. Taranan aday sabitlerin tamamı ya (a) izin verilen teknik/UI sabiti olarak sınıflandırıldı, ya da (b) yasak bulundu ve gerçek API kaynağına bağlanarak düzeltildi. Hiçbir alan "kanıt yok" gerekçesiyle BLOCKED işaretlenmedi.
+
+### Sayaç kaynakları (modül modül gerçek kaynak)
+
+| Modül/Sayfa | Sayaç | Gerçek kaynak |
+|---|---|---|
+| Musteriler.tsx | active/archived/all | `parasut_contacts_demo` üzerinde 3× `{count:"exact",head:true}` |
+| DemoHome.tsx | active/archived/total | aynı desen, `parasut_contacts_demo` |
+| Cekler.tsx | is_in/is_out/toplam | `parasut_checks_demo` üzerinde `{count:"exact",head:true}` |
+| Faturalar.tsx | active/archived/total | dayanıklı view satırı (`active_count`/`archived_count`/`total_count`) |
+| Giderler.tsx | active/archived/total | aynı desen |
+| Sevkiyatlar.tsx | active/archived/total | aynı desen |
+| Calisanlar.tsx | active/archived/total | aynı desen (+`source_total_count`) |
+| Teklifler.tsx | active/archived/total | `parasut_sales_offers_demo` üzerinde `{count:"exact",head:true}` |
+| Urunler.tsx | active/archived/total | `parasut_products_demo` üzerinde `{count:"exact",head:true}` |
+| Tedarikciler.tsx | active/archived/total | `parasut_suppliers_demo` üzerinde `{count:"exact",head:true}` |
+| GiderOdemeleri.tsx / Tahsilatlar.tsx / StokHareketleri.tsx / StokSeviyeleri.tsx | toplam | ilgili `_demo` view üzerinde `{count:"exact",head:true}` |
+| HesapHareketleri.tsx / Hesaplar.tsx | (sayaç yok, sadece boş-liste kontrolü `.length===0`) | — |
+
+Hiçbir sayaç `.length` (ilk 1000 satır sınırlaması riski) veya sabit sayı kullanmıyor.
+
+### Production bundle fixture/mock taraması
+
+`src/` içinde tek test dosyası (`src/test/example.test.ts`) — hiçbir fixture/mock içermiyor, hiçbir `src/pages`/`src/lib`/`src/components` dosyası ondan import etmiyor, `vite.config.ts` test dosyalarını build'e dahil etmiyor (vitest ayrı çalışıyor). Demo UI'nın veri kaynağı her sayfada doğrudan `supabase.from(...)`/`.select(...)` — hiçbir yerde statik/mock dizi yok.
+
+### Uygulanan düzeltme — sync/deploy/doğrulama
+
+- Yeni migration: `supabase/migrations/20260901010000_audit_fix_relationship_type_constants.sql` — `parasut.companies`'e `parasut_type`/`owner_parasut_type`/`address_parasut_type`, `parasut.user_roles`'a `company_parasut_type` sütunları eklendi; her iki public view yeniden oluşturuldu.
+- `supabase db push --db-url ...` → `Finished supabase db push.` (tek migration, ilk denemede başarılı).
+- `supabase functions deploy parasut-sync --project-ref yzuxdrknidveptvnwthf --use-api` → başarılı.
+- Dry-run (`{"resource":"me","dry_run":true}`) → `"status":"dry_run","error_count":0`.
+- İki ardışık gerçek sync (`dry_run:false`): SYNC1 ve SYNC2 birebir aynı sonuç, `"status":"success"`, `error_count:0` her ikisinde (idempotent).
+- REST doğrulama: `parasut_company_profile_demo` → `parasut_type:"companies"`, `owner_parasut_type:"users"`, `address_parasut_type:"addresses"`, `default_warehouse_parasut_type:"warehouses"` (hepsi artık gerçek sütundan, değerler öncekiyle aynı ama kaynağı artık API — regresyon yok). `parasut_user_company_relation_demo` → `company_parasut_type:"companies"`, diğer tüm alanlar dolu.
+- `npm test` → 1/1 PASS. `npm run lint` → 0 hata, 10 önceden var olan uyarı (kapsam dışı). `npx tsc --noEmit -p tsconfig.app.json` → yalnızca bilinen kapsam dışı `Login.tsx:55`.
+- Bu düzeltme yalnızca Edge Function + SQL view'ı değiştirdi; hiçbir `.tsx` dosyası değişmedi (UI zaten aynı alan adlarını tüketiyordu) — bu yüzden frontend rebuild/FTP redeploy gerekmedi. Canlı `GET https://demo.eclipsemuhendislik.com/sirket-bilgileri` → HTTP 200 (değişmeden).
+
+### Genel Sonuç
+
+| Bölüm | Durum |
+|---|---|
+| Proje geneli sabit/ID sızıntısı taraması (rapor ID'leri kodda) | PASS (sızıntı yok, sadece yorumlarda) |
+| Tip literalleri / `"companies"` vb. sabit tarama | FAIL bulundu → düzeltildi (4 alan, aşağıda) |
+| `\|\|`/`??` fallback taraması | PASS (kapsam dışı marketing sayfaları hariç, iş verisi fallback'i yok) |
+| Sayaç kaynakları (19 liste sayfası) | PASS (hepsi gerçek agregat) |
+| Test fixture / production bundle sızıntısı | PASS (sızıntı yok) |
+| SQL view sabit tarama | FAIL bulundu → düzeltildi |
+
+**Genel PASS (düzeltme sonrası).** Denetim sırasında 4 gerçek `FORBIDDEN_HARDCODED_DATA` örneği bulundu — hepsi aynı kök nedene sahipti (Edge Function ilişkinin gerçek `type` alanını API'den okuyup atıyordu, SQL view yerine sabit koyuyordu). Tümü kaynağa (Edge Function mapper + yeni sütunlar + view) kadar düzeltildi, hosted DB'ye push edildi, Edge Function redeploy edildi, iki ardışık gerçek sync ile idempotent doğrulandı, REST üzerinden gerçek değerler teyit edildi. Kalan hiçbir yerde kanıtsız sabit/fallback/mock/fixture bulunmadı; BLOCKED işaretlenen alan yok.
+
+**Bilinen kapsam dışı sorun:** `Login.tsx:55` TS hatası (önceki fazlardan beri var, bu denetimin kapsamı dışı, düzeltilmedi).
+
+---
+
+**Ek denetim kod commit SHA:** (bu commit)
+**Ek denetim rapor commit SHA:** (sonraki commit)

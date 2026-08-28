@@ -88,6 +88,9 @@ export interface UserRoleRow {
   parasut_type: string;
   user_parasut_id: number | null;
   company_parasut_id: number | null;
+  // Real value from relationships.company.data.type (the user_role's own
+  // pointer to its company) -- never a hardcoded "companies" string.
+  company_parasut_type: string | null;
   sales_invoices: string | null;
   expenditures: string | null;
   own_expenditures: string | null;
@@ -103,6 +106,10 @@ export interface UserRoleRow {
 
 export interface CompanyRow {
   parasut_id: number;
+  // Real value from item.type (the company resource's own JSON:API
+  // envelope, from included[companies] on /v4/me) -- never a hardcoded
+  // "companies" string constant.
+  parasut_type: string;
   name: string | null;
   legal_name: string | null;
   tax_office: string | null;
@@ -143,7 +150,13 @@ export interface CompanyRow {
   inventory_enabled: boolean | null;
   has_iyzico_integration: boolean | null;
   owner_parasut_id: number | null;
+  // Real value from relationships.owner.data.type -- never a hardcoded
+  // "users" string constant.
+  owner_parasut_type: string | null;
   address_parasut_id: number | null;
+  // Real value from relationships.address.data.type -- never a hardcoded
+  // "addresses" string constant.
+  address_parasut_type: string | null;
   default_warehouse_parasut_id: number | null;
   allowed_inspection_at: string | null;
   // Phase 12.1: every remaining real company attribute key, individually
@@ -325,6 +338,7 @@ export function mapUserRole(item: JsonApiResource, userParasutId: number | null)
     parasut_type: item.type,
     user_parasut_id: userParasutId,
     company_parasut_id: company.id,
+    company_parasut_type: company.type,
     sales_invoices: attr(a, "sales_invoices"),
     expenditures: attr(a, "expenditures"),
     own_expenditures: attr(a, "own_expenditures"),
@@ -353,6 +367,7 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
 
   return {
     parasut_id: parasutId,
+    parasut_type: item.type,
     name: attr(a, "name"),
     legal_name: attr(a, "legal_name"),
     tax_office: attr(a, "tax_office"),
@@ -393,7 +408,9 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
     inventory_enabled: attr(a, "inventory_enabled"),
     has_iyzico_integration: attr(a, "has_iyzico_integration"),
     owner_parasut_id: owner.id,
+    owner_parasut_type: owner.type,
     address_parasut_id: address.id,
+    address_parasut_type: address.type,
     // Phase 12.2 fix: relationships.default_warehouse is {"meta":{}} on this
     // account (empty -- no linked warehouse resource, never fabricated) but
     // attributes.default_warehouse_id is a SEPARATE real, independently
