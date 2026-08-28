@@ -214,7 +214,11 @@ export interface CompanyRow {
   employee_id: number | null;
   used_app: string | null;
   signature: unknown;
-  inspectable: boolean | null;
+  // Phase 13.5: removed the duplicate `inspectable` field that was
+  // declared a second time here (real field already declared once above,
+  // grouped with `accessible`; both are used together in
+  // COMPANY_KNOWN_KEYS) -- deno-check TS2300 duplicate identifier. No
+  // field was deleted: `inspectable` is still a real, mapped column.
   // separate /v4/companies provenance, never merged into `raw`
   raw_company_list: JsonApiResource | null;
   extra_flags: Record<string, unknown>;
@@ -468,7 +472,6 @@ export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResou
     employee_id: attr(a, "employee_id"),
     used_app: attr(a, "used_app"),
     signature: attr(a, "signature"),
-    inspectable: attr(a, "inspectable"),
     raw_company_list: companyListRaw,
     extra_flags: extraFlags,
     raw: item,

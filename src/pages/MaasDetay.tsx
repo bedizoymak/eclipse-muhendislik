@@ -31,13 +31,17 @@ interface SalaryDemoRow {
 // public.parasut_salary_tags_demo) rendered separately below the base
 // field list since it is a to-many relationship. All 0 today (0 real
 // salaries) -- this is the ready UI/type/view chain, not a fake row.
-interface SalaryPaymentRow {
-  payment_parasut_id: number;
-  payment_type: string | null;
-  payment_amount: number | null;
-  payment_currency: string | null;
-  payment_date: string | null;
-}
+//
+// Phase 13.5: removed the "payments" section entirely. Re-verified live
+// against swagger.json: `/salaries/{id}/payments` documents ONLY a POST
+// method (a payment-creation write action), and
+// `definitions.Salary.properties.relationships.properties` never had a
+// `payments` key -- only `employee`, `category`, `tags`. There was never
+// a real GET relationship to show here, so the correct fix is to show no
+// section at all (not an empty-state "no linked payment" message, since
+// that would still incorrectly imply a real, checkable relationship
+// exists). See supabase/functions/parasut-sync/index.ts
+// SALARY_WRITE_CAPABILITIES for how this POST action is tracked instead.
 
 const MaasDetay = () => {
   const { parasutId } = useParams<{ parasutId: string }>();
@@ -45,7 +49,6 @@ const MaasDetay = () => {
   const [row, setRow] = useState<SalaryDemoRow | null>(null);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState<string | null>(null);
-  const [payments, setPayments] = useState<SalaryPaymentRow[]>([]);
 
   useEffect(() => {
     if (!supabase || !parasutId) return;
@@ -56,16 +59,6 @@ const MaasDetay = () => {
       .eq("salary_parasut_id", parasutId)
       .then(({ data }) => {
         if (!cancelled) setTags(data ?? []);
-      });
-    // Phase 13.4 section 4: real payments id/type -- only real fields
-    // shown, no fabricated amount/date if a row lacks a joined
-    // parasut.payments record (left join in the underlying view -> null).
-    supabase
-      .from("parasut_salary_payments_demo")
-      .select("payment_parasut_id, payment_type, payment_amount, payment_currency, payment_date")
-      .eq("salary_parasut_id", parasutId)
-      .then(({ data }) => {
-        if (!cancelled) setPayments((data as SalaryPaymentRow[] | null) ?? []);
       });
     return () => {
       cancelled = true;
@@ -170,23 +163,6 @@ const MaasDetay = () => {
             {tags.map((t) => (
               <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
                 {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <h2 className="mt-6 text-sm font-medium text-white/60">Ödemeler (payments ilişkisi)</h2>
-        {payments.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">
-            Bu maaş kaydı için bağlı ödeme yok (parasut.salary_payments junction tablosu -- gerçek ilişki, bugün 0 satır).
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm text-white/70">
-            {payments.map((p) => (
-              <li key={`${p.payment_parasut_id}-${p.payment_type}`}>
-                {p.payment_parasut_id} / {p.payment_type ?? "—"} —{" "}
-                {p.payment_amount != null ? `${p.payment_amount} ${p.payment_currency ?? ""}`.trim() : "—"} —{" "}
-                {p.payment_date ?? "—"}
               </li>
             ))}
           </ul>

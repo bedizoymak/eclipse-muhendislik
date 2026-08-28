@@ -113,11 +113,17 @@ async function upsertBatched(
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
+    // Phase 13.5: dropped the redundant chained `.select(col, {count,
+    // head})` call -- `.upsert(rows, { count: "exact" })` already
+    // requests and returns an exact count on its own response, and
+    // chaining a second `.select()` with a count/head options object
+    // does not match this generated client's typed overload (deno-check
+    // TS2554). No behavior change: `count` below is the same real
+    // upserted-row count either way.
     const { error, count } = await db
       .schema("parasut")
       .from(table)
-      .upsert(batch, { onConflict: "parasut_id", count: "exact" })
-      .select("parasut_id", { count: "exact", head: true });
+      .upsert(batch, { onConflict: "parasut_id", count: "exact" });
 
     if (error) {
       errorCount += batch.length;
@@ -161,11 +167,13 @@ async function refreshManyRelationshipJunction(
         tag_type: r.type,
       }));
       const onConflict = `${parentIdColumn},tag_parasut_id,tag_type`;
+      // Phase 13.5: same fix as upsertBatched above -- rely on
+      // `.upsert(rows, { count: "exact" })`'s own returned count instead
+      // of a chained `.select(col, {count, head})` call.
       const { error, count } = await db
         .schema("parasut")
         .from(table)
-        .upsert(rows, { onConflict, count: "exact" })
-        .select("tag_parasut_id", { count: "exact", head: true });
+        .upsert(rows, { onConflict, count: "exact" });
       if (error) {
         errorCount += rows.length;
         errorMessages.push(`${table}: ${error.message}`);
@@ -203,75 +211,15 @@ async function refreshManyRelationshipJunction(
   return { upsertedCount, errorCount, errorMessages };
 }
 
-/**
- * Phase 13.3: same diff/upsert/stale-delete behavior as
- * refreshManyRelationshipJunction, generalized to arbitrary related-id/
- * related-type column names (used for salary_payments/tax_payments,
- * whose related column is payment_parasut_id/payment_type, not
- * tag_parasut_id/tag_type). Never fabricates a related row's own
- * attributes -- only the real {id,type} link is stored.
- */
-async function refreshManyRelationshipJunctionGeneric(
-  db: SupabaseClient,
-  table: string,
-  parentIdColumn: string,
-  relatedIdColumn: string,
-  relatedTypeColumn: string,
-  items: { parasutId: number; refs: RelatedRef[] }[],
-): Promise<{ upsertedCount: number; errorCount: number; errorMessages: string[] }> {
-  let upsertedCount = 0;
-  let errorCount = 0;
-  const errorMessages: string[] = [];
-
-  for (const { parasutId, refs } of items) {
-    const currentKeys = new Set(refs.map((r) => `${r.id}:${r.type}`));
-
-    if (refs.length > 0) {
-      const rows = refs.map((r) => ({
-        [parentIdColumn]: parasutId,
-        [relatedIdColumn]: r.id,
-        [relatedTypeColumn]: r.type,
-      }));
-      const onConflict = `${parentIdColumn},${relatedIdColumn},${relatedTypeColumn}`;
-      const { error, count } = await db
-        .schema("parasut")
-        .from(table)
-        .upsert(rows, { onConflict, count: "exact" })
-        .select(relatedIdColumn, { count: "exact", head: true });
-      if (error) {
-        errorCount += rows.length;
-        errorMessages.push(`${table}: ${error.message}`);
-        continue;
-      }
-      upsertedCount += count ?? rows.length;
-    }
-
-    const { data: existing, error: selectError } = await db
-      .schema("parasut")
-      .from(table)
-      .select(`${relatedIdColumn}, ${relatedTypeColumn}`)
-      .eq(parentIdColumn, parasutId);
-    if (selectError) {
-      errorMessages.push(`${table}: ${selectError.message}`);
-      continue;
-    }
-    const staleMatchers = (existing ?? []).filter(
-      (row: Record<string, unknown>) => !currentKeys.has(`${row[relatedIdColumn]}:${row[relatedTypeColumn]}`),
-    );
-    for (const stale of staleMatchers as Record<string, unknown>[]) {
-      const { error: deleteError } = await db
-        .schema("parasut")
-        .from(table)
-        .delete()
-        .eq(parentIdColumn, parasutId)
-        .eq(relatedIdColumn, stale[relatedIdColumn] as number)
-        .eq(relatedTypeColumn, stale[relatedTypeColumn] as string);
-      if (deleteError) errorMessages.push(`${table} (stale delete): ${deleteError.message}`);
-    }
-  }
-
-  return { upsertedCount, errorCount, errorMessages };
-}
+// Phase 13.5: refreshManyRelationshipJunctionGeneric() removed. It backed
+// only parasut.salary_payments/tax_payments, which have been dropped
+// (see the section-3/8 notes in the Phase 13.5 report): `payments` is a
+// POST-only write action on Salary/Tax, never a GET relationship, so
+// those junctions could never legitimately be populated and this helper
+// had no remaining real caller. It also carried the `.select(...,
+// {count, head})` overload type error listed in Phase 13.4's deno-check
+// findings; removing the dead function removes that error at the
+// source, rather than casting/silencing it.
 
 /** Fetches both the active and archived streams of a resource in parallel. */
 async function fetchActiveAndArchived(accessToken: string, path: string, extraParams: Record<string, string> = {}) {
@@ -1112,8 +1060,13 @@ async function syncEmployees(db: SupabaseClient, accessToken: string, dryRun: bo
           ...item,
           relationships: {
             ...item.relationships,
-            activities: single.relationships?.["activities"],
-            comments: single.relationships?.["comments"],
+            // Phase 13.5: fall back to `{ data: null }` instead of
+            // `undefined` when the single-record response has no
+            // activities/comments key -- same real "no data" meaning,
+            // but matches JsonApiResource's index signature (TS2322),
+            // which does not allow an `undefined` value.
+            activities: single.relationships?.["activities"] ?? { data: null },
+            comments: single.relationships?.["comments"] ?? { data: null },
           },
         }
       : item;
@@ -1864,19 +1817,43 @@ async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRu
 // in that object, and no `/salaries/{id}/activities` path exists either
 // -- Phase 13.3's inclusion of "activities" here was fabricated (copied
 // from other resources that DO have a real activities relationship,
-// which Salary/Tax do not). `payments` is kept: a real
-// `/salaries/{id}/payments` POST endpoint exists (see
-// TAX_SWAGGER_RELATIONSHIP_KEYS comment below for the caveat that this
-// is a payment-creation action, not a listable `relationships.payments`
-// key on the resource itself).
+// which Salary/Tax do not).
+// Phase 13.5 correction: `payments` is REMOVED from the relationship
+// manifest entirely. Re-verified live against the real swagger.json in
+// this phase: `/{company_id}/salaries/{id}/payments` documents ONLY a
+// `post` method (payment-creation action) -- there is no `get` on that
+// path, and `definitions.Salary.properties.relationships.properties`
+// never contained a `payments` key in the first place (only `employee`,
+// `category`, `tags`, confirmed above). Phase 13.3/13.4 treated this POST
+// action endpoint as if it were a readable to-many relationship and
+// built `parasut.salary_payments` to mirror it via
+// `relatedManyRefs(item, "payments")` -- but no GET response for a
+// Salary resource (list or detail, with or without `include=`) will ever
+// contain a `payments` relationship key, so that junction was
+// structurally guaranteed to stay empty forever (confirmed: 0 rows live).
+// It has been dropped in the companion migration. See
+// SALARY_WRITE_CAPABILITIES below for how this POST action is now
+// tracked -- as a write capability, never as a relationship.
 const SALARY_KNOWN_ATTRIBUTE_KEYS = [
   "description", "currency", "issue_date", "due_date", "exchange_rate",
   "net_total", "total_paid", "remaining", "remaining_in_trl", "archived",
   "created_at", "updated_at",
 ] as const;
 const SALARY_KNOWN_RELATIONSHIP_KEYS = ["employee", "category", "tags"] as const;
-const SALARY_SWAGGER_RELATIONSHIP_KEYS = ["employee", "category", "tags", "payments"] as const;
+const SALARY_SWAGGER_RELATIONSHIP_KEYS = ["employee", "category", "tags"] as const;
 const SALARY_EXPECTED_TYPES = ["salaries"] as const;
+// Phase 13.5: PARASUT_WRITE_CAPABILITY class -- documents real POST/PUT/
+// PATCH/DELETE-only API paths that are NOT read relationships and must
+// never be mirrored into a base/junction table as if they were one. This
+// is a technical capability manifest, deliberately kept separate from
+// the relationship manifest above. It does not imply "no linked
+// payment" (unknowable without a per-record GET this API does not
+// expose), is not by itself sufficient to open a create-button in the
+// public demo, and requires user input/auth/write-back/idempotency
+// design before any UI could use it.
+const SALARY_WRITE_CAPABILITIES = [
+  { resource: "salaries", operation: "create_payment", method: "POST", path: "/salaries/{id}/payments", readWrite: "write_only", authStatus: "requires_write_scope", uiDecision: "not_exposed" },
+] as const;
 
 async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "salaries");
@@ -1894,7 +1871,6 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
   let errorCount = 0;
   const errorMessages: string[] = [];
   let junctionUpsertedCount = 0;
-  let salaryPaymentsJunctionUpserted = 0;
 
   if (!dryRun) {
     const rows = result.items.map(mapSalary);
@@ -1915,19 +1891,10 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
     errorCount += junctionResult.errorCount;
     errorMessages.push(...junctionResult.errorMessages);
 
-    // Phase 13.3: real Salary.relationships.payments to-many relationship
-    // -> parasut.salary_payments junction (id/type preserved, never
-    // copies parasut.payments rows in, never fabricates amount/name).
-    const paymentJunctionInputs = result.items.map((item) => ({
-      parasutId: Number(item.id),
-      refs: relatedManyRefs(item, "payments") as RelatedRef[],
-    })).filter((x) => Number.isFinite(x.parasutId));
-    const paymentJunctionResult = await refreshManyRelationshipJunctionGeneric(
-      db, "salary_payments", "salary_parasut_id", "payment_parasut_id", "payment_type", paymentJunctionInputs,
-    );
-    salaryPaymentsJunctionUpserted = paymentJunctionResult.upsertedCount;
-    errorCount += paymentJunctionResult.errorCount;
-    errorMessages.push(...paymentJunctionResult.errorMessages);
+    // Phase 13.5: `payments` junction intentionally removed -- see the
+    // SALARY_SWAGGER_RELATIONSHIP_KEYS comment above. There is no GET
+    // relationship to mirror; `/salaries/{id}/payments` is POST-only and
+    // is tracked in SALARY_WRITE_CAPABILITIES instead.
   }
 
   const typeStatus = expectedTypeStatus(result.items, SALARY_EXPECTED_TYPES);
@@ -1942,7 +1909,7 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
         unknown_keys: unknownKeys,
         type_mismatches: typeMismatches,
         salary_tags_junction_upserted: junctionUpsertedCount,
-        salary_payments_junction_upserted: salaryPaymentsJunctionUpserted,
+        write_capabilities: SALARY_WRITE_CAPABILITIES,
         type_status: typeStatus,
       },
     },
@@ -1953,7 +1920,6 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
       unknown_keys: unknownKeys,
       type_mismatches: typeMismatches,
       salary_tags_junction_upserted: junctionUpsertedCount,
-      salary_payments_junction_upserted: salaryPaymentsJunctionUpserted,
       type_status: typeStatus,
     },
     errorCount,
@@ -1975,14 +1941,21 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
 // `Tax.activities` manifest row was fabricated ("other resources have
 // activities" is not evidence for Tax specifically) and is removed here
 // and from `parasut.relationship_manifest` (see the new migration).
-// `payments` is kept for the same real-POST-endpoint reason documented
-// on SALARY_SWAGGER_RELATIONSHIP_KEYS above.
+// Phase 13.5 correction: `payments` is REMOVED from the relationship
+// manifest for the same reason as Salary above -- re-verified live:
+// `/{company_id}/taxes/{id}/payments` documents ONLY `post`, no `get`,
+// and `definitions.Tax.properties.relationships.properties` never
+// contained a `payments` key (only `category`, `tags`). Tracked instead
+// in TAX_WRITE_CAPABILITIES as a write-only action.
 const TAX_KNOWN_ATTRIBUTE_KEYS = [
   "description", "issue_date", "due_date", "net_total", "total_paid",
   "remaining", "remaining_in_trl", "archived", "created_at", "updated_at",
 ] as const;
 const TAX_KNOWN_RELATIONSHIP_KEYS = ["category", "tags"] as const;
-const TAX_SWAGGER_RELATIONSHIP_KEYS = ["category", "tags", "payments"] as const;
+const TAX_SWAGGER_RELATIONSHIP_KEYS = ["category", "tags"] as const;
+const TAX_WRITE_CAPABILITIES = [
+  { resource: "taxes", operation: "create_payment", method: "POST", path: "/taxes/{id}/payments", readWrite: "write_only", authStatus: "requires_write_scope", uiDecision: "not_exposed" },
+] as const;
 // Phase 13.4 correction: the real swagger.json `definitions.Tax.properties.type.enum`
 // is `["bank_fees"]` (verified live against https://apidocs.parasut.com/swagger.json
 // in this phase). Phase 13.3's `TAX_EXPECTED_TYPES = ["taxes"]` derived its value from
@@ -2012,7 +1985,6 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
   let errorCount = 0;
   const errorMessages: string[] = [];
   let junctionUpsertedCount = 0;
-  let taxPaymentsJunctionUpserted = 0;
 
   if (!dryRun) {
     const rows = result.items.map(mapTax);
@@ -2030,17 +2002,8 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
     errorCount += junctionResult.errorCount;
     errorMessages.push(...junctionResult.errorMessages);
 
-    // Phase 13.3: real Tax.relationships.payments -> parasut.tax_payments.
-    const paymentJunctionInputs = result.items.map((item) => ({
-      parasutId: Number(item.id),
-      refs: relatedManyRefs(item, "payments") as RelatedRef[],
-    })).filter((x) => Number.isFinite(x.parasutId));
-    const paymentJunctionResult = await refreshManyRelationshipJunctionGeneric(
-      db, "tax_payments", "tax_parasut_id", "payment_parasut_id", "payment_type", paymentJunctionInputs,
-    );
-    taxPaymentsJunctionUpserted = paymentJunctionResult.upsertedCount;
-    errorCount += paymentJunctionResult.errorCount;
-    errorMessages.push(...paymentJunctionResult.errorMessages);
+    // Phase 13.5: `payments` junction intentionally removed -- see the
+    // TAX_SWAGGER_RELATIONSHIP_KEYS comment above.
   }
 
   const typeStatus = expectedTypeStatus(result.items, TAX_SWAGGER_DOCUMENTED_TYPES);
@@ -2055,7 +2018,7 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
         unknown_keys: unknownKeys,
         type_mismatches: typeMismatches,
         tax_tags_junction_upserted: junctionUpsertedCount,
-        tax_payments_junction_upserted: taxPaymentsJunctionUpserted,
+        write_capabilities: TAX_WRITE_CAPABILITIES,
         type_status: typeStatus,
       },
     },
@@ -2066,7 +2029,6 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
       unknown_keys: unknownKeys,
       type_mismatches: typeMismatches,
       tax_tags_junction_upserted: junctionUpsertedCount,
-      tax_payments_junction_upserted: taxPaymentsJunctionUpserted,
       type_status: typeStatus,
     },
     errorCount,
@@ -2379,14 +2341,29 @@ Deno.serve(async (req: Request) => {
   // the caller can never build a success response on top of a failed
   // finalize; every call site below wraps it explicitly.
   const finishRun = async (patch: Record<string, unknown>) => {
-    const { error } = await db
+    // Phase 13.5 fix: Supabase does NOT treat a 0-matching-row update as
+    // an error -- `.update(...).eq("id", runId)` with no matching row
+    // returns `{ error: null, data: [] }`, which the previous
+    // `if (error)` check alone could never catch. That would let a run
+    // whose id row had already been deleted/renumbered finalize
+    // "successfully" while sync_runs itself was never actually updated
+    // (silently stuck, exactly the failure mode this function exists to
+    // prevent). `.select("id")` forces the real updated row set back so
+    // it can be verified with a genuine row count, not just the absence
+    // of a Postgres error.
+    const { data, error } = await db
       .schema("parasut")
       .from("sync_runs")
       .update({ finished_at: new Date().toISOString(), ...patch })
-      .eq("id", runId);
+      .eq("id", runId)
+      .select("id");
     if (error) {
       console.error(`finishRun failed to update sync_runs id=${runId}: ${error.message}`);
       throw new Error(`finishRun update failed for sync_runs id=${runId}: ${error.message}`);
+    }
+    if (!data || data.length === 0) {
+      console.error(`finishRun: 0 rows matched for sync_runs id=${runId} (row missing or already finalized)`);
+      throw new Error(`finishRun matched 0 rows for sync_runs id=${runId}`);
     }
   };
 
