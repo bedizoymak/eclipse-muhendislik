@@ -35,6 +35,7 @@ const Teklifler = lazy(() => import("./pages/Teklifler.tsx"));
 const TeklifDetay = lazy(() => import("./pages/TeklifDetay.tsx"));
 const Calisanlar = lazy(() => import("./pages/Calisanlar.tsx"));
 const CalisanDetay = lazy(() => import("./pages/CalisanDetay.tsx"));
+const SirketBilgileri = lazy(() => import("./pages/SirketBilgileri.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
 const isDemoApp = import.meta.env.MODE === "demo";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="/nakit/cekler/:parasutId" element={<CekDetay />} />
               <Route path="/satislar/teklifler" element={<Teklifler />} />
               <Route path="/satislar/teklifler/:parasutId" element={<TeklifDetay />} />
+              <Route path="/sirket-bilgileri" element={<SirketBilgileri />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

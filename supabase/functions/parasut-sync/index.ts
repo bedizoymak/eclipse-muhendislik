@@ -19,7 +19,7 @@
 // response's `included` array, or the run is an error, never a guess.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { fetchAllPages, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
+import { fetchAllPages, fetchMe, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact, mapContactPerson } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
 import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
@@ -40,6 +40,7 @@ import {
   mapShipmentDocumentActivity,
 } from "./resources/shipment_documents.ts";
 import { mapEmployee } from "./resources/employees.ts";
+import { mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -57,6 +58,7 @@ const SUPPORTED_RESOURCES = [
   "sales_offers",
   "shipment_documents",
   "employees",
+  "me",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -1000,6 +1002,128 @@ async function syncEmployees(db: SupabaseClient, accessToken: string, dryRun: bo
   };
 }
 
+/**
+ * Phase 12: GET /v4/me. NOT list-paginated (single document, one real
+ * user/company/address/profile/user_role each in this account) -- no
+ * fetchActiveAndArchived, no fetchAllPages. The company id/type comes ONLY
+ * from user_roles.relationships.company.data (never from PARASUT_COMPANY_ID
+ * / the request URL); the address comes ONLY from the included company's
+ * own relationships.address.data (never guessed from the old DB row).
+ */
+async function syncMe(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const { item: userItem, included } = await fetchMe(accessToken);
+
+  const userRoleResources = included.filter((r) => r.type === "user_roles");
+  const companyResources = included.filter((r) => r.type === "companies");
+  const addressResources = included.filter((r) => r.type === "addresses");
+  const profileResources = included.filter((r) => r.type === "profiles");
+
+  const userParasutId = Number(userItem.id);
+  const userRow = mapUser(userItem);
+
+  const profileRef = userItem.relationships?.["profile"]?.data;
+  const profileItem = !Array.isArray(profileRef) && profileRef
+    ? profileResources.find((p) => p.id === profileRef.id)
+    : undefined;
+  const profileRow = profileItem ? mapProfile(profileItem, userParasutId) : null;
+
+  const userRolesRef = userItem.relationships?.["user_roles"]?.data;
+  const userRoleIds = Array.isArray(userRolesRef) ? userRolesRef.map((r) => r.id) : [];
+  const userRoleItems = userRoleResources.filter((r) => userRoleIds.includes(r.id));
+  const userRoleRows = userRoleItems.map((r) => mapUserRole(r, userParasutId));
+
+  // Real user->company link: the id/type on user_roles.relationships.company
+  // -- one per real user_role, duplicates counted if the same company id
+  // appears more than once (never assumed to be exactly one).
+  const companyRefs = userRoleItems
+    .map((r) => r.relationships?.["company"]?.data)
+    .filter((d): d is { id: string; type: string } => !!d && !Array.isArray(d));
+  const uniqueCompanyIds = new Set(companyRefs.map((c) => c.id));
+  const duplicateCompanyLinkCount = companyRefs.length - uniqueCompanyIds.size;
+  const typeMismatchCount = companyRefs.filter((c) => c.type !== "companies").length;
+
+  const companyRows = companyResources
+    .filter((c) => uniqueCompanyIds.has(c.id))
+    .map((c) => mapMeCompany(c));
+  const unresolvedCompanyCount = companyRefs.filter((ref) => !companyResources.some((c) => c.id === ref.id)).length;
+
+  // Address: only wired from the COMPANY's own relationships.address.data
+  // (a company sub-resource, never a top-level /v4/me relationship).
+  const addressRows = [];
+  for (const companyItem of companyResources.filter((c) => uniqueCompanyIds.has(c.id))) {
+    const addrRef = companyItem.relationships?.["address"]?.data;
+    if (!addrRef || Array.isArray(addrRef)) continue;
+    const addrItem = addressResources.find((a) => a.id === addrRef.id);
+    if (!addrItem) continue;
+    addressRows.push(mapMeAddress(addrItem, "companies", Number(companyItem.id)));
+  }
+
+  let userUpserted = 0;
+  let profileUpserted = 0;
+  let userRoleUpserted = 0;
+  let companyUpserted = 0;
+  let addressUpserted = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const userResult = await upsertBatched(db, "users", [userRow as unknown as Record<string, unknown>]);
+    userUpserted = userResult.upsertedCount;
+    errorCount += userResult.errorCount;
+    errorMessages.push(...userResult.errorMessages);
+
+    if (profileRow) {
+      const profileResult = await upsertBatched(db, "profiles", [profileRow as unknown as Record<string, unknown>]);
+      profileUpserted = profileResult.upsertedCount;
+      errorCount += profileResult.errorCount;
+      errorMessages.push(...profileResult.errorMessages);
+    }
+
+    if (userRoleRows.length > 0) {
+      const roleResult = await upsertBatched(db, "user_roles", userRoleRows as unknown as Record<string, unknown>[]);
+      userRoleUpserted = roleResult.upsertedCount;
+      errorCount += roleResult.errorCount;
+      errorMessages.push(...roleResult.errorMessages);
+    }
+
+    if (companyRows.length > 0) {
+      const companyResult = await upsertBatched(db, "companies", companyRows as unknown as Record<string, unknown>[]);
+      companyUpserted = companyResult.upsertedCount;
+      errorCount += companyResult.errorCount;
+      errorMessages.push(...companyResult.errorMessages);
+    }
+
+    if (addressRows.length > 0) {
+      const addressResult = await upsertBatched(db, "addresses", addressRows as unknown as Record<string, unknown>[]);
+      addressUpserted = addressResult.upsertedCount;
+      errorCount += addressResult.errorCount;
+      errorMessages.push(...addressResult.errorMessages);
+    }
+  }
+
+  return {
+    dbFields: {
+      fetched_count: 1,
+      upserted_count: dryRun ? 0 : userUpserted + profileUpserted + userRoleUpserted + companyUpserted + addressUpserted,
+      error_count: errorCount,
+    },
+    responseFields: {
+      user_id: userItem.id,
+      user_upserted_count: dryRun ? 0 : userUpserted,
+      profile_upserted_count: dryRun ? 0 : profileUpserted,
+      user_role_upserted_count: dryRun ? 0 : userRoleUpserted,
+      company_upserted_count: dryRun ? 0 : companyUpserted,
+      address_upserted_count: dryRun ? 0 : addressUpserted,
+      unique_company_count: uniqueCompanyIds.size,
+      duplicate_company_link_count: duplicateCompanyLinkCount,
+      unresolved_company_count: unresolvedCompanyCount,
+      type_mismatch_count: typeMismatchCount,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
 async function syncAccounts(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const { active, archived } = await fetchActiveAndArchived(accessToken, "accounts");
   const activeFetchedCount = active.items.length;
@@ -1740,6 +1864,7 @@ Deno.serve(async (req: Request) => {
       sales_offers: syncSalesOffers,
       shipment_documents: syncShipmentDocuments,
       employees: syncEmployees,
+      me: syncMe,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 

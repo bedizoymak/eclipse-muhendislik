@@ -284,6 +284,39 @@ export async function fetchResource(
 }
 
 /**
+ * Fetches GET /v4/me -- the ONE real Parasut endpoint that is NOT scoped
+ * under /v4/{company_id}/... (verified: authenticated user root resource,
+ * not a company sub-resource). Same retry semantics as fetchResource.
+ */
+export async function fetchMe(accessToken: string): Promise<{ item: JsonApiResource; included: JsonApiResource[] }> {
+  const url = new URL(`${PARASUT_BASE_URL}/v4/me`);
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if ((response.status === 429 || response.status >= 500) && attempt < MAX_RATE_LIMIT_RETRIES) {
+      await sleep(retryDelayMs(response));
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Parasut /v4/me failed (${response.status}): ${text.slice(0, 500)}`);
+    }
+
+    const json = (await response.json()) as JsonApiSingleResponse;
+    return { item: json.data, included: json.included ?? [] };
+  }
+
+  throw new Error("Parasut /v4/me failed: exceeded rate-limit retries");
+}
+
+/**
  * Fetches every page of a Parasut list endpoint. Stops only when a page
  * comes back empty or the reported total_pages has been reached; any
  * request failure aborts the whole fetch (thrown to the caller).
