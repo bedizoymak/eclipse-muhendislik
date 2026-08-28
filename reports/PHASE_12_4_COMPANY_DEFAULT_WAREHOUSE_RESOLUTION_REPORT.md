@@ -166,7 +166,7 @@ UI: "Varsayılan Depo" bölümü — Depo ID + gerçek liste linki, Depo Adı, A
 
 ---
 
-**Kod commit SHA:** (bu committen sonra doldurulacak)
+**Kod commit SHA:** e800cde17abc9c65fef3fe3262baa6a561e38910
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
 **Doğrulama için gerçek ID'ler:** Şirket `666034`, Varsayılan depo `1000122982` ("Ana Depo", arşivlenmemiş, kaynak türü `warehouses`).
