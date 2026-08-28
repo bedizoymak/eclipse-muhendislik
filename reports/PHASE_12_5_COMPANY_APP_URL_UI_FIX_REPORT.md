@@ -104,7 +104,7 @@ Geçici doğrulama scripti (`scratch_verify_appurl.mjs`, proje köküne yazıld�
 
 ---
 
-**Kod commit SHA:** (bu commit'ten sonra doldurulacak)
+**Kod commit SHA:** 7a1c3e7dfbceb6fe78567d0ebe095a2aba34b892
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
 **Doğrulama için gerçek değer:** `app_url = https://uygulama.parasut.com/666034` (şirket `666034`).
