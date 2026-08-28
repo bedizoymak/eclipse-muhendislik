@@ -1,6 +1,6 @@
 # Phase 13.5: Payment Capability/Relationship Ayrımı ve Deno Type Cleanup
 
-- Kod commit SHA: (fill after commit 1) `PENDING`
+- Kod commit SHA: `ad8d0849947eef44733a7902ef1d75469979ae21`
 - Rapor commit SHA: (bu commit)
 - Önceki faz: `reports/PHASE_13_4_FINAL_SOURCE_BOUNDARY_AND_UI_REPORT.md` (kod commit `9770113`)
 - Canlı: https://demo.eclipsemuhendislik.com
