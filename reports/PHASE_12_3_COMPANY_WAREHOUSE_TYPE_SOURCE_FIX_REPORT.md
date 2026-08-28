@@ -168,7 +168,7 @@ UI: yalnızca "Varsayılan Depo ID: #1000122982" satırı render ediliyor — t�
 
 ---
 
-**Kod commit SHA:** (bu committen sonra doldurulacak)
+**Kod commit SHA:** d5ba80cce4723130bb5a6ed5353d9bf23a7b46cf
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
 **Doğrulama için gerçek ID'ler:** Şirket `666034`, Kullanıcı/owner `800086`, Adres `295028`, Varsayılan depo `1000122982` (bağımsız `parasut.warehouses` kaydı: "Ana Depo", arşivlenmemiş).
