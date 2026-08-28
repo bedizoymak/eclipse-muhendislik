@@ -20,6 +20,7 @@ const Vergiler = () => (
     countView="parasut_tax_counts_demo"
     selectColumns="parasut_id, description, issue_date, due_date, net_total, remaining, archived"
     emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /taxes gerçek olarak boş liste döndürüyor)."
+    detailBase="/giderler/vergiler"
     columns={[
       { header: "Açıklama", render: (r) => r.description ?? "—" },
       { header: "Tarih", render: (r) => r.issue_date ?? "—" },

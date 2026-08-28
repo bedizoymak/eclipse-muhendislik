@@ -169,8 +169,8 @@ const DemoHome = () => {
               <Link to="/giderler/vergiler" className="text-sm text-electric-bright hover:underline">
                 Vergiler →
               </Link>
-              <Link to="/satislar/e-fatura-kutulari" className="text-sm text-electric-bright hover:underline">
-                E-Fatura Kutuları →
+              <Link to="/satislar/e-fatura-mukellefleri" className="text-sm text-electric-bright hover:underline">
+                E-Fatura Mükellef Sorgulama →
               </Link>
               <Link to="/ayarlar/etiketler" className="text-sm text-electric-bright hover:underline">
                 Etiketler →

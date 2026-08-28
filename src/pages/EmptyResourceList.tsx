@@ -25,6 +25,14 @@ interface EmptyResourceListProps<Row extends { parasut_id: number }> {
   selectColumns: string;
   columns: EmptyResourceColumn<Row>[];
   emptyExplanation: string;
+  /**
+   * Phase 13.1: base path for a real per-row detail route (e.g.
+   * "/giderler/maaslar"), only set for resources with a genuine Swagger
+   * single-GET endpoint (salaries/taxes/tags). Omit entirely for resources
+   * without one (e.g. e_invoice_inboxes -- DETAIL_ENDPOINT_BLOCKED) so no
+   * row ever links to a route that doesn't exist.
+   */
+  detailBase?: string;
 }
 
 function EmptyResourceList<Row extends { parasut_id: number }>({
@@ -37,6 +45,7 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
   selectColumns,
   columns,
   emptyExplanation,
+  detailBase,
 }: EmptyResourceListProps<Row>) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -117,9 +126,15 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
                   <tbody>
                     {rows.map((row) => (
                       <tr key={row.parasut_id} className="border-t border-white/5">
-                        {columns.map((col) => (
+                        {columns.map((col, idx) => (
                           <td key={col.header} className="px-4 py-2 text-white/70">
-                            {col.render(row)}
+                            {idx === 0 && detailBase ? (
+                              <Link to={`${detailBase}/${row.parasut_id}`} className="hover:text-electric-bright hover:underline">
+                                {col.render(row)}
+                              </Link>
+                            ) : (
+                              col.render(row)
+                            )}
                           </td>
                         ))}
                       </tr>

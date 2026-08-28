@@ -8,12 +8,23 @@ interface EInvoiceInboxDemoRow {
   inbox_type: string | null;
 }
 
+// Phase 13.1: renamed from "E-Fatura Kutuları" (E-Invoice Inboxes/message
+// inbox implication) to "E-Fatura Mükellef Sorgulama" (E-Invoice Taxpayer
+// Lookup) -- verified against the real Paraşüt Swagger spec
+// (https://apidocs.parasut.com/swagger.json): GET /e_invoice_inboxes takes
+// only `filter[vkn]` as a real query param (no other filters, no sort), has
+// NO single-GET /{id} endpoint, and the API docs' own prose describes this
+// resource as checking "müşterinin e-Fatura gelen kutusu olup olmadığı"
+// (whether a customer has an e-invoice inbox) -- i.e. a VKN-keyed directory
+// of taxpayers registered for e-invoicing, not a list of received documents
+// or messages. No detail route exists here (DETAIL_ENDPOINT_BLOCKED --
+// see Phase 13.1 report).
 const EFaturaKutulari = () => (
   <EmptyResourceList<EInvoiceInboxDemoRow>
     backTo="/satislar/faturalar"
     backLabel="Faturalar"
-    title="E-Fatura Kutuları"
-    description="Paraşüt'ten senkronize edilen gerçek e-fatura mükellef kutusu kayıtları."
+    title="E-Fatura Mükellef Sorgulama"
+    description="Paraşüt'ten senkronize edilen, VKN'ye göre sorgulanan gerçek e-fatura mükellefi kayıtları (gelen kutusu/mesaj listesi değildir)."
     listView="parasut_e_invoice_inboxes_demo"
     countView="parasut_e_invoice_inbox_counts_demo"
     selectColumns="parasut_id, vkn, name, e_invoice_address, inbox_type"

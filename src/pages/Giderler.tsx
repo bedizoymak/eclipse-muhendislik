@@ -150,6 +150,15 @@ const Giderler = () => {
           <Link to="/giderler/calisanlar" className="text-electric-bright hover:underline">
             Çalışanlar →
           </Link>
+          <Link to="/giderler/maaslar" className="text-electric-bright hover:underline">
+            Maaşlar →
+          </Link>
+          <Link to="/giderler/vergiler" className="text-electric-bright hover:underline">
+            Vergiler →
+          </Link>
+          <Link to="/ayarlar/etiketler" className="text-electric-bright hover:underline">
+            Etiketler →
+          </Link>
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

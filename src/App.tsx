@@ -37,8 +37,11 @@ const Calisanlar = lazy(() => import("./pages/Calisanlar.tsx"));
 const CalisanDetay = lazy(() => import("./pages/CalisanDetay.tsx"));
 const SirketBilgileri = lazy(() => import("./pages/SirketBilgileri.tsx"));
 const Maaslar = lazy(() => import("./pages/Maaslar.tsx"));
+const MaasDetay = lazy(() => import("./pages/MaasDetay.tsx"));
 const Vergiler = lazy(() => import("./pages/Vergiler.tsx"));
+const VergiDetay = lazy(() => import("./pages/VergiDetay.tsx"));
 const Etiketler = lazy(() => import("./pages/Etiketler.tsx"));
+const EtiketDetay = lazy(() => import("./pages/EtiketDetay.tsx"));
 const EFaturaKutulari = lazy(() => import("./pages/EFaturaKutulari.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 
@@ -97,7 +100,9 @@ const App = () => (
               <Route path="/giderler/calisanlar" element={<Calisanlar />} />
               <Route path="/giderler/calisanlar/:parasutId" element={<CalisanDetay />} />
               <Route path="/giderler/maaslar" element={<Maaslar />} />
+              <Route path="/giderler/maaslar/:parasutId" element={<MaasDetay />} />
               <Route path="/giderler/vergiler" element={<Vergiler />} />
+              <Route path="/giderler/vergiler/:parasutId" element={<VergiDetay />} />
               <Route path="/giderler/:parasutId" element={<GiderDetay />} />
               <Route path="/urunler" element={<Urunler />} />
               <Route path="/urunler/:parasutId" element={<UrunDetay />} />
@@ -112,7 +117,12 @@ const App = () => (
               <Route path="/satislar/teklifler/:parasutId" element={<TeklifDetay />} />
               <Route path="/sirket-bilgileri" element={<SirketBilgileri />} />
               <Route path="/ayarlar/etiketler" element={<Etiketler />} />
-              <Route path="/satislar/e-fatura-kutulari" element={<EFaturaKutulari />} />
+              <Route path="/ayarlar/etiketler/:parasutId" element={<EtiketDetay />} />
+              {/* Phase 13.1: renamed from /satislar/e-fatura-kutulari -- real Swagger
+                  spec has no single-GET endpoint for this resource and its actual
+                  purpose is a VKN-keyed e-invoice-taxpayer lookup, not an "inbox"
+                  list; see EFaturaKutulari.tsx and the Phase 13.1 report. */}
+              <Route path="/satislar/e-fatura-mukellefleri" element={<EFaturaKutulari />} />
               <Route path="*" element={<DemoHome />} />
             </Routes>
           ) : (

@@ -44,6 +44,7 @@ import { mapSalary } from "./resources/salaries.ts";
 import { mapTax } from "./resources/taxes.ts";
 import { mapTag } from "./resources/tags.ts";
 import { mapEInvoiceInbox } from "./resources/e_invoice_inboxes.ts";
+import { detectUnknownKeys } from "./schema_guard.ts";
 import { findCompanyListEntry, mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
 
 const SUPPORTED_RESOURCES = [
@@ -1698,9 +1699,24 @@ async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRu
  * attempted here -- a single full listing is the complete, correct fetch.
  * The exact same code fetches/upserts real rows the moment records exist.
  */
+// Phase 13.1: the exact attribute/relationship keys mapSalary() reads --
+// kept next to the sync function so the manifest and the mapper are easy
+// to eyeball together. `tags` is a real relationship on Salary per the
+// Swagger spec (verified in swagger.json) but is not yet mapped to a
+// column (no junction table exists yet) -- left OUT of the known list on
+// purpose so detectUnknownKeys() genuinely flags it once a real salary
+// with tags appears, rather than silently matching it as "known".
+const SALARY_KNOWN_ATTRIBUTE_KEYS = [
+  "description", "currency", "issue_date", "due_date", "exchange_rate",
+  "net_total", "total_paid", "remaining", "remaining_in_trl", "archived",
+  "created_at", "updated_at",
+] as const;
+const SALARY_KNOWN_RELATIONSHIP_KEYS = ["employee", "category"] as const;
+
 async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "salaries");
   const fetchedCount = result.items.length;
+  const unknownKeys = detectUnknownKeys(result.items, SALARY_KNOWN_ATTRIBUTE_KEYS, SALARY_KNOWN_RELATIONSHIP_KEYS);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1720,11 +1736,13 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
+      metadata: { unknown_keys: unknownKeys },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: result.totalCountReported,
+      unknown_keys: unknownKeys,
     },
     errorCount,
     errorMessages,
@@ -1736,9 +1754,18 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
  * account today (data:[]). Same filter[archived]-rejected behavior as
  * salaries (identical real 400 body) -- single full listing only.
  */
+// Phase 13.1: same rationale as SALARY_KNOWN_*. `tags` is a real Tax
+// relationship per Swagger but not yet mapped -- left out on purpose.
+const TAX_KNOWN_ATTRIBUTE_KEYS = [
+  "description", "issue_date", "due_date", "net_total", "total_paid",
+  "remaining", "remaining_in_trl", "archived", "created_at", "updated_at",
+] as const;
+const TAX_KNOWN_RELATIONSHIP_KEYS = ["category"] as const;
+
 async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "taxes");
   const fetchedCount = result.items.length;
+  const unknownKeys = detectUnknownKeys(result.items, TAX_KNOWN_ATTRIBUTE_KEYS, TAX_KNOWN_RELATIONSHIP_KEYS);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1758,11 +1785,13 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
+      metadata: { unknown_keys: unknownKeys },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: result.totalCountReported,
+      unknown_keys: unknownKeys,
     },
     errorCount,
     errorMessages,
@@ -1775,9 +1804,13 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
  * resource at all (real 400: "Acceptable: " -- empty list) -- single full
  * listing only.
  */
+const TAG_KNOWN_ATTRIBUTE_KEYS = ["name", "created_at", "updated_at"] as const;
+const TAG_KNOWN_RELATIONSHIP_KEYS = [] as const;
+
 async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "tags");
   const fetchedCount = result.items.length;
+  const unknownKeys = detectUnknownKeys(result.items, TAG_KNOWN_ATTRIBUTE_KEYS, TAG_KNOWN_RELATIONSHIP_KEYS);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1797,11 +1830,13 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
+      metadata: { unknown_keys: unknownKeys },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: result.totalCountReported,
+      unknown_keys: unknownKeys,
     },
     errorCount,
     errorMessages,
@@ -1813,9 +1848,20 @@ async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean
  * real records in this account today (meta.total_count:0). No archived
  * attribute on this resource -- single full listing only.
  */
+const E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS = [
+  "vkn", "e_invoice_address", "name", "inbox_type", "address_registered_at",
+  "registered_at", "created_at", "updated_at",
+] as const;
+const E_INVOICE_INBOX_KNOWN_RELATIONSHIP_KEYS = [] as const;
+
 async function syncEInvoiceInboxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "e_invoice_inboxes");
   const fetchedCount = result.items.length;
+  const unknownKeys = detectUnknownKeys(
+    result.items,
+    E_INVOICE_INBOX_KNOWN_ATTRIBUTE_KEYS,
+    E_INVOICE_INBOX_KNOWN_RELATIONSHIP_KEYS,
+  );
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -1835,11 +1881,13 @@ async function syncEInvoiceInboxes(db: SupabaseClient, accessToken: string, dryR
       total_count_reported: result.totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       error_count: errorCount,
+      metadata: { unknown_keys: unknownKeys },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       total_count_reported: result.totalCountReported,
+      unknown_keys: unknownKeys,
     },
     errorCount,
     errorMessages,

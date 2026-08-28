@@ -21,6 +21,7 @@ const Maaslar = () => (
     countView="parasut_salary_counts_demo"
     selectColumns="parasut_id, description, currency, issue_date, due_date, net_total, remaining, archived"
     emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /salaries gerçek olarak boş liste döndürüyor)."
+    detailBase="/giderler/maaslar"
     columns={[
       { header: "Açıklama", render: (r) => r.description ?? "—" },
       { header: "Tarih", render: (r) => r.issue_date ?? "—" },

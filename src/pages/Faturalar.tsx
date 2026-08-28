@@ -122,6 +122,11 @@ const Faturalar = () => {
         </Link>
         <h1 className="mt-4 font-display text-3xl font-semibold">Satış Faturaları</h1>
         <p className="mt-1 text-white/60">Paraşüt'ten senkronize edilen gerçek satış faturaları.</p>
+        <div className="mt-2 flex flex-wrap gap-4 text-sm">
+          <Link to="/satislar/e-fatura-mukellefleri" className="text-electric-bright hover:underline">
+            E-Fatura mükellef sorgulama →
+          </Link>
+        </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <div className="flex min-w-0 flex-wrap gap-2">
