@@ -232,6 +232,7 @@ const FIELD_LABELS: Record<string, string> = {
   ai_features_enabled: "AI Özellikleri Aktif",
   logo_is_processing: "Logo İşleniyor mu",
   last_consumption_date: "Son Tüketim Tarihi (UTC)",
+  app_url: "Paraşüt Uygulama URL",
 };
 
 const BOOLEAN_FIELDS = new Set([
@@ -393,6 +394,23 @@ const SirketBilgileri = () => {
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-white/40">Son Tüketim Tarihi (UTC)</dt>
                   <dd className="text-sm">{utcTimestamp(company.last_consumption_date)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Paraşüt Uygulama URL</dt>
+                  <dd className="text-sm break-all">
+                    {company.app_url ? (
+                      <a
+                        href={company.app_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-electric-bright hover:underline"
+                      >
+                        {company.app_url} ↗
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
                 </div>
               </dl>
             </div>
