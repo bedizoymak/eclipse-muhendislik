@@ -1,7 +1,7 @@
 # Phase 14.1 — E-Belge Evreni, Aktif/Arşiv Kapsamı ve Modül Sayımı Düzeltmesi
 
 **Tarih:** 2026-08-28
-**Rapor commit SHA:** (bu dosyanın ilk commit'i; SHA doldurma commit'i ayrıca push edildi)
+**Rapor commit SHA:** `df98cef` (bu dosyanın ilk commit'i; SHA doldurma commit'i ayrıca push edildi)
 **Kapsam:** Yalnızca keşif/düzeltme raporu. Bu fazda hiçbir migration, Edge Function, frontend, deploy değişikliği yapılmadı. Tüm bulgular salt-okunur SQL (`select`/`count(*)`) ve salt-okunur `GET` istekleriyle (gerçek Parasut hesabı, `PARASUT_COMPANY_ID=666034`) bu fazda canlı olarak toplandı. Hiçbir POST/PATCH/PUT/DELETE Parasut'a gönderilmedi; hiçbir INSERT/UPDATE/DELETE/DDL Supabase'e gönderilmedi.
 
 ---
