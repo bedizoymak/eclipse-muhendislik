@@ -91,8 +91,8 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
         setLoadError(countResult.error.message);
         return;
       }
-      setRows((listResult.data as Row[] | null) ?? []);
-      setTotalCount((countResult.data as Record<string, number> | null)?.[countColumn] ?? 0);
+      setRows((listResult.data as unknown as Row[] | null) ?? []);
+      setTotalCount((countResult.data as unknown as Record<string, number> | null)?.[countColumn] ?? 0);
     });
 
     return () => {

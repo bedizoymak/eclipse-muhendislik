@@ -29,6 +29,14 @@ interface EmptyResourceDetailProps<Row extends { parasut_id: number }> {
   view: string;
   selectColumns: string;
   fields: EmptyResourceDetailField<Row>[];
+  /**
+   * Phase 13.4: optional callback fired with the loaded row (or null when
+   * genuinely not found) so a parent page can resolve/render further real
+   * relationship data (e.g. a linked employee/category name, or a
+   * payments junction list) without duplicating this component's own
+   * fetch-by-parasut_id logic.
+   */
+  onRowLoaded?: (row: Row | null) => void;
 }
 
 function EmptyResourceDetail<Row extends { parasut_id: number }>({
@@ -38,6 +46,7 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
   view,
   selectColumns,
   fields,
+  onRowLoaded,
 }: EmptyResourceDetailProps<Row>) {
   const { parasutId } = useParams<{ parasutId: string }>();
   const [row, setRow] = useState<Row | null | undefined>(undefined);
@@ -62,12 +71,15 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
           setLoadError(error.message);
           return;
         }
-        setRow((data as Row | null) ?? null);
+        const loaded = (data as unknown as Row | null) ?? null;
+        setRow(loaded);
+        onRowLoaded?.(loaded);
       });
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectColumns, parasutId]);
 
   return (

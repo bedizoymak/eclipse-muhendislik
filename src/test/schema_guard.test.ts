@@ -136,10 +136,14 @@ describe("expectedTypeStatus", () => {
   });
 });
 
-// Phase 13.3 section 1: the ERP/Parasut schema-boundary fix. This mapper
-// must never accept or write a caller-supplied VKN (ERP_USER_ENTERED) into
-// the parasut.e_invoice_inboxes row it produces -- that data class belongs
-// only in erp.e_invoice_lookup_requests.
+// Phase 13.3 section 1 / Phase 13.4 section 1: the ERP/Parasut
+// schema-boundary fix. This mapper must never accept or write a
+// caller-supplied VKN (ERP_USER_ENTERED) into the parasut.e_invoice_inboxes
+// row it produces -- that data class belongs only in
+// erp.e_invoice_lookup_requests. Phase 13.4 additionally physically DROPPED
+// query_vkn AND queried_at from the parasut.e_invoice_inboxes column list
+// (Phase 13.3 only added a deprecation comment; the column still physically
+// existed -- verified live before the drop: 0 rows, 0/0 filled/null).
 describe("mapEInvoiceInbox ERP/Parasut boundary", () => {
   it("never writes a query_vkn field on the mapped row (no such field exists on the type)", () => {
     const item = fixture("1", "e_invoice_inboxes", { vkn: "1234567890", name: "Acme" });
@@ -148,27 +152,10 @@ describe("mapEInvoiceInbox ERP/Parasut boundary", () => {
     expect(row.vkn).toBe("1234567890");
   });
 
-  it("only sets queried_at when wasQueried is true, and never invents a VKN value", () => {
+  it("Phase 13.4: never writes a queried_at field either (dropped as a physical mirror-table column -- lookup-operation metadata, not a real swagger.json attribute)", () => {
     const item = fixture("1", "e_invoice_inboxes", { vkn: "1234567890" });
-    const rowUnqueried: EInvoiceInboxRow = mapEInvoiceInbox(item, false);
-    expect(rowUnqueried.queried_at).toBeNull();
-    const rowQueried = mapEInvoiceInbox(item, true);
-    expect(rowQueried.queried_at).not.toBeNull();
-  });
-});
-
-// Phase 13.3 section 2: a lookup call without a real VKN must never behave
-// like a global sync -- this is exercised end-to-end live against the
-// deployed Edge Function (see report section 2), but the pure guard here
-// documents the contract mapEInvoiceInbox relies on: wasQueried defaults
-// to false, so calling the mapper with no second argument (as any future
-// accidental "just map everything" caller might) never marks a row as a
-// real queried result.
-describe("e_invoice lookup vs global sync contract", () => {
-  it("mapEInvoiceInbox defaults wasQueried to false (never a silent global-sync result)", () => {
-    const item = fixture("1", "e_invoice_inboxes", { vkn: "1234567890" });
-    const row = mapEInvoiceInbox(item);
-    expect(row.queried_at).toBeNull();
+    const row: EInvoiceInboxRow = mapEInvoiceInbox(item, true);
+    expect((row as unknown as Record<string, unknown>).queried_at).toBeUndefined();
   });
 });
 

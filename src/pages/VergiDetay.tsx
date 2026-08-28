@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import EmptyResourceDetail from "./EmptyResourceDetail";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,12 +20,29 @@ interface TaxDemoRow {
   parasut_updated_at: string | null;
 }
 
+interface TaxPaymentRow {
+  payment_parasut_id: number;
+  payment_type: string | null;
+  payment_amount: number | null;
+  payment_currency: string | null;
+  payment_date: string | null;
+}
+
 // Phase 13.2 section 5: full real-field UI access for taxes -- same
 // pattern as MaasDetay.tsx (parasut_type, remaining_in_trl, category
 // id+type, created_at/updated_at in UTC, real tags junction).
+// Phase 13.4 section 4: adds category name+link (when a real linked
+// category record exists) and a real payments (parasut.tax_payments)
+// section. activities is NOT built here -- the real swagger.json
+// documents no Tax.relationships.activities key and no
+// /taxes/{id}/activities path (see report section 3); it was a
+// fabricated manifest row in Phase 13.3, corrected in Phase 13.4.
 const VergiDetay = () => {
   const { parasutId } = useParams<{ parasutId: string }>();
   const [tags, setTags] = useState<{ tag_parasut_id: number; tag_type: string; tag_name: string | null }[]>([]);
+  const [row, setRow] = useState<TaxDemoRow | null>(null);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
+  const [payments, setPayments] = useState<TaxPaymentRow[]>([]);
 
   useEffect(() => {
     if (!supabase || !parasutId) return;
@@ -37,10 +54,33 @@ const VergiDetay = () => {
       .then(({ data }) => {
         if (!cancelled) setTags(data ?? []);
       });
+    supabase
+      .from("parasut_tax_payments_demo")
+      .select("payment_parasut_id, payment_type, payment_amount, payment_currency, payment_date")
+      .eq("tax_parasut_id", parasutId)
+      .then(({ data }) => {
+        if (!cancelled) setPayments((data as TaxPaymentRow[] | null) ?? []);
+      });
     return () => {
       cancelled = true;
     };
   }, [parasutId]);
+
+  useEffect(() => {
+    if (!supabase || !row || row.category_parasut_id == null) return;
+    let cancelled = false;
+    supabase
+      .from("parasut_item_categories_demo")
+      .select("name")
+      .eq("parasut_id", row.category_parasut_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setCategoryName((data as { name: string | null } | null)?.name ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row]);
 
   return (
     <>
@@ -50,6 +90,7 @@ const VergiDetay = () => {
         title="Vergi"
         view="parasut_taxes_demo"
         selectColumns="parasut_id, parasut_type, description, issue_date, due_date, net_total, total_paid, remaining, remaining_in_trl, archived, category_parasut_id, category_parasut_type, parasut_created_at, parasut_updated_at"
+        onRowLoaded={setRow}
         fields={[
           { label: "Kaynak tipi (parasut_type)", render: (r) => r.parasut_type ?? "—" },
           { label: "Açıklama", render: (r) => r.description ?? "—" },
@@ -62,7 +103,18 @@ const VergiDetay = () => {
           { label: "Durum", render: (r) => (r.archived ? "Arşivli" : "Aktif") },
           {
             label: "Kategori (category id/type)",
-            render: (r) => (r.category_parasut_id != null ? `${r.category_parasut_id} / ${r.category_parasut_type ?? "—"}` : "—"),
+            render: (r) =>
+              r.category_parasut_id != null ? (
+                categoryName ? (
+                  <Link to={`/stok/kategoriler/${r.category_parasut_id}`} className="text-electric-bright hover:underline">
+                    {categoryName} ({r.category_parasut_id} / {r.category_parasut_type ?? "—"})
+                  </Link>
+                ) : (
+                  `${r.category_parasut_id} / ${r.category_parasut_type ?? "—"}`
+                )
+              ) : (
+                "—"
+              ),
           },
           { label: "Oluşturulma (UTC)", render: (r) => r.parasut_created_at ?? "—" },
           { label: "Güncellenme (UTC)", render: (r) => r.parasut_updated_at ?? "—" },
@@ -79,6 +131,23 @@ const VergiDetay = () => {
             {tags.map((t) => (
               <li key={`${t.tag_parasut_id}-${t.tag_type}`}>
                 {t.tag_name ?? "—"} (id {t.tag_parasut_id} / {t.tag_type})
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <h2 className="mt-6 text-sm font-medium text-white/60">Ödemeler (payments ilişkisi)</h2>
+        {payments.length === 0 ? (
+          <p className="mt-2 text-sm text-white/40">
+            Bu vergi kaydı için bağlı ödeme yok (parasut.tax_payments junction tablosu -- gerçek ilişki, bugün 0 satır).
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm text-white/70">
+            {payments.map((p) => (
+              <li key={`${p.payment_parasut_id}-${p.payment_type}`}>
+                {p.payment_parasut_id} / {p.payment_type ?? "—"} —{" "}
+                {p.payment_amount != null ? `${p.payment_amount} ${p.payment_currency ?? ""}`.trim() : "—"} —{" "}
+                {p.payment_date ?? "—"}
               </li>
             ))}
           </ul>

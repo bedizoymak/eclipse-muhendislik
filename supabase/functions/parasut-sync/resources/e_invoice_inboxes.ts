@@ -32,7 +32,6 @@ export interface EInvoiceInboxRow {
   raw: JsonApiResource;
   parasut_created_at: string | null;
   parasut_updated_at: string | null;
-  queried_at: string | null;
   synced_at: string;
 }
 
@@ -40,12 +39,20 @@ export interface EInvoiceInboxRow {
  * Phase 13.3: as of this phase, this resource is a lookup-only endpoint --
  * a real fetch only ever happens with a real filter[vkn] behind
  * secure-auth (still BLOCKED today, see index.ts syncEInvoiceInboxes /
- * BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH). `wasQueried` marks whether this
- * item came from a real filter[vkn] call (sets queried_at); the VKN value
- * itself is never accepted by or stored in this mapper -- it lives only
- * in erp.e_invoice_lookup_requests.
+ * BLOCKED_LOOKUP_REQUIRES_VKN_AND_AUTH). The VKN value itself is never
+ * accepted by or stored in this mapper -- it lives only in
+ * erp.e_invoice_lookup_requests.
+ *
+ * Phase 13.4: `queried_at` was dropped as a physical column on
+ * parasut.e_invoice_inboxes (it was lookup-operation metadata, not a real
+ * swagger.json EInvoiceInboxAttributes field, so it could not live on the
+ * Parasut mirror table). Since Phase 13.3 already made this table
+ * lookup-only (never populated by an unfiltered/global sync), the
+ * pre-existing `synced_at` field already carries equivalent provenance --
+ * the `wasQueried` parameter is kept only as a historical/defensive no-op
+ * signature for callers, it no longer changes the shape of the row.
  */
-export function mapEInvoiceInbox(item: JsonApiResource, wasQueried = false): EInvoiceInboxRow {
+export function mapEInvoiceInbox(item: JsonApiResource, _wasQueried = false): EInvoiceInboxRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) {
@@ -64,7 +71,6 @@ export function mapEInvoiceInbox(item: JsonApiResource, wasQueried = false): EIn
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
-    queried_at: wasQueried ? new Date().toISOString() : null,
     synced_at: new Date().toISOString(),
   };
 }

@@ -7,7 +7,21 @@ interface EInvoiceLookupResultDemoRow {
   name: string | null;
   e_invoice_address: string | null;
   inbox_type: string | null;
+  address_registered_at: string | null;
+  registered_at: string | null;
+  parasut_created_at: string | null;
+  parasut_updated_at: string | null;
 }
+
+// Phase 13.4: all 10 real Swagger EInvoiceInboxAttributes fields must be
+// user-accessible (parasut_id, parasut_type, vkn, e_invoice_address, name,
+// inbox_type, address_registered_at, registered_at, created_at,
+// updated_at) -- Phase 13.3 only showed 6 of them. There is no
+// `GET /e_invoice_inboxes/{id}` (verified against swagger.json), so this
+// stays a single wide table on the list route rather than a fake detail
+// route. All timestamps are rendered as stored (UTC, ISO 8601) via
+// `formatUtc`; null always renders "—", never a derived/fabricated value.
+const formatUtc = (v: string | null) => (v ? `${v.replace("T", " ").replace(/\+00:00$|Z$/, "")} UTC` : "—");
 
 // Phase 13.2 problem #1: this resource is NOT a global inbox record list
 // -- it is Paraşüt's e-invoice-taxpayer LOOKUP service
@@ -47,14 +61,20 @@ const EFaturaKutulari = () => (
     countView="parasut_e_invoice_lookup_result_counts_demo"
     countColumn="cached_query_result_count"
     countLabel="Önbellekteki sorgu sonucu"
-    selectColumns="parasut_id, parasut_type, vkn, name, e_invoice_address, inbox_type"
+    selectColumns="parasut_id, parasut_type, vkn, name, e_invoice_address, inbox_type, address_registered_at, registered_at, parasut_created_at, parasut_updated_at"
     emptyMeansNoQueryYet
     emptyExplanation="Canlı VKN sorgusu, güvenli kimlik doğrulamalı bir arka uç gerektirir ve bu genel demo üzerinden AÇILMAMIŞTIR (BLOCKED) -- Paraşüt erişim anahtarı hiçbir zaman genel/anonim ön yüze açılmaz. Sorgulanan VKN değeri (kullanıcı girdisi) artık hiçbir zaman bu görünümde yer almaz; yalnızca Paraşüt'ün kendi yanıtı (vkn, ad, e-fatura adresi) gösterilir. Bu ekran yalnızca gelecekte güvenli bir arka ucun gerçekten sorgulayıp kaydettiği sonuçları gösterecektir."
     columns={[
+      { header: "Parasut ID", render: (r) => r.parasut_id },
+      { header: "Tip", render: (r) => r.parasut_type ?? "—" },
       { header: "VKN (Paraşüt yanıtı)", render: (r) => r.vkn ?? "—" },
       { header: "Ad", render: (r) => r.name ?? "—" },
       { header: "E-Fatura Adresi", render: (r) => r.e_invoice_address ?? "—" },
       { header: "Tür", render: (r) => r.inbox_type ?? "—" },
+      { header: "Adres Kayıt Tarihi", render: (r) => formatUtc(r.address_registered_at) },
+      { header: "Kayıt Tarihi", render: (r) => formatUtc(r.registered_at) },
+      { header: "Oluşturulma (Paraşüt)", render: (r) => formatUtc(r.parasut_created_at) },
+      { header: "Güncellenme (Paraşüt)", render: (r) => formatUtc(r.parasut_updated_at) },
     ]}
   />
 );

@@ -1856,16 +1856,26 @@ async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRu
 // every relationship the real, live-downloaded swagger.json documents
 // for Salary, whether or not it has been moved to a column yet -- `tags`
 // is real and known in Swagger (many-to-many, now normalized via
-// parasut.salary_tags in this phase) but `payments`/`activities` are not
-// yet normalized, so they are reported as known_unmapped_relationship_keys
-// (not "unknown") once real records exist.
+// parasut.salary_tags in this phase).
+// Phase 13.4 correction: `definitions.Salary.properties.relationships`
+// in the real swagger.json (re-verified live against
+// https://apidocs.parasut.com/swagger.json in this phase) documents ONLY
+// `employee`, `category`, `tags`. There is no `activities` key anywhere
+// in that object, and no `/salaries/{id}/activities` path exists either
+// -- Phase 13.3's inclusion of "activities" here was fabricated (copied
+// from other resources that DO have a real activities relationship,
+// which Salary/Tax do not). `payments` is kept: a real
+// `/salaries/{id}/payments` POST endpoint exists (see
+// TAX_SWAGGER_RELATIONSHIP_KEYS comment below for the caveat that this
+// is a payment-creation action, not a listable `relationships.payments`
+// key on the resource itself).
 const SALARY_KNOWN_ATTRIBUTE_KEYS = [
   "description", "currency", "issue_date", "due_date", "exchange_rate",
   "net_total", "total_paid", "remaining", "remaining_in_trl", "archived",
   "created_at", "updated_at",
 ] as const;
 const SALARY_KNOWN_RELATIONSHIP_KEYS = ["employee", "category", "tags"] as const;
-const SALARY_SWAGGER_RELATIONSHIP_KEYS = ["employee", "category", "tags", "payments", "activities"] as const;
+const SALARY_SWAGGER_RELATIONSHIP_KEYS = ["employee", "category", "tags", "payments"] as const;
 const SALARY_EXPECTED_TYPES = ["salaries"] as const;
 
 async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boolean) {
@@ -1958,24 +1968,33 @@ async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boo
  */
 // Phase 13.1/13.2: same rationale as SALARY_KNOWN_*. `tags` is a real Tax
 // relationship per Swagger, now normalized via parasut.tax_tags in this
-// phase. `payments` is real but not yet normalized -> known_unmapped.
+// phase.
+// Phase 13.4 correction: `definitions.Tax.properties.relationships` in the
+// real swagger.json documents ONLY `category` and `tags` -- no
+// `activities` key, no `/taxes/{id}/activities` path. Phase 13.3's
+// `Tax.activities` manifest row was fabricated ("other resources have
+// activities" is not evidence for Tax specifically) and is removed here
+// and from `parasut.relationship_manifest` (see the new migration).
+// `payments` is kept for the same real-POST-endpoint reason documented
+// on SALARY_SWAGGER_RELATIONSHIP_KEYS above.
 const TAX_KNOWN_ATTRIBUTE_KEYS = [
   "description", "issue_date", "due_date", "net_total", "total_paid",
   "remaining", "remaining_in_trl", "archived", "created_at", "updated_at",
 ] as const;
 const TAX_KNOWN_RELATIONSHIP_KEYS = ["category", "tags"] as const;
 const TAX_SWAGGER_RELATIONSHIP_KEYS = ["category", "tags", "payments"] as const;
-// Phase 13.3: Swagger documents TaxAttributes.type enum as ["bank_fees"],
-// believed to be a documentation error, but with 0 real runtime tax
-// records in this account there is no live example to prove that belief.
-// TAX_EXPECTED_TYPES is used ONLY as a diagnostic comparison set (never
-// coerces/derives the stored value, never treated as proven real-source
-// evidence) -- see expected_type_status in syncTaxes's return value,
-// which explicitly reads "UNKNOWN_OR_BLOCKED — no runtime resource
-// observed" while fetchedCount is 0. Once a real record arrives, the
-// runtime item.type is reported verbatim (mapTax) alongside
-// TAX_EXPECTED_TYPES as two clearly separate fields, never merged.
-const TAX_EXPECTED_TYPES = ["taxes"] as const;
+// Phase 13.4 correction: the real swagger.json `definitions.Tax.properties.type.enum`
+// is `["bank_fees"]` (verified live against https://apidocs.parasut.com/swagger.json
+// in this phase). Phase 13.3's `TAX_EXPECTED_TYPES = ["taxes"]` derived its value from
+// the REST endpoint name ("/taxes"), not from Swagger -- with 0 real runtime tax
+// records this was unprovable and, per the real schema, was simply wrong. It is
+// replaced with the genuine swagger-documented value below. This list is used ONLY
+// as separate metadata (`swagger_documented_type`) for diagnostic comparison -- it
+// NEVER coerces/derives the stored value. Once a real record arrives, the runtime
+// item.type is reported verbatim (mapTax) alongside this list as two clearly
+// separate fields (`observed_runtime_type` vs `swagger_documented_type`), with an
+// explicit `mismatch` boolean -- never merged or forced.
+const TAX_SWAGGER_DOCUMENTED_TYPES = ["bank_fees"] as const;
 
 async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
   const result = await fetchAllPages(accessToken, "taxes");
@@ -1987,7 +2006,7 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
     [],
     TAX_SWAGGER_RELATIONSHIP_KEYS,
   );
-  const typeMismatches = detectTypeMismatch(result.items, TAX_EXPECTED_TYPES);
+  const typeMismatches = detectTypeMismatch(result.items, TAX_SWAGGER_DOCUMENTED_TYPES);
 
   let upsertedCount = 0;
   let errorCount = 0;
@@ -2024,7 +2043,7 @@ async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolea
     errorMessages.push(...paymentJunctionResult.errorMessages);
   }
 
-  const typeStatus = expectedTypeStatus(result.items, TAX_EXPECTED_TYPES);
+  const typeStatus = expectedTypeStatus(result.items, TAX_SWAGGER_DOCUMENTED_TYPES);
 
   return {
     dbFields: {
@@ -2319,6 +2338,18 @@ Deno.serve(async (req: Request) => {
 
   const db = serviceClient();
 
+  // Phase 13.4: defensive, best-effort self-heal for any sync_runs row
+  // stuck at status='running' for more than 10 minutes (e.g. a prior
+  // invocation whose finishRun failed AND whose own best-effort recovery
+  // also failed -- total DB unavailability at that moment). Never blocks
+  // or fails this request if the RPC itself errors; the per-resource lock
+  // simply stays whatever it already was.
+  try {
+    await db.schema("parasut").rpc("cleanup_stale_sync_locks");
+  } catch (cleanupErr) {
+    console.error(`cleanup_stale_sync_locks best-effort call failed: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`);
+  }
+
   // Acquire the per-resource lock by inserting the running row. The partial
   // unique index rejects a second concurrent run for the same resource.
   const { data: runRow, error: lockError } = await db
@@ -2337,14 +2368,17 @@ Deno.serve(async (req: Request) => {
 
   const runId = runRow.id as string;
 
+  // Phase 13.3 bug fix (insufficient -- corrected in Phase 13.4): this
+  // update's error was previously only console.error'd. A status value
+  // the sync_runs CHECK constraint rejects (this actually happened for
+  // "lookup_required" before the constraint was widened) silently left
+  // the row stuck at status='running' forever, permanently holding the
+  // one-run-per-resource lock, WHILE the HTTP caller still received a
+  // 200 success response (finishRun's failure was invisible to the
+  // response path). Phase 13.4 fix: finishRun now THROWS on failure so
+  // the caller can never build a success response on top of a failed
+  // finalize; every call site below wraps it explicitly.
   const finishRun = async (patch: Record<string, unknown>) => {
-    // Phase 13.3 bug fix: this update's error was previously ignored --
-    // a status value the sync_runs CHECK constraint rejects (this
-    // actually happened for "lookup_required" before the constraint was
-    // widened) silently left the row stuck at status='running' forever,
-    // permanently holding the one-run-per-resource lock. Now logged loudly
-    // so a future constraint mismatch is visible in function logs instead
-    // of manifesting only as a mysterious permanent lock.
     const { error } = await db
       .schema("parasut")
       .from("sync_runs")
@@ -2352,6 +2386,22 @@ Deno.serve(async (req: Request) => {
       .eq("id", runId);
     if (error) {
       console.error(`finishRun failed to update sync_runs id=${runId}: ${error.message}`);
+      throw new Error(`finishRun update failed for sync_runs id=${runId}: ${error.message}`);
+    }
+  };
+
+  // Best-effort finalize used only on paths that are ALREADY reporting
+  // failure to the caller (error_count>0 branch, outer catch block).
+  // Never throws -- a secondary finalize failure on an already-failing
+  // run must not mask or replace the original error response; the
+  // stale-lock cleanup migration recovers the row after its timeout if
+  // even this best-effort update fails.
+  const finishRunBestEffort = async (patch: Record<string, unknown>) => {
+    try {
+      await finishRun(patch);
+    } catch (finishErr) {
+      const msg = finishErr instanceof Error ? finishErr.message : String(finishErr);
+      console.error(`finishRunBestEffort: secondary finalize failure for id=${runId}: ${msg}`);
     }
   };
 
@@ -2383,7 +2433,7 @@ Deno.serve(async (req: Request) => {
     const result = await syncers[resource](db, accessToken, dryRun);
 
     if (result.errorCount > 0) {
-      await finishRun({
+      await finishRunBestEffort({
         ...result.dbFields,
         status: "error",
         error_message: result.errorMessages.join(" | ").slice(0, 2000),
@@ -2409,10 +2459,38 @@ Deno.serve(async (req: Request) => {
     const defaultStatus = dryRun ? "dry_run" : "success";
     const runStatus = (result.dbFields as { status?: string }).status ?? defaultStatus;
 
-    await finishRun({
-      ...result.dbFields,
-      status: runStatus,
-    });
+    // Phase 13.4 fix: finishRun can throw here even though the fetch +
+    // upsert already succeeded (e.g. a rejected sync_runs status value,
+    // a transient DB error on the UPDATE). A genuinely-successful fetch
+    // followed by a failed finalize must produce an overall FAIL result
+    // -- never a 200 success response -- and must never leave the row
+    // stuck at status='running' forever holding the per-resource lock.
+    try {
+      await finishRun({
+        ...result.dbFields,
+        status: runStatus,
+      });
+    } catch (finishErr) {
+      const finishMessage = finishErr instanceof Error ? finishErr.message : String(finishErr);
+      // Best-effort recovery: try once more with a minimal, constraint-safe
+      // patch so the lock is released even if the original patch's shape
+      // was what caused the failure. Never lets a secondary failure here
+      // change the response back to success.
+      await finishRunBestEffort({
+        status: "error",
+        error_message: `finalize failed after successful fetch: ${finishMessage}`.slice(0, 2000),
+      });
+      return jsonResponse(
+        {
+          resource,
+          dry_run: dryRun,
+          status: "error",
+          error_message: `Sync fetch/upsert succeeded but finalize failed: ${finishMessage}`,
+          ...result.responseFields,
+        },
+        502,
+      );
+    }
 
     return jsonResponse({
       resource,
@@ -2423,7 +2501,7 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await finishRun({
+    await finishRunBestEffort({
       status: "error",
       error_message: message.slice(0, 2000),
     });
