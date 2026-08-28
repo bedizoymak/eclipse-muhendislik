@@ -1,0 +1,22 @@
+import EmptyResourceList from "./EmptyResourceList";
+
+interface TagDemoRow {
+  parasut_id: number;
+  name: string | null;
+}
+
+const Etiketler = () => (
+  <EmptyResourceList<TagDemoRow>
+    backTo="/"
+    backLabel="Ana Sayfa"
+    title="Etiketler"
+    description="Paraşüt'ten senkronize edilen gerçek etiket kayıtları."
+    listView="parasut_tags_demo"
+    countView="parasut_tag_counts_demo"
+    selectColumns="parasut_id, name"
+    emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /tags gerçek olarak boş liste döndürüyor)."
+    columns={[{ header: "Ad", render: (r) => r.name ?? "—" }]}
+  />
+);
+
+export default Etiketler;

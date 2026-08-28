@@ -40,6 +40,10 @@ import {
   mapShipmentDocumentActivity,
 } from "./resources/shipment_documents.ts";
 import { mapEmployee } from "./resources/employees.ts";
+import { mapSalary } from "./resources/salaries.ts";
+import { mapTax } from "./resources/taxes.ts";
+import { mapTag } from "./resources/tags.ts";
+import { mapEInvoiceInbox } from "./resources/e_invoice_inboxes.ts";
 import { findCompanyListEntry, mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
 
 const SUPPORTED_RESOURCES = [
@@ -59,6 +63,10 @@ const SUPPORTED_RESOURCES = [
   "shipment_documents",
   "employees",
   "me",
+  "salaries",
+  "taxes",
+  "tags",
+  "e_invoice_inboxes",
 ] as const;
 type Resource = (typeof SUPPORTED_RESOURCES)[number];
 
@@ -1683,6 +1691,162 @@ async function syncItemCategories(db: SupabaseClient, accessToken: string, dryRu
 }
 
 /**
+ * salaries: real list endpoint (GET /salaries -> 200), 0 real records in
+ * this account today (data:[]). filter[archived] is rejected as an invalid
+ * filter param by the real API (verified: 400, "Acceptable: due_date,
+ * issue_date, currency, remaining"), so no active/archived scoped fetch is
+ * attempted here -- a single full listing is the complete, correct fetch.
+ * The exact same code fetches/upserts real rows the moment records exist.
+ */
+async function syncSalaries(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "salaries");
+  const fetchedCount = result.items.length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = result.items.map(mapSalary);
+    const upsertResult = await upsertBatched(db, "salaries", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * taxes: real list endpoint (GET /taxes -> 200), 0 real records in this
+ * account today (data:[]). Same filter[archived]-rejected behavior as
+ * salaries (identical real 400 body) -- single full listing only.
+ */
+async function syncTaxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "taxes");
+  const fetchedCount = result.items.length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = result.items.map(mapTax);
+    const upsertResult = await upsertBatched(db, "taxes", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * tags: real list endpoint (GET /tags -> 200), 0 real records in this
+ * account today (meta.total_count:0). No archived attribute on this
+ * resource at all (real 400: "Acceptable: " -- empty list) -- single full
+ * listing only.
+ */
+async function syncTags(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "tags");
+  const fetchedCount = result.items.length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = result.items.map(mapTag);
+    const upsertResult = await upsertBatched(db, "tags", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
+ * e_invoice_inboxes: real list endpoint (GET /e_invoice_inboxes -> 200), 0
+ * real records in this account today (meta.total_count:0). No archived
+ * attribute on this resource -- single full listing only.
+ */
+async function syncEInvoiceInboxes(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const result = await fetchAllPages(accessToken, "e_invoice_inboxes");
+  const fetchedCount = result.items.length;
+
+  let upsertedCount = 0;
+  let errorCount = 0;
+  const errorMessages: string[] = [];
+
+  if (!dryRun) {
+    const rows = result.items.map(mapEInvoiceInbox);
+    const upsertResult = await upsertBatched(db, "e_invoice_inboxes", rows as unknown as Record<string, unknown>[]);
+    upsertedCount = upsertResult.upsertedCount;
+    errorCount = upsertResult.errorCount;
+    errorMessages.push(...upsertResult.errorMessages);
+  }
+
+  return {
+    dbFields: {
+      fetched_count: fetchedCount,
+      total_count_reported: result.totalCountReported,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      error_count: errorCount,
+    },
+    responseFields: {
+      total_fetched_count: fetchedCount,
+      upserted_count: dryRun ? 0 : upsertedCount,
+      total_count_reported: result.totalCountReported,
+    },
+    errorCount,
+    errorMessages,
+  };
+}
+
+/**
  * stock_movements: a real, global, paginated list endpoint (no per-warehouse
  * iteration needed, unlike transactions in Phase 3). No archived concept.
  * Upserting on parasut_id is naturally idempotent -- no duplicate risk from
@@ -1880,6 +2044,10 @@ Deno.serve(async (req: Request) => {
       shipment_documents: syncShipmentDocuments,
       employees: syncEmployees,
       me: syncMe,
+      salaries: syncSalaries,
+      taxes: syncTaxes,
+      tags: syncTags,
+      e_invoice_inboxes: syncEInvoiceInboxes,
     };
     const result = await syncers[resource](db, accessToken, dryRun);
 
