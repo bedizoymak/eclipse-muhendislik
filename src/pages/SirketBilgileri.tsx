@@ -92,6 +92,13 @@ interface CompanyProfileRow {
   owner_parasut_type: string | null;
   default_warehouse_parasut_id: number | null;
   default_warehouse_parasut_type: string | null;
+  // Phase 12.4: resolved from the independent parasut.warehouses sync via
+  // default_warehouse_parasut_id (never guessed, never a SQL literal).
+  // default_warehouse_parasut_type above stays the separate, genuinely
+  // absent /me relationship type -- these three below are NOT that.
+  default_warehouse_name: string | null;
+  default_warehouse_archived: boolean | null;
+  default_warehouse_resource_type: string | null;
   address_parasut_id: number | null;
   address_parasut_type: string | null;
   address_name: string | null;
@@ -422,6 +429,55 @@ const SirketBilgileri = () => {
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-white/40">Adres Güncellenme (UTC)</dt>
                   <dd className="text-sm">{utcTimestamp(company.address_updated_at)}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 p-6">
+              <h3 className="text-sm font-semibold text-white/70">Varsayılan Depo</h3>
+              <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Depo ID</dt>
+                  <dd className="text-sm">
+                    {company.default_warehouse_parasut_id ? (
+                      <>
+                        {`#${company.default_warehouse_parasut_id}`}
+                        {/* No per-warehouse detail route exists in the app (no
+                            /stok/depolar/:id) -- only the real list page does,
+                            so we link there rather than fabricating a detail
+                            route. */}
+                        {" · "}
+                        <Link to="/stok/depolar" className="text-electric-bright hover:underline">
+                          Depolar listesinde gör
+                        </Link>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Depo Adı</dt>
+                  <dd className="text-sm">{s(company.default_warehouse_name)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Arşivli</dt>
+                  <dd className="text-sm">{b(company.default_warehouse_archived)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">Depo Kaynak Türü (resource type)</dt>
+                  <dd className="text-sm">{s(company.default_warehouse_resource_type)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-white/40">/me İlişki Türü (relationship type)</dt>
+                  <dd className="text-sm">
+                    {/* Phase 12.3/12.4: relationships.default_warehouse is permanently
+                        {"meta":{}} on GET /v4/me -- the API never returns a type for
+                        this specific relationship. default_warehouse_resource_type
+                        above is a REAL but DIFFERENT value (the independent warehouse
+                        resource's own root .type) and must never be substituted here. */}
+                    {company.default_warehouse_parasut_type ?? "—"}
+                  </dd>
                 </div>
               </dl>
             </div>
