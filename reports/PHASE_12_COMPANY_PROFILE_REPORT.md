@@ -239,6 +239,6 @@ Duplicate/unresolved/mismatch/error: hepsi 0.
 
 ---
 
-**Kod commit SHA:** (doldurulacak)
+**Kod commit SHA:** 42b3fa3088e4dd291a57d4f7b50a519557d19f8c
 **Rapor commit SHA:** (bu commit)
 **Canlı URL:** https://demo.eclipsemuhendislik.com/sirket-bilgileri
