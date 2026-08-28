@@ -133,6 +133,64 @@ export interface CompanyRow {
   address_parasut_id: number | null;
   default_warehouse_parasut_id: number | null;
   allowed_inspection_at: string | null;
+  // Phase 12.1: every remaining real company attribute key, individually
+  // classified (see migration 20260830050000 header for the per-field
+  // public/private decision table). extra_flags is kept only as a
+  // forward-compat catch-all for brand-new unclassified keys -- it should
+  // be empty in practice and must never be rendered generically in the UI.
+  e_invoice_vkn: string | null;
+  display_exchange_rate_in_offer_pdf: boolean | null;
+  payment_with_akbank_enabled: boolean | null;
+  can_upload_signature: boolean | null;
+  invoicing_preferences: unknown;
+  e_smm_enabled: boolean | null;
+  e_smm_activated_at: string | null;
+  e_archiving_only_enabled: boolean | null;
+  e_archiving_only_activated_at: string | null;
+  e_archiving_only_waiting: boolean | null;
+  using_sales_receipt: boolean | null;
+  using_emikro_einvoice: boolean | null;
+  using_emikro_services: boolean | null;
+  e_invoicing_waiting: boolean | null;
+  e_invoicing_order_details_enabled: boolean | null;
+  email_tx_import_enabled: boolean | null;
+  bank_sync_setup_is_bankasi_enabled: boolean | null;
+  bank_sync_setup_ing_bank_enabled: boolean | null;
+  bank_sync_setup_akbank_enabled: boolean | null;
+  bank_sync_setup_denizbank_enabled: boolean | null;
+  bank_sync_setup_kuveytturk_enabled: boolean | null;
+  bank_sync_setup_teb_enabled: boolean | null;
+  bank_sync_setup_finansbank_enabled: boolean | null;
+  bank_sync_setup_fibabanka_enabled: boolean | null;
+  bank_sync_setup_albaraka_enabled: boolean | null;
+  bank_sync_setup_ornekbank_enabled: boolean | null;
+  bank_sync_setup_yapikredi_enabled: boolean | null;
+  bank_sync_setup_vakifbank_enabled: boolean | null;
+  bank_sync_setup_enpara_enabled: boolean | null;
+  bank_sync_setup_garanti_enabled: boolean | null;
+  bank_sync_setup_ziraat_bankasi_enabled: boolean | null;
+  bank_sync_setup_halkbank_enabled: boolean | null;
+  multiple_bank_integration_enabled: boolean | null;
+  e_commerce_integration_enabled: boolean | null;
+  fibabanka_credit_application_enabled: boolean | null;
+  inbound_edocument_page_enabled: boolean | null;
+  batch_updated_vat_rates: boolean | null;
+  invoice_note_enabled: boolean | null;
+  has_odeal_integration: boolean | null;
+  has_507_and_509: boolean | null;
+  footer_aggregate_enabled: boolean | null;
+  contact_transfer_enabled: boolean | null;
+  pending_qr_code_migration: boolean | null;
+  ai_support_rag: boolean | null;
+  ai_features_enabled: boolean | null;
+  // private-only (internal/inspection/operator/security-adjacent)
+  operator_id: number | null;
+  employee_id: number | null;
+  used_app: string | null;
+  signature: unknown;
+  inspectable: boolean | null;
+  // separate /v4/companies provenance, never merged into `raw`
+  raw_company_list: JsonApiResource | null;
   extra_flags: Record<string, unknown>;
   raw: JsonApiResource;
   parasut_created_at: string | null;
@@ -170,6 +228,32 @@ const COMPANY_KNOWN_KEYS = new Set([
   "export_invoice_enabled", "using_multiple_warehouses", "using_variant",
   "uses_credit_service", "credit_service_enabled", "can_use_ai_reporting",
   "can_use_ai_support", "has_iyzico_integration",
+  // Phase 12.1: previously bulk-dumped into extra_flags, now individually
+  // mapped to their own typed column above (see CompanyRow).
+  "display_exchange_rate_in_offer_pdf", "payment_with_akbank_enabled",
+  "can_upload_signature", "invoicing_preferences", "e_smm_enabled",
+  "e_smm_activated_at", "e_archiving_only_enabled",
+  "e_archiving_only_activated_at", "e_archiving_only_waiting",
+  "using_sales_receipt", "using_emikro_einvoice", "using_emikro_services",
+  "e_invoicing_waiting", "e_invoicing_order_details_enabled",
+  "email_tx_import_enabled", "bank_sync_setup_is_bankasi_enabled",
+  "bank_sync_setup_ing_bank_enabled", "bank_sync_setup_akbank_enabled",
+  "bank_sync_setup_denizbank_enabled", "bank_sync_setup_kuveytturk_enabled",
+  "bank_sync_setup_teb_enabled", "bank_sync_setup_finansbank_enabled",
+  "bank_sync_setup_fibabanka_enabled", "bank_sync_setup_albaraka_enabled",
+  "bank_sync_setup_ornekbank_enabled", "bank_sync_setup_yapikredi_enabled",
+  "bank_sync_setup_vakifbank_enabled", "bank_sync_setup_enpara_enabled",
+  "bank_sync_setup_garanti_enabled", "bank_sync_setup_ziraat_bankasi_enabled",
+  "bank_sync_setup_halkbank_enabled", "multiple_bank_integration_enabled",
+  "e_commerce_integration_enabled", "fibabanka_credit_application_enabled",
+  "inbound_edocument_page_enabled", "batch_updated_vat_rates",
+  "invoice_note_enabled", "has_odeal_integration", "has_507_and_509",
+  "footer_aggregate_enabled", "contact_transfer_enabled",
+  "pending_qr_code_migration", "ai_support_rag", "ai_features_enabled",
+  "operator_id", "employee_id", "used_app", "signature",
+  // logo{} duplicates logo_url's value exactly -- not stored a second time,
+  // but excluded from extra_flags too (documented, not silently dropped).
+  "logo",
 ]);
 
 export function mapUser(item: JsonApiResource): UserRow {
@@ -235,7 +319,7 @@ export function mapUserRole(item: JsonApiResource, userParasutId: number | null)
   };
 }
 
-export function mapMeCompany(item: JsonApiResource): CompanyRow {
+export function mapMeCompany(item: JsonApiResource, companyListRaw: JsonApiResource | null = null): CompanyRow {
   const a = item.attributes ?? {};
   const parasutId = Number(item.id);
   if (!Number.isFinite(parasutId)) throw new Error(`Company resource has a non-numeric id: ${item.id}`);
@@ -289,12 +373,72 @@ export function mapMeCompany(item: JsonApiResource): CompanyRow {
     address_parasut_id: address.id,
     default_warehouse_parasut_id: defaultWarehouse.id,
     allowed_inspection_at: attr(a, "allowed_inspection_at"),
+    e_invoice_vkn: attr(a, "e_invoice_vkn"),
+    display_exchange_rate_in_offer_pdf: attr(a, "display_exchange_rate_in_offer_pdf"),
+    payment_with_akbank_enabled: attr(a, "payment_with_akbank_enabled"),
+    can_upload_signature: attr(a, "can_upload_signature"),
+    invoicing_preferences: attr(a, "invoicing_preferences"),
+    e_smm_enabled: attr(a, "e_smm_enabled"),
+    e_smm_activated_at: attr(a, "e_smm_activated_at"),
+    e_archiving_only_enabled: attr(a, "e_archiving_only_enabled"),
+    e_archiving_only_activated_at: attr(a, "e_archiving_only_activated_at"),
+    e_archiving_only_waiting: attr(a, "e_archiving_only_waiting"),
+    using_sales_receipt: attr(a, "using_sales_receipt"),
+    using_emikro_einvoice: attr(a, "using_emikro_einvoice"),
+    using_emikro_services: attr(a, "using_emikro_services"),
+    e_invoicing_waiting: attr(a, "e_invoicing_waiting"),
+    e_invoicing_order_details_enabled: attr(a, "e_invoicing_order_details_enabled"),
+    email_tx_import_enabled: attr(a, "email_tx_import_enabled"),
+    bank_sync_setup_is_bankasi_enabled: attr(a, "bank_sync_setup_is_bankasi_enabled"),
+    bank_sync_setup_ing_bank_enabled: attr(a, "bank_sync_setup_ing_bank_enabled"),
+    bank_sync_setup_akbank_enabled: attr(a, "bank_sync_setup_akbank_enabled"),
+    bank_sync_setup_denizbank_enabled: attr(a, "bank_sync_setup_denizbank_enabled"),
+    bank_sync_setup_kuveytturk_enabled: attr(a, "bank_sync_setup_kuveytturk_enabled"),
+    bank_sync_setup_teb_enabled: attr(a, "bank_sync_setup_teb_enabled"),
+    bank_sync_setup_finansbank_enabled: attr(a, "bank_sync_setup_finansbank_enabled"),
+    bank_sync_setup_fibabanka_enabled: attr(a, "bank_sync_setup_fibabanka_enabled"),
+    bank_sync_setup_albaraka_enabled: attr(a, "bank_sync_setup_albaraka_enabled"),
+    bank_sync_setup_ornekbank_enabled: attr(a, "bank_sync_setup_ornekbank_enabled"),
+    bank_sync_setup_yapikredi_enabled: attr(a, "bank_sync_setup_yapikredi_enabled"),
+    bank_sync_setup_vakifbank_enabled: attr(a, "bank_sync_setup_vakifbank_enabled"),
+    bank_sync_setup_enpara_enabled: attr(a, "bank_sync_setup_enpara_enabled"),
+    bank_sync_setup_garanti_enabled: attr(a, "bank_sync_setup_garanti_enabled"),
+    bank_sync_setup_ziraat_bankasi_enabled: attr(a, "bank_sync_setup_ziraat_bankasi_enabled"),
+    bank_sync_setup_halkbank_enabled: attr(a, "bank_sync_setup_halkbank_enabled"),
+    multiple_bank_integration_enabled: attr(a, "multiple_bank_integration_enabled"),
+    e_commerce_integration_enabled: attr(a, "e_commerce_integration_enabled"),
+    fibabanka_credit_application_enabled: attr(a, "fibabanka_credit_application_enabled"),
+    inbound_edocument_page_enabled: attr(a, "inbound_edocument_page_enabled"),
+    batch_updated_vat_rates: attr(a, "batch_updated_vat_rates"),
+    invoice_note_enabled: attr(a, "invoice_note_enabled"),
+    has_odeal_integration: attr(a, "has_odeal_integration"),
+    has_507_and_509: attr(a, "has_507_and_509"),
+    footer_aggregate_enabled: attr(a, "footer_aggregate_enabled"),
+    contact_transfer_enabled: attr(a, "contact_transfer_enabled"),
+    pending_qr_code_migration: attr(a, "pending_qr_code_migration"),
+    ai_support_rag: attr(a, "ai_support_rag"),
+    ai_features_enabled: attr(a, "ai_features_enabled"),
+    operator_id: attr(a, "operator_id"),
+    employee_id: attr(a, "employee_id"),
+    used_app: attr(a, "used_app"),
+    signature: attr(a, "signature"),
+    inspectable: attr(a, "inspectable"),
+    raw_company_list: companyListRaw,
     extra_flags: extraFlags,
     raw: item,
     parasut_created_at: attr(a, "created_at"),
     parasut_updated_at: attr(a, "updated_at"),
     synced_at: new Date().toISOString(),
   };
+}
+
+// /v4/companies is a separate real endpoint/source (Phase 12.1 section 2/3):
+// same company id, but a minimal stub (only name/app_url attributes today).
+// Its raw resource is attached via the `raw_company_list` field on
+// mapMeCompany's result -- never merged into `raw` (the /v4/me-sourced
+// document), preserving distinct provenance per field.
+export function findCompanyListEntry(companyListResources: JsonApiResource[], companyParasutId: string): JsonApiResource | null {
+  return companyListResources.find((c) => c.id === companyParasutId) ?? null;
 }
 
 export function mapMeAddress(item: JsonApiResource, addressableType: string | null, addressableParasutId: number | null): AddressRow {

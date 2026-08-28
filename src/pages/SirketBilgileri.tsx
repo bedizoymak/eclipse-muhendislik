@@ -36,14 +36,61 @@ interface CompanyProfileRow {
   can_use_ai_reporting: boolean | null;
   can_use_ai_support: boolean | null;
   accessible: boolean | null;
-  inspectable: boolean | null;
   inventory_enabled: boolean | null;
   has_iyzico_integration: boolean | null;
-  extra_flags: Record<string, unknown> | null;
+  // Phase 12.1: individually classified fields, replacing the Phase 12
+  // bulk extra_flags jsonb. `inspectable`/`extra_flags` are intentionally
+  // NOT part of this view any more (private/base only from this phase on).
+  e_invoice_vkn: string | null;
+  display_exchange_rate_in_offer_pdf: boolean | null;
+  payment_with_akbank_enabled: boolean | null;
+  can_upload_signature: boolean | null;
+  invoicing_preferences: Record<string, unknown> | null;
+  e_smm_enabled: boolean | null;
+  e_smm_activated_at: string | null;
+  e_archiving_only_enabled: boolean | null;
+  e_archiving_only_activated_at: string | null;
+  e_archiving_only_waiting: boolean | null;
+  using_sales_receipt: boolean | null;
+  using_emikro_einvoice: boolean | null;
+  using_emikro_services: boolean | null;
+  e_invoicing_waiting: boolean | null;
+  e_invoicing_order_details_enabled: boolean | null;
+  email_tx_import_enabled: boolean | null;
+  bank_sync_setup_is_bankasi_enabled: boolean | null;
+  bank_sync_setup_ing_bank_enabled: boolean | null;
+  bank_sync_setup_akbank_enabled: boolean | null;
+  bank_sync_setup_denizbank_enabled: boolean | null;
+  bank_sync_setup_kuveytturk_enabled: boolean | null;
+  bank_sync_setup_teb_enabled: boolean | null;
+  bank_sync_setup_finansbank_enabled: boolean | null;
+  bank_sync_setup_fibabanka_enabled: boolean | null;
+  bank_sync_setup_albaraka_enabled: boolean | null;
+  bank_sync_setup_ornekbank_enabled: boolean | null;
+  bank_sync_setup_yapikredi_enabled: boolean | null;
+  bank_sync_setup_vakifbank_enabled: boolean | null;
+  bank_sync_setup_enpara_enabled: boolean | null;
+  bank_sync_setup_garanti_enabled: boolean | null;
+  bank_sync_setup_ziraat_bankasi_enabled: boolean | null;
+  bank_sync_setup_halkbank_enabled: boolean | null;
+  multiple_bank_integration_enabled: boolean | null;
+  e_commerce_integration_enabled: boolean | null;
+  fibabanka_credit_application_enabled: boolean | null;
+  inbound_edocument_page_enabled: boolean | null;
+  batch_updated_vat_rates: boolean | null;
+  invoice_note_enabled: boolean | null;
+  has_odeal_integration: boolean | null;
+  has_507_and_509: boolean | null;
+  footer_aggregate_enabled: boolean | null;
+  contact_transfer_enabled: boolean | null;
+  pending_qr_code_migration: boolean | null;
+  ai_support_rag: boolean | null;
+  ai_features_enabled: boolean | null;
   owner_parasut_id: number | null;
   owner_parasut_type: string | null;
   address_parasut_id: number | null;
   address_parasut_type: string | null;
+  address_name: string | null;
   address_text: string | null;
   address_phone: string | null;
   address_fax: string | null;
@@ -117,19 +164,78 @@ const FIELD_LABELS: Record<string, string> = {
   can_use_ai_reporting: "AI Raporlama Yetkisi",
   can_use_ai_support: "AI Destek Yetkisi",
   accessible: "Erişilebilir",
-  inspectable: "İncelenebilir",
   inventory_enabled: "Stok Takibi Aktif",
   has_iyzico_integration: "Iyzico Entegrasyonu",
+  e_invoice_vkn: "E-Fatura VKN",
+  display_exchange_rate_in_offer_pdf: "Teklif PDF'inde Döviz Kuru",
+  payment_with_akbank_enabled: "Akbank ile Ödeme",
+  can_upload_signature: "İmza Yükleme Yetkisi",
+  e_smm_enabled: "E-SMM Aktif",
+  e_smm_activated_at: "E-SMM Başlangıç",
+  e_archiving_only_enabled: "Sadece E-Arşiv Aktif",
+  e_archiving_only_activated_at: "Sadece E-Arşiv Başlangıç",
+  e_archiving_only_waiting: "Sadece E-Arşiv Bekliyor",
+  using_sales_receipt: "Satış Fişi Kullanımı",
+  using_emikro_einvoice: "Emikro E-Fatura Kullanımı",
+  using_emikro_services: "Emikro Servisleri Kullanımı",
+  e_invoicing_waiting: "E-Fatura Bekliyor",
+  e_invoicing_order_details_enabled: "E-Fatura Sipariş Detayı",
+  email_tx_import_enabled: "E-posta İşlem İçe Aktarma",
+  bank_sync_setup_is_bankasi_enabled: "Banka Senkron: İş Bankası",
+  bank_sync_setup_ing_bank_enabled: "Banka Senkron: ING",
+  bank_sync_setup_akbank_enabled: "Banka Senkron: Akbank",
+  bank_sync_setup_denizbank_enabled: "Banka Senkron: Denizbank",
+  bank_sync_setup_kuveytturk_enabled: "Banka Senkron: Kuveyt Türk",
+  bank_sync_setup_teb_enabled: "Banka Senkron: TEB",
+  bank_sync_setup_finansbank_enabled: "Banka Senkron: QNB Finansbank",
+  bank_sync_setup_fibabanka_enabled: "Banka Senkron: Fibabanka",
+  bank_sync_setup_albaraka_enabled: "Banka Senkron: Albaraka",
+  bank_sync_setup_ornekbank_enabled: "Banka Senkron: Örnek Banka",
+  bank_sync_setup_yapikredi_enabled: "Banka Senkron: Yapı Kredi",
+  bank_sync_setup_vakifbank_enabled: "Banka Senkron: VakıfBank",
+  bank_sync_setup_enpara_enabled: "Banka Senkron: Enpara",
+  bank_sync_setup_garanti_enabled: "Banka Senkron: Garanti BBVA",
+  bank_sync_setup_ziraat_bankasi_enabled: "Banka Senkron: Ziraat Bankası",
+  bank_sync_setup_halkbank_enabled: "Banka Senkron: Halkbank",
+  multiple_bank_integration_enabled: "Çoklu Banka Entegrasyonu",
+  e_commerce_integration_enabled: "E-Ticaret Entegrasyonu",
+  fibabanka_credit_application_enabled: "Fibabanka Kredi Başvurusu",
+  inbound_edocument_page_enabled: "Gelen E-Belge Sayfası",
+  batch_updated_vat_rates: "Toplu KDV Güncellemesi",
+  invoice_note_enabled: "Fatura Notu Aktif",
+  has_odeal_integration: "Ödeal Entegrasyonu",
+  has_507_and_509: "507 ve 509 Kapsamı",
+  footer_aggregate_enabled: "Alt Bilgi Toplamı Aktif",
+  contact_transfer_enabled: "Cari Aktarımı Aktif",
+  pending_qr_code_migration: "QR Kod Geçişi Bekliyor",
+  ai_support_rag: "AI Destek (RAG)",
+  ai_features_enabled: "AI Özellikleri Aktif",
 };
 
 const BOOLEAN_FIELDS = new Set([
   "e_invoicing_enabled", "e_archiving_enabled", "e_despatch_enabled", "e_commerce_enabled",
   "sales_offer_enabled", "export_invoice_enabled", "using_multiple_warehouses", "using_variant",
   "uses_credit_service", "credit_service_enabled", "can_use_ai_reporting", "can_use_ai_support",
-  "accessible", "inspectable", "inventory_enabled", "has_iyzico_integration",
+  "accessible", "inventory_enabled", "has_iyzico_integration",
+  "display_exchange_rate_in_offer_pdf", "payment_with_akbank_enabled", "can_upload_signature",
+  "e_smm_enabled", "e_archiving_only_enabled", "e_archiving_only_waiting", "using_sales_receipt",
+  "using_emikro_einvoice", "using_emikro_services", "e_invoicing_waiting",
+  "e_invoicing_order_details_enabled", "email_tx_import_enabled",
+  "bank_sync_setup_is_bankasi_enabled", "bank_sync_setup_ing_bank_enabled", "bank_sync_setup_akbank_enabled",
+  "bank_sync_setup_denizbank_enabled", "bank_sync_setup_kuveytturk_enabled", "bank_sync_setup_teb_enabled",
+  "bank_sync_setup_finansbank_enabled", "bank_sync_setup_fibabanka_enabled", "bank_sync_setup_albaraka_enabled",
+  "bank_sync_setup_ornekbank_enabled", "bank_sync_setup_yapikredi_enabled", "bank_sync_setup_vakifbank_enabled",
+  "bank_sync_setup_enpara_enabled", "bank_sync_setup_garanti_enabled", "bank_sync_setup_ziraat_bankasi_enabled",
+  "bank_sync_setup_halkbank_enabled", "multiple_bank_integration_enabled", "e_commerce_integration_enabled",
+  "fibabanka_credit_application_enabled", "inbound_edocument_page_enabled", "batch_updated_vat_rates",
+  "invoice_note_enabled", "has_odeal_integration", "has_507_and_509", "footer_aggregate_enabled",
+  "contact_transfer_enabled", "pending_qr_code_migration", "ai_support_rag", "ai_features_enabled",
 ]);
 
-const DATE_FIELDS = new Set(["e_invoicing_activated_at", "e_archiving_activated_at", "e_despatch_activated_at", "valid_until"]);
+const DATE_FIELDS = new Set([
+  "e_invoicing_activated_at", "e_archiving_activated_at", "e_despatch_activated_at", "valid_until",
+  "e_smm_activated_at", "e_archiving_only_activated_at",
+]);
 
 const SirketBilgileri = () => {
   const [company, setCompany] = useState<CompanyProfileRow | null | undefined>(undefined);
@@ -168,8 +274,6 @@ const SirketBilgileri = () => {
       cancelled = true;
     };
   }, []);
-
-  const extraEntries = company?.extra_flags ? Object.entries(company.extra_flags) : [];
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">
@@ -345,14 +449,6 @@ const SirketBilgileri = () => {
                         </tr>
                       );
                     })}
-                    {extraEntries.map(([key, value]) => (
-                      <tr key={key} className="border-t border-white/5">
-                        <td className="px-4 py-2 text-white/60">{key}</td>
-                        <td className="px-4 py-2">
-                          {value === null ? "—" : typeof value === "boolean" ? b(value) : String(value)}
-                        </td>
-                      </tr>
-                    ))}
                   </tbody>
                 </table>
               </div>

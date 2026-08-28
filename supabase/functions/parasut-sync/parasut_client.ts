@@ -317,6 +317,44 @@ export async function fetchMe(accessToken: string): Promise<{ item: JsonApiResou
 }
 
 /**
+ * Fetches GET /v4/companies -- verified live (Phase 12.1): 200, real
+ * `data:[{id:"666034",type:"companies",attributes:{name,app_url}}]`, a
+ * SEPARATE real source from /v4/me's included company (minimal stub, only
+ * name+app_url attributes -- no pagination, no id filter route, no
+ * /v4/companies/{id} route -- that returns 404 "No route matches.", same
+ * as /v4/{company_id}). Not scoped under /v4/{company_id}/... either.
+ * Returned resources are the provenance for `raw_company_list`, kept
+ * separate from /v4/me's `raw` (raw_me_company) -- never merged.
+ */
+export async function fetchCompaniesList(accessToken: string): Promise<JsonApiResource[]> {
+  const url = new URL(`${PARASUT_BASE_URL}/v4/companies`);
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if ((response.status === 429 || response.status >= 500) && attempt < MAX_RATE_LIMIT_RETRIES) {
+      await sleep(retryDelayMs(response));
+      continue;
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Parasut /v4/companies failed (${response.status}): ${text.slice(0, 500)}`);
+    }
+
+    const json = (await response.json()) as { data: JsonApiResource[] };
+    return json.data ?? [];
+  }
+
+  throw new Error("Parasut /v4/companies failed: exceeded rate-limit retries");
+}
+
+/**
  * Fetches every page of a Parasut list endpoint. Stops only when a page
  * comes back empty or the reported total_pages has been reached; any
  * request failure aborts the whole fetch (thrown to the caller).

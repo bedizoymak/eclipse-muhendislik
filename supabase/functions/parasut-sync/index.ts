@@ -19,7 +19,7 @@
 // response's `included` array, or the run is an error, never a guess.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { fetchAllPages, fetchMe, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
+import { fetchAllPages, fetchCompaniesList, fetchMe, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact, mapContactPerson } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
 import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
@@ -40,7 +40,7 @@ import {
   mapShipmentDocumentActivity,
 } from "./resources/shipment_documents.ts";
 import { mapEmployee } from "./resources/employees.ts";
-import { mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
+import { findCompanyListEntry, mapMeAddress, mapMeCompany, mapProfile, mapUser, mapUserRole } from "./resources/me.ts";
 
 const SUPPORTED_RESOURCES = [
   "contacts",
@@ -1042,9 +1042,21 @@ async function syncMe(db: SupabaseClient, accessToken: string, dryRun: boolean) 
   const duplicateCompanyLinkCount = companyRefs.length - uniqueCompanyIds.size;
   const typeMismatchCount = companyRefs.filter((c) => c.type !== "companies").length;
 
+  // Phase 12.1: /v4/companies is a separate real source -- fetched here so
+  // each company row carries its own `raw_company_list` provenance,
+  // distinct from the /v4/me-sourced `raw`. A fetch failure here must not
+  // abort the whole /v4/me sync (companies list is supplementary
+  // provenance, not the primary source) -- degrade to null on error.
+  let companyListResources: JsonApiResource[] = [];
+  try {
+    companyListResources = await fetchCompaniesList(accessToken);
+  } catch (_err) {
+    companyListResources = [];
+  }
+
   const companyRows = companyResources
     .filter((c) => uniqueCompanyIds.has(c.id))
-    .map((c) => mapMeCompany(c));
+    .map((c) => mapMeCompany(c, findCompanyListEntry(companyListResources, c.id)));
   const unresolvedCompanyCount = companyRefs.filter((ref) => !companyResources.some((c) => c.id === ref.id)).length;
 
   // Address: only wired from the COMPANY's own relationships.address.data
