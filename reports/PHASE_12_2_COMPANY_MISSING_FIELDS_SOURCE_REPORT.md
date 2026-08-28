@@ -277,5 +277,5 @@ Hiçbir sayaç `.length` (ilk 1000 satır sınırlaması riski) veya sabit sayı
 
 ---
 
-**Ek denetim kod commit SHA:** (bu commit)
-**Ek denetim rapor commit SHA:** (sonraki commit)
+**Ek denetim kod commit SHA:** 75a064f815323e21c5aa3132a110bce6f89aef51
+**Ek denetim rapor commit SHA:** (bu commit)
