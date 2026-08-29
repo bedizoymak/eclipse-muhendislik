@@ -1,6 +1,6 @@
 # Phase 14.5 — E-Invoice Field Mutabakatı, Cancelled Bootstrap ve Doğrudan Sayaçlar
 
-Kod commit SHA: PENDING
+Kod commit SHA: ccfa0572047752cd43dbeeadc987f985612082d2
 Rapor commit SHA: (bu commit)
 
 Bu faz, Phase 14.4'ün BLOCKED bıraktığı zorunlu kontrolleri tamamlar ve üç gerçek mimari riski düzeltir: (1) `syncSalesInvoices()`'ın cancelled-fatura keşfini `parasut.e_invoices` DB tablosuna bağımlı kılan bootstrap riski, (2) standalone/parent endpoint alan mutabakatının tam A/B karşılaştırması, (3) frontend'in `active_count - cancelled_count` çıkarma formülü.
