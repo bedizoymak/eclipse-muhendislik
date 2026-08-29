@@ -1,6 +1,6 @@
 # Phase 14.3 — E-Fatura Alan ve Çözülemeyen İlişki Düzeltme Raporu
 
-Kod commit SHA: (bu committen sonra doldurulacak)
+Kod commit SHA: b400143396066fe9ca20d0913ba00afc28108ae9
 Rapor commit SHA: (bu commit)
 
 ## 0. Özet / Sonuç
