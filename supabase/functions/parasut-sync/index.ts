@@ -569,56 +569,69 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
     includedByKey.set(`${resource.type}:${resource.id}`, resource);
   }
 
-  // Phase 14.4: filter[archived]=false / =true together do NOT cover every
-  // real sales_invoice -- a real invoice with item_type="cancelled" is
+  // Phase 14.4/14.5: filter[archived]=false / =true together do NOT cover
+  // every real sales_invoice -- a real invoice with item_type="cancelled" is
   // returned by NEITHER filter (verified live, Phase 14.3/14.4). The list
   // endpoint has no working item_type/status filter that surfaces these
   // (filter[item_type]=cancelled is accepted as valid but returns 0 rows;
-  // there is no documented cancelled-list endpoint). The only real,
-  // non-guessed discovery source for these ids is the sales-side
-  // `invoice` relationship on parasut.e_invoices rows that have already
-  // been synced (Phase 14.2/14.3 standalone sync) -- never name/tax
-  // number/amount/date matching. Any id found there that is NOT among the
-  // ids just fetched via active+archived is fetched individually via the
-  // real single-resource endpoint and merged in, so it is stored through
-  // the exact same mapper/upsert path as every other invoice, never as a
-  // special case downstream.
+  // there is no documented cancelled-list endpoint). Phase 14.4 discovered
+  // these ids by reading the already-synced `parasut.e_invoices` DB table --
+  // a real architectural bootstrap risk: if this sync runs against an empty
+  // or not-yet-populated e_invoices table (fresh DB, or sales_invoices run
+  // before the standalone e_invoices sync), the 4 cancelled ids would never
+  // be discovered and this function would silently report success while
+  // covering only 451/455 real invoices. Phase 14.5 fixes this: the
+  // discovery source is now the REAL LIVE `/e_invoices?include=invoice` API
+  // (the same call syncEInvoicesStandalone makes), fetched fresh in this
+  // same run, never the DB. This makes syncSalesInvoices() self-sufficient --
+  // it no longer depends on any other sync having run first. Any id found
+  // there with relationships.invoice.data.type === "sales_invoices" that is
+  // NOT among the ids just fetched via active+archived is fetched
+  // individually via the real single-resource endpoint and merged in, using
+  // the exact same include scope (details, details.product, contact,
+  // active_e_document) as every other invoice -- never name/tax
+  // number/amount/date matching, never a reduced include set.
   const knownIds = new Set(invoiceItems.map((item) => item.id));
   let cancelledDiscoveredCount = 0;
   let cancelledFetchedCount = 0;
   const cancelledFetchErrors: string[] = [];
   try {
-    const { data: relRows, error: relError } = await db
-      .schema("parasut")
-      .from("e_invoices")
-      .select("parent_parasut_id")
-      .eq("parent_type", "sales_invoices")
-      .not("parent_parasut_id", "is", null);
-    if (relError) {
-      cancelledFetchErrors.push(`e_invoices relationship lookup failed: ${relError.message}`);
-    } else {
-      const candidateIds = [
-        ...new Set((relRows ?? []).map((r: { parent_parasut_id: number }) => String(r.parent_parasut_id))),
-      ].filter((id) => !knownIds.has(id));
-      cancelledDiscoveredCount = candidateIds.length;
-      for (const id of candidateIds) {
-        try {
-          const { item, included } = await fetchResource(accessToken, "sales_invoices", id, {
-            include: "details,details.product,contact,active_e_document",
-          });
-          invoiceItems.push(item);
-          knownIds.add(item.id);
-          for (const resource of included) {
-            includedByKey.set(`${resource.type}:${resource.id}`, resource);
-          }
-          cancelledFetchedCount++;
-        } catch (err) {
-          cancelledFetchErrors.push(`sales_invoices/${id} (e_invoice-relationship discovery): ${err instanceof Error ? err.message : String(err)}`);
+    const eInvoiceProbe = await fetchAllPages(accessToken, "e_invoices", 100, {
+      include: "invoice",
+    });
+    const candidateIds = [
+      ...new Set(
+        eInvoiceProbe.items
+          .map((item) => {
+            const rel = item.relationships?.invoice as
+              | { data?: { id?: string; type?: string } | null }
+              | undefined;
+            if (rel && rel.data && rel.data.id && rel.data.type === "sales_invoices") {
+              return rel.data.id;
+            }
+            return null;
+          })
+          .filter((id): id is string => id != null),
+      ),
+    ].filter((id) => !knownIds.has(id));
+    cancelledDiscoveredCount = candidateIds.length;
+    for (const id of candidateIds) {
+      try {
+        const { item, included } = await fetchResource(accessToken, "sales_invoices", id, {
+          include: "details,details.product,contact,active_e_document",
+        });
+        invoiceItems.push(item);
+        knownIds.add(item.id);
+        for (const resource of included) {
+          includedByKey.set(`${resource.type}:${resource.id}`, resource);
         }
+        cancelledFetchedCount++;
+      } catch (err) {
+        cancelledFetchErrors.push(`sales_invoices/${id} (e_invoice-relationship discovery): ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   } catch (err) {
-    cancelledFetchErrors.push(`e_invoices relationship lookup threw: ${err instanceof Error ? err.message : String(err)}`);
+    cancelledFetchErrors.push(`live e_invoices relationship probe failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   invoiceFetchedCount = invoiceItems.length;
 

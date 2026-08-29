@@ -76,20 +76,20 @@ const Faturalar = () => {
         setLoadError(error.message);
         return;
       }
-      const row = data as { active_count: number; archived_count: number; cancelled_count: number; total_count: number } | null;
+      const row = data as { list_active_count: number; archived_count: number; cancelled_count: number; total_unique_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
       }
-      // active_count from the view is a raw archived=false count, which
-      // still includes cancelled invoices (a cancelled invoice can have
-      // archived=false too) -- subtract cancelled_count here so the "Aktif"
-      // tab label never shows a cancelled invoice as if it were active.
+      // Phase 14.5: the view now computes the real "Aktif" list filter
+      // (archived=false AND item_type IS DISTINCT FROM 'cancelled') directly
+      // as list_active_count -- never derived client-side by subtracting
+      // cancelled_count from a raw archived=false count.
       setCounts({
-        active: row.active_count - row.cancelled_count,
+        active: row.list_active_count,
         archived: row.archived_count,
         cancelled: row.cancelled_count,
-        all: row.total_count,
+        all: row.total_unique_count,
       });
     })();
 
