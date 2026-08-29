@@ -484,7 +484,7 @@ async function syncActiveEDocuments(
 
   let eInvoiceUpsertedCount = 0;
   let eArchiveUpsertedCount = 0;
-  let staleLinkRemovedCount = 0;
+  const staleLinkRemovedCount = 0;
   let errorCount = unresolvedCount;
 
   if (!dryRun) {
@@ -561,13 +561,66 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
   const invoiceItems = [...active.items, ...archived.items];
   const invoiceActiveFetchedCount = active.items.length;
   const invoiceArchivedFetchedCount = archived.items.length;
-  const invoiceFetchedCount = invoiceActiveFetchedCount + invoiceArchivedFetchedCount;
+  let invoiceFetchedCount = invoiceActiveFetchedCount + invoiceArchivedFetchedCount;
   const totalCountReported = (active.totalCountReported ?? 0) + (archived.totalCountReported ?? 0) || null;
 
   const includedByKey = new Map<string, JsonApiResource>();
   for (const resource of [...active.included, ...archived.included]) {
     includedByKey.set(`${resource.type}:${resource.id}`, resource);
   }
+
+  // Phase 14.4: filter[archived]=false / =true together do NOT cover every
+  // real sales_invoice -- a real invoice with item_type="cancelled" is
+  // returned by NEITHER filter (verified live, Phase 14.3/14.4). The list
+  // endpoint has no working item_type/status filter that surfaces these
+  // (filter[item_type]=cancelled is accepted as valid but returns 0 rows;
+  // there is no documented cancelled-list endpoint). The only real,
+  // non-guessed discovery source for these ids is the sales-side
+  // `invoice` relationship on parasut.e_invoices rows that have already
+  // been synced (Phase 14.2/14.3 standalone sync) -- never name/tax
+  // number/amount/date matching. Any id found there that is NOT among the
+  // ids just fetched via active+archived is fetched individually via the
+  // real single-resource endpoint and merged in, so it is stored through
+  // the exact same mapper/upsert path as every other invoice, never as a
+  // special case downstream.
+  const knownIds = new Set(invoiceItems.map((item) => item.id));
+  let cancelledDiscoveredCount = 0;
+  let cancelledFetchedCount = 0;
+  const cancelledFetchErrors: string[] = [];
+  try {
+    const { data: relRows, error: relError } = await db
+      .schema("parasut")
+      .from("e_invoices")
+      .select("parent_parasut_id")
+      .eq("parent_type", "sales_invoices")
+      .not("parent_parasut_id", "is", null);
+    if (relError) {
+      cancelledFetchErrors.push(`e_invoices relationship lookup failed: ${relError.message}`);
+    } else {
+      const candidateIds = [
+        ...new Set((relRows ?? []).map((r: { parent_parasut_id: number }) => String(r.parent_parasut_id))),
+      ].filter((id) => !knownIds.has(id));
+      cancelledDiscoveredCount = candidateIds.length;
+      for (const id of candidateIds) {
+        try {
+          const { item, included } = await fetchResource(accessToken, "sales_invoices", id, {
+            include: "details,details.product,contact,active_e_document",
+          });
+          invoiceItems.push(item);
+          knownIds.add(item.id);
+          for (const resource of included) {
+            includedByKey.set(`${resource.type}:${resource.id}`, resource);
+          }
+          cancelledFetchedCount++;
+        } catch (err) {
+          cancelledFetchErrors.push(`sales_invoices/${id} (e_invoice-relationship discovery): ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+  } catch (err) {
+    cancelledFetchErrors.push(`e_invoices relationship lookup threw: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  invoiceFetchedCount = invoiceItems.length;
 
   // Resolve every detail id each invoice references against `included`.
   // A missing id means the response was incomplete for that invoice -- this
@@ -591,8 +644,8 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
 
   let invoiceUpsertedCount = 0;
   let detailUpsertedCount = 0;
-  let errorCount = missingDetailRefs.length;
-  const errorMessages: string[] = [];
+  let errorCount = missingDetailRefs.length + cancelledFetchErrors.length;
+  const errorMessages: string[] = [...cancelledFetchErrors];
   if (missingDetailRefs.length > 0) {
     errorMessages.push(
       `${missingDetailRefs.length} sales_invoice_details referenced but not present in the API response: ${missingDetailRefs
@@ -635,6 +688,8 @@ async function syncSalesInvoices(db: SupabaseClient, accessToken: string, dryRun
       invoice_fetched_count: invoiceFetchedCount,
       invoice_active_fetched_count: invoiceActiveFetchedCount,
       invoice_archived_fetched_count: invoiceArchivedFetchedCount,
+      invoice_cancelled_discovered_via_e_invoice_relationship_count: cancelledDiscoveredCount,
+      invoice_cancelled_fetched_count: cancelledFetchedCount,
       invoice_upserted_count: dryRun ? 0 : invoiceUpsertedCount,
       detail_fetched_count: detailFetchedCount,
       detail_upserted_count: dryRun ? 0 : detailUpsertedCount,
@@ -2239,6 +2294,13 @@ async function syncEInvoicesStandalone(db: SupabaseClient, accessToken: string, 
       // row may have no parent at all, and that must be preserved as null.
       parent_type: parentType,
       parent_parasut_id: parentParasutId,
+      // Phase 14.4: this call always requests include=invoice (see comment
+      // above), so the `invoice` relationship is always genuinely carried
+      // in this response -- a null here is real API evidence, never an
+      // absence. Tells parasut.upsert_e_invoices_standalone() to write the
+      // fresh value unconditionally (including null), never COALESCE it
+      // away against a stale stored value.
+      relationship_carried: true,
     };
   });
 

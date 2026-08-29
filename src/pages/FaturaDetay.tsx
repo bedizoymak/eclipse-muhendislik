@@ -183,6 +183,16 @@ const FaturaDetay = () => {
                 <dd className="mt-1">{formatAmount(invoice.remaining, invoice.currency)}</dd>
               </div>
               <div>
+                <dt className="text-xs uppercase tracking-wide text-white/50">Fatura türü</dt>
+                <dd className="mt-1">
+                  {invoice.item_type === "cancelled" ? (
+                    <span className="text-red-300">İptal Edildi</span>
+                  ) : (
+                    invoice.item_type ?? "—"
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Ödeme durumu</dt>
                 <dd className="mt-1">{invoice.payment_status ? PAYMENT_LABELS[invoice.payment_status] ?? invoice.payment_status : "—"}</dd>
               </div>
@@ -200,7 +210,7 @@ const FaturaDetay = () => {
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Arşivlendi mi</dt>
-                <dd className="mt-1">{invoice.archived ? "Evet" : "Hayır"}</dd>
+                <dd className="mt-1">{invoice.archived == null ? "—" : invoice.archived ? "Evet" : "Hayır"}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-white/50">Son sync</dt>

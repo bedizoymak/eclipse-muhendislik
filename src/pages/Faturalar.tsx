@@ -6,6 +6,7 @@ import { E_DOCUMENT_TYPE_LABELS } from "@/lib/eDocuments";
 interface InvoiceDemoRow {
   parasut_id: number;
   invoice_no: string | null;
+  item_type: string | null;
   issue_date: string | null;
   due_date: string | null;
   currency: string | null;
@@ -20,12 +21,16 @@ interface InvoiceDemoRow {
   active_e_document_type: string | null;
 }
 
-type ArchivedFilter = "active" | "archived" | "all";
+// Phase 14.4: "cancelled" is a real, separate item_type value from the API
+// -- a cancelled invoice can have archived=false, same as an active one, so
+// this must be its own filter, never derived from/confused with archived.
+type ArchivedFilter = "active" | "archived" | "cancelled" | "all";
 type PaymentFilter = "all" | "paid" | "overdue" | "unpaid" | "partially_paid";
 
 const ARCHIVED_FILTERS: { value: ArchivedFilter; label: string }[] = [
   { value: "active", label: "Aktif" },
   { value: "archived", label: "Arşivli" },
+  { value: "cancelled", label: "İptal" },
   { value: "all", label: "Tümü" },
 ];
 
@@ -48,7 +53,7 @@ const Faturalar = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [invoices, setInvoices] = useState<InvoiceDemoRow[] | null>(null);
-  const [counts, setCounts] = useState<{ active: number; archived: number; all: number } | null>(null);
+  const [counts, setCounts] = useState<{ active: number; archived: number; cancelled: number; all: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Tab counts come from a single-row aggregate view (count(*) filter (...)
@@ -71,12 +76,21 @@ const Faturalar = () => {
         setLoadError(error.message);
         return;
       }
-      const row = data as { active_count: number; archived_count: number; total_count: number } | null;
+      const row = data as { active_count: number; archived_count: number; cancelled_count: number; total_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
       }
-      setCounts({ active: row.active_count, archived: row.archived_count, all: row.total_count });
+      // active_count from the view is a raw archived=false count, which
+      // still includes cancelled invoices (a cancelled invoice can have
+      // archived=false too) -- subtract cancelled_count here so the "Aktif"
+      // tab label never shows a cancelled invoice as if it were active.
+      setCounts({
+        active: row.active_count - row.cancelled_count,
+        archived: row.archived_count,
+        cancelled: row.cancelled_count,
+        all: row.total_count,
+      });
     })();
 
     return () => {
@@ -92,10 +106,16 @@ const Faturalar = () => {
       let listQuery = supabase
         .from("parasut_sales_invoices_demo")
         .select(
-          "parasut_id, invoice_no, issue_date, due_date, currency, net_total, gross_total, total_vat, remaining, payment_status, archived, contact_parasut_id, contact_name, active_e_document_type",
+          "parasut_id, invoice_no, item_type, issue_date, due_date, currency, net_total, gross_total, total_vat, remaining, payment_status, archived, contact_parasut_id, contact_name, active_e_document_type",
         );
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
+      // "cancelled" is item_type="cancelled" (real API field), never derived
+      // from archived -- a cancelled invoice can independently be
+      // archived=false or =true. "active"/"archived" both explicitly
+      // exclude cancelled invoices so a cancelled record is never shown
+      // mixed into either tab.
+      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false).neq("item_type", "cancelled");
+      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true).neq("item_type", "cancelled");
+      if (archivedFilter === "cancelled") listQuery = listQuery.eq("item_type", "cancelled");
       if (paymentFilter !== "all") listQuery = listQuery.eq("payment_status", paymentFilter);
       if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
       if (toDate) listQuery = listQuery.lte("issue_date", toDate);
@@ -208,7 +228,8 @@ const Faturalar = () => {
                       <th className="px-4 py-2 font-medium">Brüt</th>
                       <th className="px-4 py-2 font-medium">KDV</th>
                       <th className="px-4 py-2 font-medium">Kalan</th>
-                      <th className="px-4 py-2 font-medium">Durum</th>
+                      <th className="px-4 py-2 font-medium">Ödeme Durumu</th>
+                      <th className="px-4 py-2 font-medium">Fatura Türü</th>
                       <th className="px-4 py-2 font-medium">E-Belge</th>
                       <th className="px-4 py-2 font-medium">Arşiv</th>
                     </tr>
@@ -240,9 +261,16 @@ const Faturalar = () => {
                           {inv.payment_status ? PAYMENT_LABELS[inv.payment_status] ?? inv.payment_status : "—"}
                         </td>
                         <td className="px-4 py-2 text-white/70">
+                          {inv.item_type === "cancelled" ? (
+                            <span className="text-red-300">İptal Edildi</span>
+                          ) : (
+                            inv.item_type ?? "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-white/70">
                           {inv.active_e_document_type ? E_DOCUMENT_TYPE_LABELS[inv.active_e_document_type] ?? inv.active_e_document_type : "—"}
                         </td>
-                        <td className="px-4 py-2 text-white/70">{inv.archived ? "Arşivli" : "Aktif"}</td>
+                        <td className="px-4 py-2 text-white/70">{inv.archived == null ? "—" : inv.archived ? "Arşivli" : "Arşivsiz"}</td>
                       </tr>
                     ))}
                   </tbody>
