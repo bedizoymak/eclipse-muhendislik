@@ -36,13 +36,23 @@ const EFaturaDetay = () => {
     };
   }, [parasutId]);
 
-  const parentLink = row
-    ? row.parent_type === "sales_invoices" && row.parent_parasut_id
-      ? { label: `Satış Faturası #${row.parent_parasut_id}`, to: `/satislar/faturalar/${row.parent_parasut_id}` }
-      : row.parent_type === "purchase_bills" && row.parent_parasut_id
-        ? { label: `Gider #${row.parent_parasut_id}`, to: `/giderler/${row.parent_parasut_id}` }
-        : null
-    : null;
+  // Phase 14.3 fix: a real relationship id/type surviving with no local
+  // parent row (parent_resolution_status === "unresolved", e.g. the 4
+  // sales_invoices with item_type="cancelled" that neither
+  // filter[archived]=false nor =true ever returns) must NEVER be rendered
+  // as a route <Link> -- the route would 404 because nothing was ever
+  // synced under that id. Only "resolved" is a proven-safe route.
+  const isResolved = row?.parent_resolution_status
+    ? row.parent_resolution_status === "resolved"
+    : Boolean(row?.parent_type && row?.parent_parasut_id); // active-document path: always resolved by construction
+  const parentLink =
+    row && isResolved
+      ? row.parent_type === "sales_invoices" && row.parent_parasut_id
+        ? { label: `Satış Faturası #${row.parent_parasut_id}`, to: `/satislar/faturalar/${row.parent_parasut_id}` }
+        : row.parent_type === "purchase_bills" && row.parent_parasut_id
+          ? { label: `Gider #${row.parent_parasut_id}`, to: `/giderler/${row.parent_parasut_id}` }
+          : null
+      : null;
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">
@@ -75,7 +85,7 @@ const EFaturaDetay = () => {
                 </Link>
               ) : row.parent_type ? (
                 <p className="mt-1 break-all text-amber-300/80">
-                  Çözümlenemeyen ilişki: {row.parent_type}#{row.parent_parasut_id}
+                  İlişki mevcut, bağlı kayıt yerel sistemde çözülemedi: {row.parent_type}#{row.parent_parasut_id}
                 </p>
               ) : (
                 <p className="mt-1 text-white/40">İlişkili Paraşüt faturası/gideri yok</p>

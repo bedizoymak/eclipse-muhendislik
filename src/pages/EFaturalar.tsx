@@ -23,6 +23,11 @@ interface EInvoiceListRow {
   archived: boolean | null;
   parent_type: string | null;
   parent_parasut_id: number | null;
+  // Phase 14.3: 'resolved' | 'unresolved' | 'no_relationship' -- see
+  // parasut.e_invoices_with_resolution. A real relationship id/type with
+  // no local parent row ('unresolved') must never be shown or linked as
+  // "no relationship" or as a working route.
+  parent_resolution_status: "resolved" | "unresolved" | "no_relationship";
 }
 
 interface CountsRow {
@@ -33,6 +38,12 @@ interface CountsRow {
   inbound_count: number;
   outbound_count: number;
   unresolved_relationship_count: number;
+  resolved_sales_relationship: number;
+  unresolved_sales_relationship: number;
+  resolved_purchase_relationship: number;
+  unresolved_purchase_relationship: number;
+  no_invoice_relationship: number;
+  total_with_relationship: number;
 }
 
 type LinkFilter = "all" | "linked" | "unlinked";
@@ -45,6 +56,11 @@ function formatAmount(value: number | null, currency: string | null): string {
 }
 
 function parentLink(row: EInvoiceListRow): { label: string; to: string } | null {
+  // Phase 14.3 fix: only a proven-resolvable route (parent row exists
+  // locally) may ever render as a <Link>. An 'unresolved' real
+  // relationship (e.g. cancelled sales_invoices never fetched by the
+  // active/archived list sync) must show its real id/type as plain text.
+  if (row.parent_resolution_status !== "resolved") return null;
   if (row.parent_type === "sales_invoices" && row.parent_parasut_id) {
     return { label: `Satış Faturası #${row.parent_parasut_id}`, to: `/satislar/faturalar/${row.parent_parasut_id}` };
   }
@@ -88,7 +104,7 @@ const EFaturalar = () => {
       let q = supabase
         .from("parasut_e_invoices_demo")
         .select(
-          "parasut_id, external_id, direction, contact_name, issue_date, status, net_total, total_vat, currency, archived, parent_type, parent_parasut_id",
+          "parasut_id, external_id, direction, contact_name, issue_date, status, net_total, total_vat, currency, archived, parent_type, parent_parasut_id, parent_resolution_status",
         );
       if (linkFilter === "linked") q = q.not("parent_type", "is", null);
       if (linkFilter === "unlinked") q = q.is("parent_type", null);
@@ -120,7 +136,7 @@ const EFaturalar = () => {
         </p>
 
         {counts && (
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10">
             {[
               ["Toplam", counts.total_e_invoices],
               ["Satış faturasına bağlı", counts.linked_sales_invoice_count],
@@ -128,7 +144,10 @@ const EFaturalar = () => {
               ["Bağlantısız", counts.unlinked_count],
               ["Gelen (inbound)", counts.inbound_count],
               ["Giden (outbound)", counts.outbound_count],
-              ["Çözümlenemeyen ilişki", counts.unresolved_relationship_count],
+              ["Çözümlenemeyen ilişki (tip)", counts.unresolved_relationship_count],
+              ["Satış: çözülemeyen ilişki", counts.unresolved_sales_relationship],
+              ["Gider: çözülemeyen ilişki", counts.unresolved_purchase_relationship],
+              ["İlişkisi olan (toplam)", counts.total_with_relationship],
             ].map(([label, value]) => (
               <div key={label as string} className="rounded-xl border border-white/10 bg-white/5 p-3">
                 <div className="text-xs text-white/50">{label}</div>
@@ -226,8 +245,8 @@ const EFaturalar = () => {
                                 {link.label}
                               </Link>
                             ) : row.parent_type ? (
-                              <span className="text-amber-300/80 break-all">
-                                {row.parent_type}#{row.parent_parasut_id}
+                              <span className="text-amber-300/80 break-all" title="İlişki mevcut, bağlı kayıt yerel sistemde çözülemedi">
+                                İlişki mevcut, bağlı kayıt yerel sistemde çözülemedi: {row.parent_type}#{row.parent_parasut_id}
                               </span>
                             ) : (
                               <span className="text-white/40">İlişkili Paraşüt faturası/gideri yok</span>

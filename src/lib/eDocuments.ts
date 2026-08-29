@@ -12,6 +12,16 @@ export interface EInvoiceRow {
   parasut_id: number;
   parent_type: string | null;
   parent_parasut_id: number | null;
+  // Phase 14.3: only present on rows read from parasut_e_invoices_demo
+  // (the standalone e-invoices universe). Computed by
+  // parasut.e_invoices_with_resolution -- 'resolved' means the parent row
+  // exists locally and a route link is safe to render; 'unresolved' means
+  // a real API relationship exists but the parent isn't stored locally
+  // (must show the real id/type as plain text, never a fabricated link);
+  // 'no_relationship' means the API's own invoice.data was null. Absent
+  // (undefined) on rows read via the active-document path (FaturaDetay/
+  // GiderDetay), where the parent is always resolved by construction.
+  parent_resolution_status?: "resolved" | "unresolved" | "no_relationship";
   external_id: string | null;
   uuid: string | null;
   direction: string | null;

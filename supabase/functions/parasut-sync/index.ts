@@ -504,33 +504,32 @@ async function syncActiveEDocuments(
       errorMessages.push(...result.errorMessages);
     }
 
-    // Stale-link cleanup: this fetch is a full listing of every parent of
-    // `parentType`, so it is authoritative -- any e_invoices row still
-    // pointing at this parentType but no longer among the currently
-    // resolved ids is stale and must have its parent link cleared. The
-    // document row itself is never deleted (it is real Parasut data).
-    const eInvoiceIdList = eInvoiceIds.length > 0 ? eInvoiceIds.join(",") : "0";
-    const { data: staleEInvoices } = await db
-      .schema("parasut")
-      .from("e_invoices")
-      .update({ parent_type: null, parent_parasut_id: null })
-      .eq("parent_type", parentType)
-      .not("parasut_id", "in", `(${eInvoiceIdList})`)
-      .select("parasut_id");
-    staleLinkRemovedCount += staleEInvoices?.length ?? 0;
-
-    if (parentType === "sales_invoices") {
-      const eArchiveIds = eArchivePairs.map(({ doc }) => Number(doc.id));
-      const eArchiveIdList = eArchiveIds.length > 0 ? eArchiveIds.join(",") : "0";
-      const { data: staleEArchives } = await db
-        .schema("parasut")
-        .from("e_archives")
-        .update({ sales_invoice_parasut_id: null })
-        .not("sales_invoice_parasut_id", "is", null)
-        .not("parasut_id", "in", `(${eArchiveIdList})`)
-        .select("parasut_id");
-      staleLinkRemovedCount += staleEArchives?.length ?? 0;
-    }
+    // Phase 14.3 fix: the blanket stale-link cleanup that used to run here
+    // (nulling any e_invoices/e_archives row whose parasut_id wasn't in this
+    // batch's resolved id list) has been REMOVED. It was not actually safe:
+    // `fetchActiveAndArchived` above only requests filter[archived]=false and
+    // filter[archived]=true, which does NOT cover every real parent -- a
+    // sales_invoice with item_type="cancelled" is returned by NEITHER filter
+    // (verified live: GET /sales_invoices/{id} for 4 real cancelled parents
+    // returns 200 with archived=false, item_type="cancelled", yet neither
+    // active nor archived list surfaces them). Because those 4 parents never
+    // appeared in `parentItems`, their child e_invoices ids were never added
+    // to `eInvoiceIds`, and the old "not in (...)" UPDATE wrongly treated
+    // them as stale and nulled real, still-valid parent_type/parent_parasut_id
+    // links (e_invoice ids 1039238103, 1053844283, 1060947175, 1067768657 ->
+    // sales_invoices 1052770408, 1069847471, 1078897329, 1087830427).
+    //
+    // This function's own parent fetch is therefore NOT provably a complete
+    // listing of every real parent, so it must never be used as the
+    // authority for deleting a link. Per-row evidence for "no relationship"
+    // now comes exclusively from `syncEInvoicesStandalone()`'s own
+    // `include=invoice` read (real `invoice.data === null`), which IS a
+    // genuine global, unscoped listing and already only ever writes a null
+    // parent link when its own fresh read is null (see
+    // `parasut.upsert_e_invoices_standalone()`'s field-by-field COALESCE).
+    // A link established here (from real `active_e_document` evidence) is
+    // therefore only ever SET, never blindly cleared, by this function.
+    // staleLinkRemovedCount is kept at 0 -- reported, never silently acted on.
   }
 
   return {
