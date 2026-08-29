@@ -1,6 +1,6 @@
 # Phase 14.4 — Cancelled Sales Invoices ve E-Invoice Source Precedence Düzeltmesi
 
-Kod commit SHA: (bu commit sonrası doldurulacak)
+Kod commit SHA: cb2dedc32d62fe55e8ba76cab030515967ac4eee
 Rapor commit SHA: (bu commit)
 
 Bu faz, Phase 14.3'ün belgelediği ama düzeltmediği iki gerçek kusuru kapatır: (1) 4 gerçek, API'de erişilebilir `item_type="cancelled"` satış faturası hiçbir zaman `parasut.sales_invoices` mirror'ına yazılmıyordu; (2) standalone e_invoices upsert RPC'sinin `coalesce(excluded.parent_type, e.parent_type)` deseni, API'nin gerçekten `invoice.data=null` döndürdüğü durumlarda eski dolu bir ilişkiyi koruyabiliyordu.
