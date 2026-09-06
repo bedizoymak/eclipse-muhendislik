@@ -7,8 +7,6 @@ interface EmployeeDemoRow {
   name: string | null;
   email: string | null;
   phone: string | null;
-  iban: string | null;
-  tckn: string | null;
   archived: boolean | null;
   employment_start_date: string | null;
   employment_end_date: string | null;
@@ -117,8 +115,6 @@ const CalisanDetay = () => {
               <Field label="Ad" value={formatValue(emp.name)} />
               <Field label="E-posta" value={formatValue(emp.email)} />
               <Field label="Telefon" value={formatValue(emp.phone)} />
-              <Field label="TCKN" value={formatValue(emp.tckn)} />
-              <Field label="IBAN" value={<span className="break-all">{formatValue(emp.iban)}</span>} />
               <Field label="Arşivlendi mi" value={formatValue(emp.archived)} />
               <Field label="İşe başlama tarihi" value={formatValue(emp.employment_start_date)} />
               <Field label="İşten çıkış tarihi" value={formatValue(emp.employment_end_date)} />

@@ -7,8 +7,6 @@ interface EmployeeDemoRow {
   name: string | null;
   email: string | null;
   phone: string | null;
-  iban: string | null;
-  tckn: string | null;
   archived: boolean | null;
   employment_start_date: string | null;
   employment_end_date: string | null;
@@ -98,7 +96,7 @@ const Calisanlar = () => {
     (async () => {
       let listQuery = supabase
         .from("parasut_employees_demo")
-        .select("parasut_id, name, email, phone, iban, tckn, archived, employment_start_date, employment_end_date, category_parasut_id");
+        .select("parasut_id, name, email, phone, archived, employment_start_date, employment_end_date, category_parasut_id");
       if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
       if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
 
@@ -203,7 +201,6 @@ const Calisanlar = () => {
                       <th className="px-4 py-2 font-medium">Ad</th>
                       <th className="px-4 py-2 font-medium">E-posta</th>
                       <th className="px-4 py-2 font-medium">Telefon</th>
-                      <th className="px-4 py-2 font-medium">TCKN</th>
                       <th className="px-4 py-2 font-medium">İşe başlama</th>
                       <th className="px-4 py-2 font-medium">İşten çıkış</th>
                       <th className="px-4 py-2 font-medium">Kategori ID</th>
@@ -225,7 +222,6 @@ const Calisanlar = () => {
                         </td>
                         <td className="px-4 py-2 text-white/70">{formatValue(r.email)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(r.phone)}</td>
-                        <td className="px-4 py-2 text-white/70">{formatValue(r.tckn)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(r.employment_start_date)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(r.employment_end_date)}</td>
                         <td className="px-4 py-2 text-white/70">{formatValue(r.category_parasut_id)}</td>

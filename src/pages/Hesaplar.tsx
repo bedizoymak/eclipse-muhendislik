@@ -9,8 +9,6 @@ interface AccountDemoRow {
   currency: string | null;
   bank_name: string | null;
   bank_branch: string | null;
-  bank_account_no: string | null;
-  iban: string | null;
   balance: number | null;
   archived: boolean | null;
   synced_at: string;
@@ -40,7 +38,7 @@ const Hesaplar = () => {
     let cancelled = false;
     supabase
       .from("parasut_accounts_demo")
-      .select("parasut_id, name, account_type, currency, bank_name, bank_branch, bank_account_no, iban, balance, archived, synced_at")
+      .select("parasut_id, name, account_type, currency, bank_name, bank_branch, balance, archived, synced_at")
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
@@ -90,7 +88,7 @@ const Hesaplar = () => {
                       <th className="px-4 py-2 font-medium">Hesap adı</th>
                       <th className="px-4 py-2 font-medium">Tür</th>
                       <th className="px-4 py-2 font-medium">Para birimi</th>
-                      <th className="px-4 py-2 font-medium">Banka / IBAN</th>
+                      <th className="px-4 py-2 font-medium">Banka</th>
                       <th className="px-4 py-2 font-medium">Bakiye</th>
                       <th className="px-4 py-2 font-medium">Arşiv</th>
                     </tr>
@@ -105,7 +103,6 @@ const Hesaplar = () => {
                         <td className="px-4 py-2 text-white/70">{acc.currency ?? "—"}</td>
                         <td className="px-4 py-2 text-white/70">
                           {[acc.bank_name, acc.bank_branch].filter(Boolean).join(" / ") || "—"}
-                          {acc.iban ? <div className="text-xs text-white/50">{acc.iban}</div> : null}
                         </td>
                         <td className="px-4 py-2 text-white/70">{formatAmount(acc.balance, acc.currency)}</td>
                         <td className="px-4 py-2 text-white/70">{acc.archived ? "Arşivli" : "Aktif"}</td>
