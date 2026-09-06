@@ -42,13 +42,13 @@ const Sevkiyatlar = () => {
     }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("parasut_shipment_document_counts_demo").select("*").maybeSingle();
+      const { data, error } = await supabase.functions.invoke("shipments", { body: { action: "counts" } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error ?? "Sayaç verisi alınamadı.");
         return;
       }
-      const row = data as { active_count: number; archived_count: number; total_count: number } | null;
+      const row = data?.data as { active_count: number; archived_count: number; total_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
@@ -65,23 +65,19 @@ const Sevkiyatlar = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_shipment_documents_demo")
-        .select(
-          "parasut_id, description, despatch_no, status, inflow, issue_date, shipment_date, archived, contact_parasut_id, contact_name, carrier_legal_name, carrier_license_plate",
-        );
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
-      if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
-      if (toDate) listQuery = listQuery.lte("issue_date", toDate);
+      const body: Record<string, unknown> = { action: "list", pageSize: 1000 };
+      if (archivedFilter === "active") body.archived = false;
+      if (archivedFilter === "archived") body.archived = true;
+      if (fromDate) body.dateFrom = fromDate;
+      if (toDate) body.dateTo = toDate;
 
-      const { data, error } = await listQuery;
+      const { data, error } = await supabase.functions.invoke("shipments", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setDocs((data as ShipmentDocumentDemoRow[] | null) ?? []);
+      setDocs((data?.data as ShipmentDocumentDemoRow[] | null) ?? []);
     })();
 
     return () => {

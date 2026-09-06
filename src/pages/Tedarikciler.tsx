@@ -34,27 +34,25 @@ const Tedarikciler = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase.from("parasut_suppliers_demo").select("parasut_id, name, short_name, email, phone, city, archived");
-      if (filter === "active") listQuery = listQuery.eq("archived", false);
-      if (filter === "archived") listQuery = listQuery.eq("archived", true);
+      const listBody: Record<string, unknown> = { action: "suppliers.list", pageSize: 1000 };
+      if (filter === "active") listBody.archived = false;
+      if (filter === "archived") listBody.archived = true;
 
-      const [listRes, activeRes, archivedRes, allRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_suppliers_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        supabase.from("parasut_suppliers_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        supabase.from("parasut_suppliers_demo").select("parasut_id", { count: "exact", head: true }),
+      const [listRes, countsRes] = await Promise.all([
+        supabase.functions.invoke("expenses", { body: listBody }),
+        supabase.functions.invoke("expenses", { body: { action: "suppliers.counts" } }),
       ]);
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? activeRes.error?.message ?? archivedRes.error?.message ?? allRes.error?.message;
+      const firstError = listRes.error?.message ?? listRes.data?.error ?? countsRes.error?.message ?? countsRes.data?.error;
       if (firstError) {
         setLoadError(firstError);
         return;
       }
 
-      setSuppliers((listRes.data as SupplierDemoRow[] | null) ?? []);
-      setCounts({ active: activeRes.count ?? 0, archived: archivedRes.count ?? 0, all: allRes.count ?? 0 });
+      setSuppliers((listRes.data?.data as SupplierDemoRow[] | null) ?? []);
+      setCounts(countsRes.data?.data ?? { active: 0, archived: 0, all: 0 });
     })();
 
     return () => {

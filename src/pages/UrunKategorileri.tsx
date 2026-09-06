@@ -16,9 +16,8 @@ const UrunKategorileri = () => (
     backLabel="Ürünler"
     title="Ürün Kategorileri"
     description="Paraşüt'ten senkronize edilen gerçek ürün kategori kayıtları."
-    listView="parasut_item_categories_demo"
-    countView="parasut_item_category_counts_demo"
-    selectColumns="parasut_id, full_path, name"
+    functionName="products"
+    resource="categories"
     emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /item_categories gerçek olarak boş liste döndürüyor)."
     detailBase="/stok/kategoriler"
     columns={[

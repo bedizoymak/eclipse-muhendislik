@@ -80,29 +80,25 @@ const FaturaDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [invoiceRes, detailsRes] = await Promise.all([
-        supabase
-          .from("parasut_sales_invoices_demo")
-          .select("*")
-          .eq("parasut_id", parasutId)
-          .maybeSingle(),
-        supabase
-          .from("parasut_sales_invoice_details_demo")
-          .select("parasut_id, description, quantity, unit_price, vat_rate, discount_type, discount_value, net_total, product_parasut_id, product_name")
-          .eq("sales_invoice_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("sales", { body: { action: "invoices.get", id: Number(parasutId) } });
 
       if (cancelled) return;
 
-      const firstError = invoiceRes.error?.message ?? detailsRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (data?.error === "not_found") {
+        setInvoice(null);
+        setDetails([]);
+        setEDoc(null);
+        return;
+      }
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      const invoiceRow = (invoiceRes.data as InvoiceDemoRow | null) ?? null;
+      const { details: detailRows, ...invoiceFields } = data?.data ?? {};
+      const invoiceRow = (invoiceFields as InvoiceDemoRow | null) ?? null;
       setInvoice(invoiceRow);
-      setDetails((detailsRes.data as DetailRow[] | null) ?? []);
+      setDetails((detailRows as DetailRow[] | null) ?? []);
 
       if (invoiceRow) {
         const { doc, error } = await fetchActiveEDocument(invoiceRow.active_e_document_type, invoiceRow.active_e_document_parasut_id);

@@ -45,10 +45,9 @@ const Urunler = () => {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("parasut_item_categories_demo")
-      .select("parasut_id, name")
-      .then(({ data }) => setCategories((data as { parasut_id: number; name: string | null }[] | null) ?? []));
+    supabase.functions
+      .invoke("products", { body: { action: "products.categoryOptions" } })
+      .then(({ data }) => setCategories((data?.data as { parasut_id: number; name: string | null }[] | null) ?? []));
   }, []);
 
   useEffect(() => {
@@ -59,35 +58,28 @@ const Urunler = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_products_demo")
-        .select(
-          "parasut_id, code, name, unit, barcode, vat_rate, list_price, currency, buying_price, buying_currency, inventory_tracking, stock_count, archived, category_parasut_id, category_name",
-        )
-        .limit(200);
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
-      if (categoryFilter) listQuery = listQuery.eq("category_parasut_id", categoryFilter);
-      if (trackingFilter === "tracked") listQuery = listQuery.eq("inventory_tracking", true);
-      if (trackingFilter === "untracked") listQuery = listQuery.eq("inventory_tracking", false);
+      const listBody: Record<string, unknown> = { action: "products.list", pageSize: 200 };
+      if (archivedFilter === "active") listBody.archived = false;
+      if (archivedFilter === "archived") listBody.archived = true;
+      if (categoryFilter) listBody.category_id = categoryFilter;
+      if (trackingFilter === "tracked") listBody.inventory_tracking = true;
+      if (trackingFilter === "untracked") listBody.inventory_tracking = false;
 
-      const [listRes, activeRes, archivedRes, allRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_products_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        supabase.from("parasut_products_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        supabase.from("parasut_products_demo").select("parasut_id", { count: "exact", head: true }),
+      const [listRes, countsRes] = await Promise.all([
+        supabase.functions.invoke("products", { body: listBody }),
+        supabase.functions.invoke("products", { body: { action: "products.counts" } }),
       ]);
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? activeRes.error?.message ?? archivedRes.error?.message ?? allRes.error?.message;
+      const firstError = listRes.error?.message ?? listRes.data?.error ?? countsRes.error?.message ?? countsRes.data?.error;
       if (firstError) {
         setLoadError(firstError);
         return;
       }
 
-      setProducts((listRes.data as ProductDemoRow[] | null) ?? []);
-      setCounts({ active: activeRes.count ?? 0, archived: archivedRes.count ?? 0, all: allRes.count ?? 0 });
+      setProducts((listRes.data?.data as ProductDemoRow[] | null) ?? []);
+      setCounts(countsRes.data?.data ?? { active: 0, archived: 0, all: 0 });
     })();
 
     return () => {

@@ -84,13 +84,13 @@ const EFaturalar = () => {
     }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("parasut_e_invoices_counts_demo").select("*").maybeSingle();
+      const { data, error } = await supabase.functions.invoke("e-documents", { body: { action: "invoices.counts" } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setCounts((data as CountsRow | null) ?? null);
+      setCounts((data?.data as CountsRow | null) ?? null);
     })();
     return () => {
       cancelled = true;
@@ -101,22 +101,18 @@ const EFaturalar = () => {
     if (!supabase) return;
     let cancelled = false;
     (async () => {
-      let q = supabase
-        .from("parasut_e_invoices_demo")
-        .select(
-          "parasut_id, external_id, direction, contact_name, issue_date, status, net_total, total_vat, currency, archived, parent_type, parent_parasut_id, parent_resolution_status",
-        );
-      if (linkFilter === "linked") q = q.not("parent_type", "is", null);
-      if (linkFilter === "unlinked") q = q.is("parent_type", null);
-      if (directionFilter !== "all") q = q.eq("direction", directionFilter);
+      const body: Record<string, unknown> = { action: "invoices.list", pageSize: 1000 };
+      if (linkFilter === "linked") body.linked = true;
+      if (linkFilter === "unlinked") body.linked = false;
+      if (directionFilter !== "all") body.direction = directionFilter;
 
-      const { data, error } = await q;
+      const { data, error } = await supabase.functions.invoke("e-documents", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setRows((data as EInvoiceListRow[] | null) ?? []);
+      setRows((data?.data as EInvoiceListRow[] | null) ?? []);
     })();
     return () => {
       cancelled = true;

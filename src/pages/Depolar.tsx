@@ -21,16 +21,15 @@ const Depolar = () => {
       return;
     }
     let cancelled = false;
-    supabase
-      .from("parasut_warehouses_demo")
-      .select("parasut_id, name, address, city, district, archived")
+    supabase.functions
+      .invoke("products", { body: { action: "warehouses.list" } })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setLoadError(error.message);
+        if (error || data?.error) {
+          setLoadError(error?.message ?? data?.error);
           return;
         }
-        setWarehouses((data as WarehouseDemoRow[] | null) ?? []);
+        setWarehouses((data?.data as WarehouseDemoRow[] | null) ?? []);
       });
     return () => {
       cancelled = true;

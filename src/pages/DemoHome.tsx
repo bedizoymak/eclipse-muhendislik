@@ -55,37 +55,27 @@ const DemoHome = () => {
       return;
     }
 
-    const [contactsRes, totalRes, activeRes, archivedRes, syncRes] = await Promise.all([
-      supabase
-        .from("parasut_contacts_demo")
-        .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
-        .eq("archived", false)
-        .limit(20),
-      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }),
-      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-      supabase.from("parasut_sync_status_demo").select("*").eq("resource", "contacts").maybeSingle(),
+    const [contactsRes, countsRes, syncRes] = await Promise.all([
+      supabase.functions.invoke("customers", { body: { action: "list", archived: false, pageSize: 20 } }),
+      supabase.functions.invoke("customers", { body: { action: "counts" } }),
+      supabase.functions.invoke("sync-status", { body: { action: "get", resource: "contacts" } }),
     ]);
 
     const firstError =
-      contactsRes.error?.message ??
-      totalRes.error?.message ??
-      activeRes.error?.message ??
-      archivedRes.error?.message ??
-      syncRes.error?.message;
+      contactsRes.error?.message ?? contactsRes.data?.error ?? countsRes.error?.message ?? countsRes.data?.error ?? syncRes.error?.message ?? syncRes.data?.error;
     if (firstError) {
-      // Read-only view error: never a credential or technical secret, just
-      // the human-readable PostgREST message.
+      // Read-only Edge Function error: never a credential or technical
+      // secret, just a safe typed error code / human-readable message.
       setLoadError(firstError);
       return null;
     }
 
     setLoadError(null);
-    setContacts(contactsRes.data ?? []);
-    setTotalCount(totalRes.count ?? 0);
-    setActiveCount(activeRes.count ?? 0);
-    setArchivedCount(archivedRes.count ?? 0);
-    setSyncStatus((syncRes.data as SyncStatusRow | null) ?? null);
+    setContacts(contactsRes.data?.data ?? []);
+    setTotalCount(countsRes.data?.data?.all ?? 0);
+    setActiveCount(countsRes.data?.data?.active ?? 0);
+    setArchivedCount(countsRes.data?.data?.archived ?? 0);
+    setSyncStatus((syncRes.data?.data as SyncStatusRow | null) ?? null);
     return true;
   };
 

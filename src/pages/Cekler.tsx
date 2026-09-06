@@ -53,33 +53,27 @@ const Cekler = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_checks_demo")
-        .select(
-          "parasut_id, serial_number, bank_identifier, bank_name, due_date, issue_date, net_total, remaining, currency, payment_status, is_cashed, is_in, is_out, issued_by_parasut_id, issued_by_name, given_to_parasut_id, given_to_name",
-        );
-      if (directionFilter === "in") listQuery = listQuery.eq("is_in", true);
-      if (directionFilter === "out") listQuery = listQuery.eq("is_out", true);
-      if (fromDate) listQuery = listQuery.gte("due_date", fromDate);
-      if (toDate) listQuery = listQuery.lte("due_date", toDate);
+      const listBody: Record<string, unknown> = { action: "checks.list", pageSize: 1000 };
+      if (directionFilter === "in") listBody.is_in = true;
+      if (directionFilter === "out") listBody.is_out = true;
+      if (fromDate) listBody.dateFrom = fromDate;
+      if (toDate) listBody.dateTo = toDate;
 
-      const [listRes, inRes, outRes, allRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_checks_demo").select("parasut_id", { count: "exact", head: true }).eq("is_in", true),
-        supabase.from("parasut_checks_demo").select("parasut_id", { count: "exact", head: true }).eq("is_out", true),
-        supabase.from("parasut_checks_demo").select("parasut_id", { count: "exact", head: true }),
+      const [listRes, countsRes] = await Promise.all([
+        supabase.functions.invoke("cash", { body: listBody }),
+        supabase.functions.invoke("cash", { body: { action: "checks.counts" } }),
       ]);
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? inRes.error?.message ?? outRes.error?.message ?? allRes.error?.message;
+      const firstError = listRes.error?.message ?? listRes.data?.error ?? countsRes.error?.message ?? countsRes.data?.error;
       if (firstError) {
         setLoadError(firstError);
         return;
       }
 
-      setChecks((listRes.data as CheckDemoRow[] | null) ?? []);
-      setCounts({ in: inRes.count ?? 0, out: outRes.count ?? 0, all: allRes.count ?? 0 });
+      setChecks((listRes.data?.data as CheckDemoRow[] | null) ?? []);
+      setCounts(countsRes.data?.data ?? { in: 0, out: 0, all: 0 });
     })();
 
     return () => {

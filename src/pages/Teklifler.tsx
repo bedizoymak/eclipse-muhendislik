@@ -47,33 +47,27 @@ const Teklifler = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_sales_offers_demo")
-        .select(
-          "parasut_id, description, status, issue_date, due_date, currency, net_total, gross_total, total_vat, archived, contact_parasut_id, contact_name",
-        );
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
-      if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
-      if (toDate) listQuery = listQuery.lte("issue_date", toDate);
+      const listBody: Record<string, unknown> = { action: "offers.list", pageSize: 1000 };
+      if (archivedFilter === "active") listBody.archived = false;
+      if (archivedFilter === "archived") listBody.archived = true;
+      if (fromDate) listBody.dateFrom = fromDate;
+      if (toDate) listBody.dateTo = toDate;
 
-      const [listRes, activeRes, archivedRes, allRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_sales_offers_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        supabase.from("parasut_sales_offers_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        supabase.from("parasut_sales_offers_demo").select("parasut_id", { count: "exact", head: true }),
+      const [listRes, countsRes] = await Promise.all([
+        supabase.functions.invoke("sales", { body: listBody }),
+        supabase.functions.invoke("sales", { body: { action: "offers.counts" } }),
       ]);
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? activeRes.error?.message ?? archivedRes.error?.message ?? allRes.error?.message;
+      const firstError = listRes.error?.message ?? listRes.data?.error ?? countsRes.error?.message ?? countsRes.data?.error;
       if (firstError) {
         setLoadError(firstError);
         return;
       }
 
-      setOffers((listRes.data as OfferDemoRow[] | null) ?? []);
-      setCounts({ active: activeRes.count ?? 0, archived: archivedRes.count ?? 0, all: allRes.count ?? 0 });
+      setOffers((listRes.data?.data as OfferDemoRow[] | null) ?? []);
+      setCounts(countsRes.data?.data ?? { active: 0, archived: 0, all: 0 });
     })();
 
     return () => {

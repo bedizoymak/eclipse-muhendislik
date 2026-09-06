@@ -149,33 +149,25 @@ const TeklifDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [offerRes, detailsRes, activitiesRes] = await Promise.all([
-        supabase
-          .from("parasut_sales_offers_demo")
-          .select("*")
-          .eq("parasut_id", parasutId)
-          .maybeSingle(),
-        supabase
-          .from("parasut_sales_offer_details_demo")
-          .select("*")
-          .eq("sales_offer_parasut_id", parasutId),
-        supabase
-          .from("parasut_sales_offer_activities_demo")
-          .select("*")
-          .eq("sales_offer_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("sales", { body: { action: "offers.get", id: Number(parasutId) } });
 
       if (cancelled) return;
 
-      const firstError = offerRes.error?.message ?? detailsRes.error?.message ?? activitiesRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (data?.error === "not_found") {
+        setOffer(null);
+        setDetails([]);
+        setActivities([]);
+        return;
+      }
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      setOffer((offerRes.data as OfferDemoRow | null) ?? null);
-      setDetails((detailsRes.data as DetailRow[] | null) ?? []);
-      setActivities((activitiesRes.data as ActivityRow[] | null) ?? []);
+      const { details: detailRows, activities: activityRows, ...offerFields } = data?.data ?? {};
+      setOffer((offerFields as OfferDemoRow | null) ?? null);
+      setDetails((detailRows as DetailRow[] | null) ?? []);
+      setActivities((activityRows as ActivityRow[] | null) ?? []);
     })();
 
     return () => {

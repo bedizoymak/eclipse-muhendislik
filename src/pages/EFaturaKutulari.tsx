@@ -57,11 +57,10 @@ const EFaturaKutulari = () => (
     backLabel="Faturalar"
     title="E-Fatura Mükellef Sorgulama"
     description="VKN'ye göre sorgulanan, güvenli bir arka uç tarafından önceden kaydedilmiş gerçek e-fatura mükellefi sorgu sonuçları (gelen kutusu/mesaj listesi veya şirketin tüm e-fatura kayıtlarının global listesi DEĞİLDİR)."
-    listView="parasut_e_invoice_lookup_results_demo"
-    countView="parasut_e_invoice_lookup_result_counts_demo"
+    functionName="e-documents"
+    resource="lookup"
     countColumn="cached_query_result_count"
     countLabel="Önbellekteki sorgu sonucu"
-    selectColumns="parasut_id, parasut_type, vkn, name, e_invoice_address, inbox_type, address_registered_at, registered_at, parasut_created_at, parasut_updated_at"
     emptyMeansNoQueryYet
     emptyExplanation="Canlı VKN sorgusu, güvenli kimlik doğrulamalı bir arka uç gerektirir ve bu genel demo üzerinden AÇILMAMIŞTIR (BLOCKED) -- Paraşüt erişim anahtarı hiçbir zaman genel/anonim ön yüze açılmaz. Sorgulanan VKN değeri (kullanıcı girdisi) artık hiçbir zaman bu görünümde yer almaz; yalnızca Paraşüt'ün kendi yanıtı (vkn, ad, e-fatura adresi) gösterilir. Bu ekran yalnızca gelecekte güvenli bir arka ucun gerçekten sorgulayıp kaydettiği sonuçları gösterecektir."
     columns={[

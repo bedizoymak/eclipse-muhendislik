@@ -59,10 +59,9 @@ const Giderler = () => {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("parasut_suppliers_demo")
-      .select("parasut_id, name")
-      .then(({ data }) => setSuppliers((data as { parasut_id: number; name: string | null }[] | null) ?? []));
+    supabase.functions
+      .invoke("expenses", { body: { action: "suppliers.options" } })
+      .then(({ data }) => setSuppliers((data?.data as { parasut_id: number; name: string | null }[] | null) ?? []));
   }, []);
 
   // Tab counts come from a single-row aggregate view (count(*) filter (...)
@@ -82,13 +81,13 @@ const Giderler = () => {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase.from("parasut_purchase_bill_counts_demo").select("*").maybeSingle();
+      const { data, error } = await supabase.functions.invoke("expenses", { body: { action: "bills.counts" } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error ?? "Sayaç verisi alınamadı.");
         return;
       }
-      const row = data as { active_count: number; archived_count: number; total_count: number } | null;
+      const row = data?.data as { active_count: number; archived_count: number; total_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
@@ -106,25 +105,21 @@ const Giderler = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_purchase_bills_demo")
-        .select(
-          "parasut_id, invoice_no, description, issue_date, due_date, currency, net_total, gross_total, total_vat, total_paid, remaining, payment_status, archived, supplier_parasut_id, supplier_name, spender_parasut_id, spender_name, active_e_document_type",
-        );
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
-      if (paymentFilter !== "all") listQuery = listQuery.eq("payment_status", paymentFilter);
-      if (supplierFilter) listQuery = listQuery.eq("supplier_parasut_id", supplierFilter);
-      if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
-      if (toDate) listQuery = listQuery.lte("issue_date", toDate);
+      const body: Record<string, unknown> = { action: "bills.list", pageSize: 1000 };
+      if (archivedFilter === "active") body.archived = false;
+      if (archivedFilter === "archived") body.archived = true;
+      if (paymentFilter !== "all") body.payment_status = paymentFilter;
+      if (supplierFilter) body.supplier_id = supplierFilter;
+      if (fromDate) body.dateFrom = fromDate;
+      if (toDate) body.dateTo = toDate;
 
-      const { data, error } = await listQuery;
+      const { data, error } = await supabase.functions.invoke("expenses", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setBills((data as BillDemoRow[] | null) ?? []);
+      setBills((data?.data as BillDemoRow[] | null) ?? []);
     })();
 
     return () => {

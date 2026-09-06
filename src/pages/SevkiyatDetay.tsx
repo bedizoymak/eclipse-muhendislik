@@ -161,51 +161,30 @@ const SevkiyatDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [docRes, movementsRes, activitiesRes, invoiceLinksRes] = await Promise.all([
-        supabase.from("parasut_shipment_documents_demo").select("*").eq("parasut_id", parasutId).maybeSingle(),
-        supabase
-          .from("parasut_stock_movements_demo")
-          .select("parasut_id, date, quantity, product_parasut_id, product_name, warehouse_parasut_id, warehouse_name, source_type, source_parasut_id")
-          .eq("source_type", "shipment_documents")
-          .eq("source_parasut_id", parasutId),
-        supabase
-          .from("parasut_shipment_document_activities_demo")
-          .select(
-            "parasut_id, activity_type, date, data_description, data_issue_date, done_by_email, done_by_parasut_id, done_by_type, done_by_name, done_by_user_email, item_parasut_id, item_type, parasut_created_at, parasut_updated_at",
-          )
-          .eq("shipment_document_parasut_id", parasutId),
-        supabase
-          .from("parasut_shipment_document_invoices_demo")
-          .select("sales_invoice_parasut_id, sales_invoice_no")
-          .eq("shipment_document_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("shipments", { body: { action: "get", id: Number(parasutId) } });
 
       if (cancelled) return;
 
-      const firstError = docRes.error?.message ?? movementsRes.error?.message ?? activitiesRes.error?.message ?? invoiceLinksRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (data?.error === "not_found") {
+        setDoc(null);
+        setMovements([]);
+        setActivities([]);
+        setInvoiceLinks([]);
+        setInbound(null);
+        return;
+      }
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      const docRow = (docRes.data as ShipmentDocumentDemoRow | null) ?? null;
-      setDoc(docRow);
-      setMovements((movementsRes.data as StockMovementRow[] | null) ?? []);
-      setActivities((activitiesRes.data as ActivityRow[] | null) ?? []);
-      setInvoiceLinks((invoiceLinksRes.data as InvoiceLinkRow[] | null) ?? []);
-
-      if (docRow?.inbound_e_despatch_parasut_id) {
-        const { data, error } = await supabase
-          .from("parasut_inbound_e_despatches_demo")
-          .select(
-            "parasut_id, uuid, despatch_no, contact_name, issue_date, from_tax_number, response_status, response_type, expires_at, is_expired, parasut_created_at, parasut_updated_at",
-          )
-          .eq("parasut_id", docRow.inbound_e_despatch_parasut_id)
-          .maybeSingle();
-        if (!cancelled && !error) setInbound((data as InboundEDespatchRow | null) ?? null);
-      } else {
-        setInbound(null);
-      }
+      const { stock_movements: movementRows, activities: activityRows, invoices: invoiceRows, inbound_e_despatch: inboundRow, ...docFields } =
+        data?.data ?? {};
+      setDoc((docFields as ShipmentDocumentDemoRow | null) ?? null);
+      setMovements((movementRows as StockMovementRow[] | null) ?? []);
+      setActivities((activityRows as ActivityRow[] | null) ?? []);
+      setInvoiceLinks((invoiceRows as InvoiceLinkRow[] | null) ?? []);
+      setInbound((inboundRow as InboundEDespatchRow | null) ?? null);
     })();
 
     return () => {

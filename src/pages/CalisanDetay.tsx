@@ -75,13 +75,17 @@ const CalisanDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase.from("parasut_employees_demo").select("*").eq("parasut_id", parasutId).maybeSingle();
+      const { data, error } = await supabase.functions.invoke("payroll", { body: { action: "employees.get", id: Number(parasutId) } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (data?.error === "not_found") {
+        setEmp(null);
         return;
       }
-      setEmp((data as EmployeeDemoRow | null) ?? null);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
+        return;
+      }
+      setEmp((data?.data as EmployeeDemoRow | null) ?? null);
     })();
 
     return () => {

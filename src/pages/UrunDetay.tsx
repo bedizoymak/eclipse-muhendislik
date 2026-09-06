@@ -53,24 +53,23 @@ const UrunDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [productRes, levelsRes] = await Promise.all([
-        supabase.from("parasut_products_demo").select("*").eq("parasut_id", parasutId).maybeSingle(),
-        supabase
-          .from("parasut_inventory_levels_demo")
-          .select("parasut_id, warehouse_parasut_id, warehouse_name, stock_count, initial_stock_count, critical_stock_count")
-          .eq("product_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("products", { body: { action: "products.get", id: Number(parasutId) } });
 
       if (cancelled) return;
 
-      const firstError = productRes.error?.message ?? levelsRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (data?.error === "not_found") {
+        setProduct(null);
+        setLevels([]);
+        return;
+      }
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      setProduct((productRes.data as ProductDemoRow | null) ?? null);
-      setLevels((levelsRes.data as InventoryLevelRow[] | null) ?? []);
+      const { inventory_levels: levelRows, ...productFields } = data?.data ?? {};
+      setProduct((productFields as ProductDemoRow | null) ?? null);
+      setLevels((levelRows as InventoryLevelRow[] | null) ?? []);
     })();
 
     return () => {

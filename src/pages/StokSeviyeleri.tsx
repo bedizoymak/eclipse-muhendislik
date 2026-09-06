@@ -23,10 +23,9 @@ const StokSeviyeleri = () => {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("parasut_warehouses_demo")
-      .select("parasut_id, name")
-      .then(({ data }) => setWarehouses((data as { parasut_id: number; name: string | null }[] | null) ?? []));
+    supabase.functions
+      .invoke("products", { body: { action: "warehouses.options" } })
+      .then(({ data }) => setWarehouses((data?.data as { parasut_id: number; name: string | null }[] | null) ?? []));
   }, []);
 
   useEffect(() => {
@@ -37,27 +36,20 @@ const StokSeviyeleri = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_inventory_levels_demo")
-        .select("parasut_id, product_parasut_id, product_name, product_code, warehouse_parasut_id, warehouse_name, stock_count, initial_stock_count, critical_stock_count")
-        .limit(200);
-      if (warehouseFilter) listQuery = listQuery.eq("warehouse_parasut_id", warehouseFilter);
+      const body: Record<string, unknown> = { action: "levels.list", pageSize: 200 };
+      if (warehouseFilter) body.warehouse_id = warehouseFilter;
 
-      const [listRes, countRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_inventory_levels_demo").select("parasut_id", { count: "exact", head: true }),
-      ]);
+      const { data, error } = await supabase.functions.invoke("inventory", { body });
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? countRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      setLevels((listRes.data as InventoryLevelDemoRow[] | null) ?? []);
-      setTotalCount(countRes.count ?? 0);
+      setLevels((data?.data as InventoryLevelDemoRow[] | null) ?? []);
+      setTotalCount(data?.count ?? 0);
     })();
 
     return () => {

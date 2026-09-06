@@ -20,9 +20,11 @@ interface EmptyResourceListProps<Row extends { parasut_id: number }> {
   backLabel: string;
   title: string;
   description: string;
-  listView: string;
-  countView: string;
-  selectColumns: string;
+  /** Edge Function name (e.g. "payroll", "products", "tags-and-settings"). */
+  functionName: string;
+  /** Resource key within that function -- calls `${resource}.list` /
+   * `${resource}.counts`, matching the Phase 15 domain function actions. */
+  resource: string;
   columns: EmptyResourceColumn<Row>[];
   emptyExplanation: string;
   /**
@@ -57,9 +59,8 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
   backLabel,
   title,
   description,
-  listView,
-  countView,
-  selectColumns,
+  functionName,
+  resource,
   columns,
   emptyExplanation,
   detailBase,
@@ -79,26 +80,26 @@ function EmptyResourceList<Row extends { parasut_id: number }>({
     let cancelled = false;
 
     Promise.all([
-      supabase.from(listView).select(selectColumns).limit(1000),
-      supabase.from(countView).select(countColumn).single(),
+      supabase.functions.invoke(functionName, { body: { action: `${resource}.list`, pageSize: 1000 } }),
+      supabase.functions.invoke(functionName, { body: { action: `${resource}.counts` } }),
     ]).then(([listResult, countResult]) => {
       if (cancelled) return;
-      if (listResult.error) {
-        setLoadError(listResult.error.message);
+      if (listResult.error || listResult.data?.error) {
+        setLoadError(listResult.error?.message ?? listResult.data?.error);
         return;
       }
-      if (countResult.error) {
-        setLoadError(countResult.error.message);
+      if (countResult.error || countResult.data?.error) {
+        setLoadError(countResult.error?.message ?? countResult.data?.error);
         return;
       }
-      setRows((listResult.data as unknown as Row[] | null) ?? []);
-      setTotalCount((countResult.data as unknown as Record<string, number> | null)?.[countColumn] ?? 0);
+      setRows((listResult.data?.data as unknown as Row[] | null) ?? []);
+      setTotalCount((countResult.data?.data as Record<string, number> | null)?.[countColumn] ?? 0);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [listView, countView, selectColumns, countColumn]);
+  }, [functionName, resource, countColumn]);
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">

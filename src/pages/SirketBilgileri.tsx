@@ -275,26 +275,16 @@ const SirketBilgileri = () => {
       return;
     }
     let cancelled = false;
-    supabase
-      .from("parasut_company_profile_demo")
-      .select("*")
-      .maybeSingle()
+    supabase.functions
+      .invoke("tags-and-settings", { body: { action: "company.get" } })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setLoadError(error.message);
+        if (error || data?.error) {
+          setLoadError(error?.message ?? data?.error);
           return;
         }
-        setCompany((data as CompanyProfileRow) ?? null);
-      });
-    supabase
-      .from("parasut_user_company_relation_demo")
-      .select("*")
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) return;
-        setRelation((data as UserRelationRow) ?? null);
+        setCompany((data?.data?.company as CompanyProfileRow) ?? null);
+        setRelation((data?.data?.userCompanyRelation as UserRelationRow) ?? null);
       });
     return () => {
       cancelled = true;

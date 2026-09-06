@@ -88,30 +88,26 @@ const GiderDetay = () => {
     let cancelled = false;
 
     (async () => {
-      const [billRes, detailsRes, paymentsRes] = await Promise.all([
-        supabase.from("parasut_purchase_bills_demo").select("*").eq("parasut_id", parasutId).maybeSingle(),
-        supabase
-          .from("parasut_purchase_bill_details_demo")
-          .select("parasut_id, description, quantity, unit_price, vat_rate, discount_type, discount_value, net_total, product_parasut_id, product_name")
-          .eq("purchase_bill_parasut_id", parasutId),
-        supabase
-          .from("parasut_expense_payments_demo")
-          .select("parasut_id, date, amount, currency, notes, transaction_parasut_id, debit_account_name, credit_account_name")
-          .eq("payable_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("expenses", { body: { action: "bills.get", id: Number(parasutId) } });
 
       if (cancelled) return;
 
-      const firstError = billRes.error?.message ?? detailsRes.error?.message ?? paymentsRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
+      if (data?.error === "not_found") {
+        setBill(null);
+        setDetails([]);
+        setPayments([]);
+        return;
+      }
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
 
-      const billRow = (billRes.data as BillDemoRow | null) ?? null;
+      const { details: detailRows, payments: paymentRows, ...billFields } = data?.data ?? {};
+      const billRow = (billFields as BillDemoRow | null) ?? null;
       setBill(billRow);
-      setDetails((detailsRes.data as DetailRow[] | null) ?? []);
-      setPayments((paymentsRes.data as ExpensePaymentRow[] | null) ?? []);
+      setDetails((detailRows as DetailRow[] | null) ?? []);
+      setPayments((paymentRows as ExpensePaymentRow[] | null) ?? []);
 
       if (billRow) {
         const { doc, error } = await fetchActiveEDocument(billRow.active_e_document_type, billRow.active_e_document_parasut_id);

@@ -25,8 +25,8 @@ const UrunKategoriDetay = () => (
     backTo="/stok/kategoriler"
     backLabel="Ürün Kategorileri"
     title="Ürün Kategorisi"
-    view="parasut_item_categories_demo"
-    selectColumns="parasut_id, parasut_type, full_path, name, bg_color, text_color, category_type, parent_category_parasut_id, parent_category_parasut_type, subcategories, parasut_created_at, parasut_updated_at"
+    functionName="products"
+    resource="categories"
     fields={[
       { label: "Kaynak tipi (parasut_type)", render: (r) => r.parasut_type ?? "—" },
       { label: "Ad", render: (r) => r.name ?? "—" },

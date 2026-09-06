@@ -38,29 +38,25 @@ const GiderOdemeleri = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_expense_payments_demo")
-        .select(
-          "parasut_id, date, amount, currency, notes, payable_parasut_id, invoice_no, supplier_parasut_id, supplier_name, transaction_parasut_id, debit_account_name, credit_account_name",
-        );
-      if (fromDate) listQuery = listQuery.gte("date", fromDate);
-      if (toDate) listQuery = listQuery.lte("date", toDate);
+      const body: Record<string, unknown> = { action: "payments.list", pageSize: 1000 };
+      if (fromDate) body.dateFrom = fromDate;
+      if (toDate) body.dateTo = toDate;
 
       const [listRes, countRes] = await Promise.all([
-        listQuery,
-        supabase.from("parasut_expense_payments_demo").select("parasut_id", { count: "exact", head: true }),
+        supabase.functions.invoke("expenses", { body }),
+        supabase.functions.invoke("expenses", { body: { action: "payments.counts" } }),
       ]);
 
       if (cancelled) return;
 
-      const firstError = listRes.error?.message ?? countRes.error?.message;
+      const firstError = listRes.error?.message ?? listRes.data?.error ?? countRes.error?.message ?? countRes.data?.error;
       if (firstError) {
         setLoadError(firstError);
         return;
       }
 
-      setPayments((listRes.data as ExpensePaymentRow[] | null) ?? []);
-      setTotalCount(countRes.count ?? 0);
+      setPayments((listRes.data?.data as ExpensePaymentRow[] | null) ?? []);
+      setTotalCount(countRes.data?.data?.total ?? 0);
     })();
 
     return () => {

@@ -17,9 +17,8 @@ const Maaslar = () => (
     backLabel="Çalışanlar"
     title="Maaşlar"
     description="Paraşüt'ten senkronize edilen gerçek maaş kayıtları."
-    listView="parasut_salaries_demo"
-    countView="parasut_salary_counts_demo"
-    selectColumns="parasut_id, description, currency, issue_date, due_date, net_total, remaining, archived"
+    functionName="payroll"
+    resource="salaries"
     emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /salaries gerçek olarak boş liste döndürüyor)."
     detailBase="/giderler/maaslar"
     columns={[

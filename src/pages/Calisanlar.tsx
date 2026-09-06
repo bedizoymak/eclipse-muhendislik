@@ -53,9 +53,9 @@ const Calisanlar = () => {
     if (!supabase) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("parasut_employee_meta_demo").select("*");
+      const { data, error } = await supabase.functions.invoke("payroll", { body: { action: "employees.meta" } });
       if (cancelled) return;
-      if (!error) setMetaRows((data as EmployeeMetaDemoRow[] | null) ?? []);
+      if (!error && !data?.error) setMetaRows((data?.data as EmployeeMetaDemoRow[] | null) ?? []);
     })();
     return () => {
       cancelled = true;
@@ -71,13 +71,13 @@ const Calisanlar = () => {
     }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("parasut_employee_counts_demo").select("*").maybeSingle();
+      const { data, error } = await supabase.functions.invoke("payroll", { body: { action: "employees.counts" } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error ?? "Sayaç verisi alınamadı.");
         return;
       }
-      const row = data as { active_count: number; archived_count: number; total_count: number } | null;
+      const row = data?.data as { active_count: number; archived_count: number; total_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
@@ -94,19 +94,17 @@ const Calisanlar = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_employees_demo")
-        .select("parasut_id, name, email, phone, archived, employment_start_date, employment_end_date, category_parasut_id");
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false);
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true);
+      const body: Record<string, unknown> = { action: "employees.list", pageSize: 1000 };
+      if (archivedFilter === "active") body.archived = false;
+      if (archivedFilter === "archived") body.archived = true;
 
-      const { data, error } = await listQuery;
+      const { data, error } = await supabase.functions.invoke("payroll", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setRows((data as EmployeeDemoRow[] | null) ?? []);
+      setRows((data?.data as EmployeeDemoRow[] | null) ?? []);
     })();
 
     return () => {

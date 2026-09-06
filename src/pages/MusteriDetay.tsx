@@ -54,44 +54,26 @@ const MusteriDetay = () => {
     if (!parasutId) return;
 
     let cancelled = false;
-    supabase
-      .from("parasut_contacts_demo")
-      .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
-      .eq("parasut_id", parasutId)
-      .maybeSingle()
+    supabase.functions
+      .invoke("customers", { body: { action: "get", id: Number(parasutId) } })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
           setLoadError(error.message);
           return;
         }
-        setContact((data as ContactDemoRow | null) ?? null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [parasutId]);
-
-  // Yetkili Kişiler (contact_people) -- real records only, linked via the
-  // real contact_parasut_id relationship column (never by name matching).
-  useEffect(() => {
-    if (!supabase || !parasutId) return;
-
-    let cancelled = false;
-    supabase
-      .from("parasut_contact_people_demo")
-      .select(
-        "parasut_id, name, email, phone, notes, contact_parasut_id, resource_type, contact_type, parasut_created_at, parasut_updated_at, synced_at",
-      )
-      .eq("contact_parasut_id", parasutId)
-      .order("parasut_id", { ascending: true })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          setPeopleError(error.message);
+        if (data?.error === "not_found") {
+          setContact(null);
+          setPeople([]);
           return;
         }
-        setPeople((data as ContactPersonDemoRow[] | null) ?? []);
+        if (data?.error) {
+          setLoadError(data.error);
+          return;
+        }
+        const { contact_people, ...contactRow } = data?.data ?? {};
+        setContact((contactRow as ContactDemoRow | null) ?? null);
+        setPeople((contact_people as ContactPersonDemoRow[] | null) ?? []);
       });
     return () => {
       cancelled = true;

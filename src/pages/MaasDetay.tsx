@@ -59,12 +59,10 @@ const MaasDetay = () => {
   useEffect(() => {
     if (!supabase || !parasutId || !row) return;
     let cancelled = false;
-    supabase
-      .from("parasut_salary_tags_demo")
-      .select("tag_parasut_id, tag_type, tag_name")
-      .eq("salary_parasut_id", parasutId)
+    supabase.functions
+      .invoke("payroll", { body: { action: "salaries.tags", id: Number(parasutId) } })
       .then(({ data }) => {
-        if (!cancelled) setTags(data ?? []);
+        if (!cancelled) setTags(data?.data ?? []);
       });
     return () => {
       cancelled = true;
@@ -79,23 +77,17 @@ const MaasDetay = () => {
     if (!supabase || !row) return;
     let cancelled = false;
     if (row.employee_parasut_id != null) {
-      supabase
-        .from("parasut_employees_demo")
-        .select("name")
-        .eq("parasut_id", row.employee_parasut_id)
-        .maybeSingle()
+      supabase.functions
+        .invoke("payroll", { body: { action: "employees.name", id: row.employee_parasut_id } })
         .then(({ data }) => {
-          if (!cancelled) setEmployeeName((data as { name: string | null } | null)?.name ?? null);
+          if (!cancelled) setEmployeeName((data?.data as { name: string | null } | null)?.name ?? null);
         });
     }
     if (row.category_parasut_id != null) {
-      supabase
-        .from("parasut_item_categories_demo")
-        .select("name")
-        .eq("parasut_id", row.category_parasut_id)
-        .maybeSingle()
+      supabase.functions
+        .invoke("payroll", { body: { action: "categories.name", id: row.category_parasut_id } })
         .then(({ data }) => {
-          if (!cancelled) setCategoryName((data as { name: string | null } | null)?.name ?? null);
+          if (!cancelled) setCategoryName((data?.data as { name: string | null } | null)?.name ?? null);
         });
     }
     return () => {
@@ -109,8 +101,8 @@ const MaasDetay = () => {
         backTo="/giderler/maaslar"
         backLabel="Maaşlar"
         title="Maaş"
-        view="parasut_salaries_demo"
-        selectColumns="parasut_id, parasut_type, description, currency, issue_date, due_date, exchange_rate, net_total, total_paid, remaining, remaining_in_trl, archived, employee_parasut_id, employee_parasut_type, category_parasut_id, category_parasut_type, parasut_created_at, parasut_updated_at"
+        functionName="payroll"
+        resource="salaries"
         onRowLoaded={setRow}
         fields={[
           { label: "Kaynak tipi (parasut_type)", render: (r) => r.parasut_type ?? "—" },

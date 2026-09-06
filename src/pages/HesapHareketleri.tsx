@@ -55,10 +55,9 @@ const HesapHareketleri = () => {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase
-      .from("parasut_accounts_demo")
-      .select("parasut_id, name")
-      .then(({ data }) => setAccountOptions((data as AccountOption[] | null) ?? []));
+    supabase.functions
+      .invoke("cash", { body: { action: "accounts.options" } })
+      .then(({ data }) => setAccountOptions((data?.data as AccountOption[] | null) ?? []));
   }, []);
 
   useEffect(() => {
@@ -69,28 +68,19 @@ const HesapHareketleri = () => {
     let cancelled = false;
 
     (async () => {
-      let query = supabase
-        .from("parasut_transactions_demo")
-        .select(
-          "parasut_id, description, transaction_type, date, debit_amount, debit_currency, debit_account_parasut_id, debit_account_type, debit_account_name, debit_contact_name, credit_amount, credit_currency, credit_account_parasut_id, credit_account_type, credit_account_name, credit_contact_name",
-        )
-        .limit(200);
+      const body: Record<string, unknown> = { action: "transactions.list", pageSize: 200 };
+      if (fromDate) body.dateFrom = fromDate;
+      if (toDate) body.dateTo = toDate;
+      if (transactionType) body.transaction_type = transactionType;
+      if (accountFilter) body.account_id = Number(accountFilter);
 
-      if (fromDate) query = query.gte("date", fromDate);
-      if (toDate) query = query.lte("date", toDate);
-      if (transactionType) query = query.eq("transaction_type", transactionType);
-      if (accountFilter) {
-        const id = Number(accountFilter);
-        query = query.or(`debit_account_parasut_id.eq.${id},credit_account_parasut_id.eq.${id}`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.functions.invoke("cash", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setTransactions((data as TransactionDemoRow[] | null) ?? []);
+      setTransactions((data?.data as TransactionDemoRow[] | null) ?? []);
     })();
 
     return () => {

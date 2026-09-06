@@ -26,8 +26,10 @@ interface EmptyResourceDetailProps<Row extends { parasut_id: number }> {
   backTo: string;
   backLabel: string;
   title: string;
-  view: string;
-  selectColumns: string;
+  /** Edge Function name (e.g. "payroll", "products", "tags-and-settings"). */
+  functionName: string;
+  /** Resource key within that function -- calls `${resource}.get`. */
+  resource: string;
   fields: EmptyResourceDetailField<Row>[];
   /**
    * Phase 13.4: optional callback fired with the loaded row (or null when
@@ -43,8 +45,8 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
   backTo,
   backLabel,
   title,
-  view,
-  selectColumns,
+  functionName,
+  resource,
   fields,
   onRowLoaded,
 }: EmptyResourceDetailProps<Row>) {
@@ -60,18 +62,20 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
     if (!parasutId) return;
     let cancelled = false;
 
-    supabase
-      .from(view)
-      .select(selectColumns)
-      .eq("parasut_id", parasutId)
-      .maybeSingle()
+    supabase.functions
+      .invoke(functionName, { body: { action: `${resource}.get`, id: Number(parasutId) } })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setLoadError(error.message);
+        if (data?.error === "not_found") {
+          setRow(null);
+          onRowLoaded?.(null);
           return;
         }
-        const loaded = (data as unknown as Row | null) ?? null;
+        if (error || data?.error) {
+          setLoadError(error?.message ?? data?.error);
+          return;
+        }
+        const loaded = (data?.data as unknown as Row | null) ?? null;
         setRow(loaded);
         onRowLoaded?.(loaded);
       });
@@ -80,7 +84,7 @@ function EmptyResourceDetail<Row extends { parasut_id: number }>({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, selectColumns, parasutId]);
+  }, [functionName, resource, parasutId]);
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">

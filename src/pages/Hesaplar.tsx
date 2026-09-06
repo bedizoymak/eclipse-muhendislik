@@ -36,16 +36,15 @@ const Hesaplar = () => {
       return;
     }
     let cancelled = false;
-    supabase
-      .from("parasut_accounts_demo")
-      .select("parasut_id, name, account_type, currency, bank_name, bank_branch, balance, archived, synced_at")
+    supabase.functions
+      .invoke("cash", { body: { action: "accounts.list" } })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setLoadError(error.message);
+        if (error || data?.error) {
+          setLoadError(error?.message ?? data?.error);
           return;
         }
-        setAccounts((data as AccountDemoRow[] | null) ?? []);
+        setAccounts((data?.data as AccountDemoRow[] | null) ?? []);
       });
     return () => {
       cancelled = true;

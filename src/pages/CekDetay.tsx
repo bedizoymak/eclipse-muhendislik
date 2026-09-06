@@ -80,27 +80,20 @@ const CekDetay = () => {
 
     let cancelled = false;
     (async () => {
-      const [checkRes, paymentsRes] = await Promise.all([
-        supabase
-          .from("parasut_checks_demo")
-          .select("*")
-          .eq("parasut_id", parasutId)
-          .maybeSingle(),
-        supabase
-          .from("parasut_payments_demo")
-          .select("parasut_id, date, due_date, amount, matched_amount, amount_in_trl, currency, paid_in_currency")
-          .eq("payable_type", "checks")
-          .eq("payable_parasut_id", parasutId),
-      ]);
+      const { data, error } = await supabase.functions.invoke("cash", { body: { action: "checks.get", id: Number(parasutId) } });
       if (cancelled) return;
-      if (checkRes.error) {
-        setLoadError(checkRes.error.message);
+      if (data?.error === "not_found") {
+        setCheck(null);
+        setPayments([]);
         return;
       }
-      setCheck((checkRes.data as CheckDemoRow | null) ?? null);
-      if (!paymentsRes.error) {
-        setPayments((paymentsRes.data as CheckPaymentDemoRow[] | null) ?? []);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
+        return;
       }
+      const { payments: paymentRows, ...checkFields } = data?.data ?? {};
+      setCheck((checkFields as CheckDemoRow | null) ?? null);
+      setPayments((paymentRows as CheckPaymentDemoRow[] | null) ?? []);
     })();
     return () => {
       cancelled = true;

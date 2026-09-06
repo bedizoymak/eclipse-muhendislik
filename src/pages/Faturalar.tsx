@@ -70,13 +70,13 @@ const Faturalar = () => {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase.from("parasut_sales_invoice_counts_demo").select("*").maybeSingle();
+      const { data, error } = await supabase.functions.invoke("sales", { body: { action: "invoices.counts" } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error ?? "Sayaç verisi alınamadı.");
         return;
       }
-      const row = data as { list_active_count: number; archived_count: number; cancelled_count: number; total_unique_count: number } | null;
+      const row = data?.data as { list_active_count: number; archived_count: number; cancelled_count: number; total_unique_count: number } | null;
       if (!row) {
         setLoadError("Sayaç verisi alınamadı.");
         return;
@@ -103,30 +103,32 @@ const Faturalar = () => {
     let cancelled = false;
 
     (async () => {
-      let listQuery = supabase
-        .from("parasut_sales_invoices_demo")
-        .select(
-          "parasut_id, invoice_no, item_type, issue_date, due_date, currency, net_total, gross_total, total_vat, remaining, payment_status, archived, contact_parasut_id, contact_name, active_e_document_type",
-        );
+      const body: Record<string, unknown> = { action: "invoices.list", pageSize: 1000 };
       // "cancelled" is item_type="cancelled" (real API field), never derived
       // from archived -- a cancelled invoice can independently be
       // archived=false or =true. "active"/"archived" both explicitly
       // exclude cancelled invoices so a cancelled record is never shown
       // mixed into either tab.
-      if (archivedFilter === "active") listQuery = listQuery.eq("archived", false).neq("item_type", "cancelled");
-      if (archivedFilter === "archived") listQuery = listQuery.eq("archived", true).neq("item_type", "cancelled");
-      if (archivedFilter === "cancelled") listQuery = listQuery.eq("item_type", "cancelled");
-      if (paymentFilter !== "all") listQuery = listQuery.eq("payment_status", paymentFilter);
-      if (fromDate) listQuery = listQuery.gte("issue_date", fromDate);
-      if (toDate) listQuery = listQuery.lte("issue_date", toDate);
+      if (archivedFilter === "active") {
+        body.archived = false;
+        body.exclude_cancelled = true;
+      }
+      if (archivedFilter === "archived") {
+        body.archived = true;
+        body.exclude_cancelled = true;
+      }
+      if (archivedFilter === "cancelled") body.item_type = "cancelled";
+      if (paymentFilter !== "all") body.payment_status = paymentFilter;
+      if (fromDate) body.dateFrom = fromDate;
+      if (toDate) body.dateTo = toDate;
 
-      const { data, error } = await listQuery;
+      const { data, error } = await supabase.functions.invoke("sales", { body });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
         return;
       }
-      setInvoices((data as InvoiceDemoRow[] | null) ?? []);
+      setInvoices((data?.data as InvoiceDemoRow[] | null) ?? []);
     })();
 
     return () => {

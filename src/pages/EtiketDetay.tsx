@@ -16,8 +16,8 @@ const EtiketDetay = () => (
     backTo="/ayarlar/etiketler"
     backLabel="Etiketler"
     title="Etiket"
-    view="parasut_tags_demo"
-    selectColumns="parasut_id, parasut_type, name, parasut_created_at, parasut_updated_at"
+    functionName="tags-and-settings"
+    resource="tags"
     fields={[
       { label: "Kaynak tipi (parasut_type)", render: (r) => r.parasut_type ?? "—" },
       { label: "Ad", render: (r) => r.name ?? "—" },

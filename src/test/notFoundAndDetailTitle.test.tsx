@@ -23,20 +23,25 @@ function renderDetail(path: string, props: Omit<Parameters<typeof EmptyResourceD
 // business title ("Maaş #999") before the main query confirms the record
 // really exists.
 
-function makeSupabaseMock(result: { data: unknown; error: { message: string } | null }, deferred = false) {
-  const promise = deferred ? new Promise(() => {}) : Promise.resolve(result);
-  const chain = {
-    select: () => chain,
-    eq: () => chain,
-    maybeSingle: () => promise,
-  };
-  const from = vi.fn(() => chain);
-  return { from };
+// EmptyResourceDetail now fetches via supabase.functions.invoke(functionName,
+// { action: `${resource}.get` }) instead of a direct .from() PostgREST call
+// (Phase 15 Edge Function cutover) -- the mock's envelope shape matches what
+// a real Edge Function returns: { data: {...} } / { error: "not_found" }.
+function makeFunctionsInvokeMock(
+  result: { data: unknown; error: string | null },
+  deferred = false,
+) {
+  const body = result.error
+    ? { data: { error: result.error }, error: null }
+    : { data: { data: result.data }, error: null };
+  const promise = deferred ? new Promise(() => {}) : Promise.resolve(body);
+  return { invoke: vi.fn(() => promise) };
 }
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: vi.fn(),
+    functions: { invoke: vi.fn() },
   },
 }));
 
@@ -83,19 +88,19 @@ describe("NotFound", () => {
 
 describe("EmptyResourceDetail title timing", () => {
   beforeEach(() => {
-    vi.mocked(supabase!.from).mockReset();
+    vi.mocked(supabase!.functions.invoke).mockReset();
   });
 
   it("shows no #ID title while loading (row not yet resolved)", () => {
-    const mock = makeSupabaseMock({ data: null, error: null }, true);
-    vi.mocked(supabase!.from).mockImplementation(mock.from as never);
+    const mock = makeFunctionsInvokeMock({ data: null, error: null }, true);
+    vi.mocked(supabase!.functions.invoke).mockImplementation(mock.invoke as never);
 
     renderDetail("/giderler/maaslar/999", {
       backTo: "/giderler/maaslar",
       backLabel: "Maaşlar",
       title: "Maaş",
-      view: "parasut_salaries_demo",
-      selectColumns: "parasut_id",
+      functionName: "payroll",
+      resource: "salaries",
       fields: [],
     });
 
@@ -105,15 +110,15 @@ describe("EmptyResourceDetail title timing", () => {
   });
 
   it("shows 'Kayıt bulunamadı' and no #999 title when the record is confirmed absent", async () => {
-    const mock = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(supabase!.from).mockImplementation(mock.from as never);
+    const mock = makeFunctionsInvokeMock({ data: null, error: "not_found" });
+    vi.mocked(supabase!.functions.invoke).mockImplementation(mock.invoke as never);
 
     renderDetail("/giderler/maaslar/999", {
       backTo: "/giderler/maaslar",
       backLabel: "Maaşlar",
       title: "Maaş",
-      view: "parasut_salaries_demo",
-      selectColumns: "parasut_id",
+      functionName: "payroll",
+      resource: "salaries",
       fields: [],
     });
 
@@ -123,15 +128,15 @@ describe("EmptyResourceDetail title timing", () => {
   });
 
   it("shows the real parasut_id as the title once the record is confirmed found", async () => {
-    const mock = makeSupabaseMock({ data: { parasut_id: 42 }, error: null });
-    vi.mocked(supabase!.from).mockImplementation(mock.from as never);
+    const mock = makeFunctionsInvokeMock({ data: { parasut_id: 42 }, error: null });
+    vi.mocked(supabase!.functions.invoke).mockImplementation(mock.invoke as never);
 
     renderDetail("/giderler/maaslar/42", {
       backTo: "/giderler/maaslar",
       backLabel: "Maaşlar",
       title: "Maaş",
-      view: "parasut_salaries_demo",
-      selectColumns: "parasut_id",
+      functionName: "payroll",
+      resource: "salaries",
       fields: [],
     });
 
@@ -139,16 +144,16 @@ describe("EmptyResourceDetail title timing", () => {
   });
 
   it("never fires onRowLoaded with a fabricated row before the query resolves", () => {
-    const mock = makeSupabaseMock({ data: null, error: null }, true);
-    vi.mocked(supabase!.from).mockImplementation(mock.from as never);
+    const mock = makeFunctionsInvokeMock({ data: null, error: null }, true);
+    vi.mocked(supabase!.functions.invoke).mockImplementation(mock.invoke as never);
     const onRowLoaded = vi.fn();
 
     renderDetail("/giderler/maaslar/999", {
       backTo: "/giderler/maaslar",
       backLabel: "Maaşlar",
       title: "Maaş",
-      view: "parasut_salaries_demo",
-      selectColumns: "parasut_id",
+      functionName: "payroll",
+      resource: "salaries",
       fields: [],
       onRowLoaded,
     });

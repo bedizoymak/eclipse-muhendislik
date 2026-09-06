@@ -48,12 +48,10 @@ const VergiDetay = () => {
   useEffect(() => {
     if (!supabase || !parasutId || !row) return;
     let cancelled = false;
-    supabase
-      .from("parasut_tax_tags_demo")
-      .select("tag_parasut_id, tag_type, tag_name")
-      .eq("tax_parasut_id", parasutId)
+    supabase.functions
+      .invoke("payroll", { body: { action: "taxes.tags", id: Number(parasutId) } })
       .then(({ data }) => {
-        if (!cancelled) setTags(data ?? []);
+        if (!cancelled) setTags(data?.data ?? []);
       });
     return () => {
       cancelled = true;
@@ -63,13 +61,10 @@ const VergiDetay = () => {
   useEffect(() => {
     if (!supabase || !row || row.category_parasut_id == null) return;
     let cancelled = false;
-    supabase
-      .from("parasut_item_categories_demo")
-      .select("name")
-      .eq("parasut_id", row.category_parasut_id)
-      .maybeSingle()
+    supabase.functions
+      .invoke("payroll", { body: { action: "categories.name", id: row.category_parasut_id } })
       .then(({ data }) => {
-        if (!cancelled) setCategoryName((data as { name: string | null } | null)?.name ?? null);
+        if (!cancelled) setCategoryName((data?.data as { name: string | null } | null)?.name ?? null);
       });
     return () => {
       cancelled = true;
@@ -82,8 +77,8 @@ const VergiDetay = () => {
         backTo="/giderler/vergiler"
         backLabel="Vergiler"
         title="Vergi"
-        view="parasut_taxes_demo"
-        selectColumns="parasut_id, parasut_type, description, issue_date, due_date, net_total, total_paid, remaining, remaining_in_trl, archived, category_parasut_id, category_parasut_type, parasut_created_at, parasut_updated_at"
+        functionName="payroll"
+        resource="taxes"
         onRowLoaded={setRow}
         fields={[
           { label: "Kaynak tipi (parasut_type)", render: (r) => r.parasut_type ?? "—" },

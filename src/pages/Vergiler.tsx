@@ -16,9 +16,8 @@ const Vergiler = () => (
     backLabel="Giderler"
     title="Vergiler"
     description="Paraşüt'ten senkronize edilen gerçek vergi kayıtları."
-    listView="parasut_taxes_demo"
-    countView="parasut_tax_counts_demo"
-    selectColumns="parasut_id, description, issue_date, due_date, net_total, remaining, archived"
+    functionName="payroll"
+    resource="taxes"
     emptyExplanation="Paraşüt hesabında bu kaynak için mevcut kayıt yok (GET /taxes gerçek olarak boş liste döndürüyor)."
     detailBase="/giderler/vergiler"
     columns={[

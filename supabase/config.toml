@@ -403,6 +403,37 @@ deno_version = 2
 # re-validates the token (defense-in-depth, see index.ts).
 verify_jwt = true
 
+# Phase 15: the 11 read Edge Functions replacing direct
+# `.from("parasut_*_demo")` PostgREST calls from the frontend. Public
+# (verify_jwt = false), matching the site's existing behavior -- no login
+# gate has ever existed on viewing demo data, only on triggering a sync
+# (parasut-sync, above). Every one of them funnels through the shared
+# authorize() choke point in supabase/functions/_shared/http.ts so this can
+# be tightened later without touching each function. See
+# reports/PHASE_15_EDGE_FUNCTION_CONTRACTS_DESIGN.md.
+[functions.customers]
+verify_jwt = false
+[functions.sales]
+verify_jwt = false
+[functions.expenses]
+verify_jwt = false
+[functions.payroll]
+verify_jwt = false
+[functions.cash]
+verify_jwt = false
+[functions.products]
+verify_jwt = false
+[functions.inventory]
+verify_jwt = false
+[functions.shipments]
+verify_jwt = false
+[functions."e-documents"]
+verify_jwt = false
+[functions."tags-and-settings"]
+verify_jwt = false
+[functions."sync-status"]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

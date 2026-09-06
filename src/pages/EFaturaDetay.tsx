@@ -19,17 +19,17 @@ const EFaturaDetay = () => {
     if (!supabase || !parasutId) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("parasut_e_invoices_demo")
-        .select("*")
-        .eq("parasut_id", Number(parasutId))
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("e-documents", { body: { action: "invoices.get", id: Number(parasutId) } });
       if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
+      if (data?.error === "not_found") {
+        setRow(null);
         return;
       }
-      setRow((data as EInvoiceRow | null) ?? null);
+      if (error || data?.error) {
+        setLoadError(error?.message ?? data?.error);
+        return;
+      }
+      setRow((data?.data as EInvoiceRow | null) ?? null);
     })();
     return () => {
       cancelled = true;

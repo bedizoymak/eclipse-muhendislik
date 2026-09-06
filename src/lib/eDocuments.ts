@@ -102,29 +102,19 @@ export async function fetchActiveEDocument(
     return { doc: null, error: null };
   }
 
-  if (activeEDocumentType === "e_invoices") {
-    const { data, error } = await supabase
-      .from("parasut_e_invoices_demo")
-      .select("*")
-      .eq("parasut_id", activeEDocumentParasutId)
-      .maybeSingle();
-    if (error) return { doc: null, error: error.message };
-    return { doc: data ? { kind: "e_invoices", row: data as EInvoiceRow } : null, error: null };
+  // A real but previously-unseen active_e_document type is filtered
+  // server-side too (the "resolve" action only ever recognizes these two
+  // real types) -- not guessed or rendered as one of the two known kinds.
+  if (activeEDocumentType !== "e_invoices" && activeEDocumentType !== "e_archives") {
+    return { doc: null, error: null };
   }
 
-  if (activeEDocumentType === "e_archives") {
-    const { data, error } = await supabase
-      .from("parasut_e_archives_demo")
-      .select("*")
-      .eq("parasut_id", activeEDocumentParasutId)
-      .maybeSingle();
-    if (error) return { doc: null, error: error.message };
-    return { doc: data ? { kind: "e_archives", row: data as EArchiveRow } : null, error: null };
-  }
-
-  // A real but previously-unseen active_e_document type -- not guessed or
-  // rendered as one of the two known kinds.
-  return { doc: null, error: null };
+  const { data, error } = await supabase.functions.invoke("e-documents", {
+    body: { action: "resolve", docType: activeEDocumentType, id: activeEDocumentParasutId },
+  });
+  if (error) return { doc: null, error: error.message };
+  if (data?.error) return { doc: null, error: data.error };
+  return { doc: (data?.data as EDocument | null) ?? null, error: null };
 }
 
 export const E_DOCUMENT_TYPE_LABELS: Record<string, string> = {

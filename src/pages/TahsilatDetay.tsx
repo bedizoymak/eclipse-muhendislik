@@ -44,18 +44,19 @@ const TahsilatDetay = () => {
     if (!parasutId) return;
 
     let cancelled = false;
-    supabase
-      .from("parasut_payments_demo")
-      .select("*")
-      .eq("parasut_id", parasutId)
-      .maybeSingle()
+    supabase.functions
+      .invoke("sales", { body: { action: "payments.get", id: Number(parasutId) } })
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setLoadError(error.message);
+        if (data?.error === "not_found") {
+          setPayment(null);
           return;
         }
-        setPayment((data as PaymentDemoRow | null) ?? null);
+        if (error || data?.error) {
+          setLoadError(error?.message ?? data?.error);
+          return;
+        }
+        setPayment((data?.data as PaymentDemoRow | null) ?? null);
       });
     return () => {
       cancelled = true;
