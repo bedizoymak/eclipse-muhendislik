@@ -395,6 +395,14 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+[functions.parasut-sync]
+# Phase 14.6: reverted to enforced JWT verification. The manual sync button
+# now requires a signed-in Supabase Auth session (see src/pages/Login.tsx +
+# DemoHome.tsx); an anonymous caller is rejected by the gateway with 401
+# before this function's code ever runs, and the function itself also
+# re-validates the token (defense-in-depth, see index.ts).
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

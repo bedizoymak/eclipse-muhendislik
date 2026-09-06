@@ -30,6 +30,14 @@ interface SyncStatusRow {
 
 // Phase 1 temporary verification view: confirms the parasut-sync Edge
 // Function actually wrote real Parasut data into Supabase. Not a dashboard.
+//
+// Phase 14.6: the actual Parasut sync is no longer triggered from the
+// browser. It runs server-side on a schedule (pg_cron + pg_net, see
+// supabase/migrations/*_parasut_scheduled_sync.sql), authenticated with the
+// service_role key held only in Supabase Vault -- never shipped to any
+// client bundle. This page's button only re-reads the public, read-only
+// demo views below; it never calls the write Edge Function and requires no
+// login, because it performs no write and needs no elevated privilege.
 const DemoHome = () => {
   const [contacts, setContacts] = useState<ContactDemoRow[] | null>(null);
   const [activeCount, setActiveCount] = useState<number | null>(null);
@@ -37,56 +45,78 @@ const DemoHome = () => {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatusRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
-  useEffect(() => {
+  const loadData = async () => {
     if (!supabase) {
       setLoadError("Supabase yapılandırılmamış (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY eksik).");
       return;
     }
 
+    const [contactsRes, totalRes, activeRes, archivedRes, syncRes] = await Promise.all([
+      supabase
+        .from("parasut_contacts_demo")
+        .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
+        .eq("archived", false)
+        .limit(20),
+      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }),
+      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
+      supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
+      supabase.from("parasut_sync_status_demo").select("*").eq("resource", "contacts").maybeSingle(),
+    ]);
+
+    const firstError =
+      contactsRes.error?.message ??
+      totalRes.error?.message ??
+      activeRes.error?.message ??
+      archivedRes.error?.message ??
+      syncRes.error?.message;
+    if (firstError) {
+      // Read-only view error: never a credential or technical secret, just
+      // the human-readable PostgREST message.
+      setLoadError(firstError);
+      return null;
+    }
+
+    setLoadError(null);
+    setContacts(contactsRes.data ?? []);
+    setTotalCount(totalRes.count ?? 0);
+    setActiveCount(activeRes.count ?? 0);
+    setArchivedCount(archivedRes.count ?? 0);
+    setSyncStatus((syncRes.data as SyncStatusRow | null) ?? null);
+    return true;
+  };
+
+  useEffect(() => {
     let cancelled = false;
-
     (async () => {
-      const [contactsRes, totalRes, activeRes, archivedRes, syncRes] = await Promise.all([
-        supabase
-          .from("parasut_contacts_demo")
-          .select("parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at")
-          .eq("archived", false)
-          .limit(20),
-        supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }),
-        supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        supabase.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        supabase
-          .from("parasut_sync_status_demo")
-          .select("*")
-          .eq("resource", "contacts")
-          .maybeSingle(),
-      ]);
-
-      if (cancelled) return;
-
-      const firstError =
-        contactsRes.error?.message ??
-        totalRes.error?.message ??
-        activeRes.error?.message ??
-        archivedRes.error?.message ??
-        syncRes.error?.message;
-      if (firstError) {
-        setLoadError(firstError);
-        return;
-      }
-
-      setContacts(contactsRes.data ?? []);
-      setTotalCount(totalRes.count ?? 0);
-      setActiveCount(activeRes.count ?? 0);
-      setArchivedCount(archivedRes.count ?? 0);
-      setSyncStatus((syncRes.data as SyncStatusRow | null) ?? null);
+      const ok = await loadData();
+      if (!cancelled && ok) setLastRefreshedAt(new Date());
     })();
-
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRefresh = async () => {
+    if (!supabase || isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshError(null);
+    try {
+      const ok = await loadData();
+      if (ok) setLastRefreshedAt(new Date());
+      else setRefreshError("Veriler yenilenemedi. Lütfen tekrar deneyin.");
+    } catch {
+      setRefreshError("Veriler yenilenemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const syncIsRunning = syncStatus?.status === "running";
 
   return (
     <div className="min-h-screen bg-navy-deep px-6 py-10 text-white">
@@ -94,6 +124,31 @@ const DemoHome = () => {
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-electric-bright">Eclipse Mühendislik</p>
         <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Paraşüt senkronizasyon doğrulaması</h1>
         <p className="mt-2 text-white/60">demo.eclipsemuhendislik.com — geçici teknik doğrulama görünümü (Faz 1)</p>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing || !supabase}
+            className="rounded-lg bg-electric-bright px-4 py-2 text-sm font-semibold text-navy-deep transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isRefreshing ? "Yenileniyor…" : "Verileri yenile"}
+          </button>
+          {syncIsRunning && (
+            <span className="break-words text-sm text-amber-300">Senkronizasyon devam ediyor…</span>
+          )}
+          {lastRefreshedAt && !syncIsRunning && (
+            <span className="break-words text-sm text-white/50">
+              Sayfa son yenileme: {lastRefreshedAt.toLocaleTimeString("tr-TR")}
+            </span>
+          )}
+        </div>
+
+        {refreshError && (
+          <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+            {refreshError}
+          </div>
+        )}
 
         {loadError && (
           <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
@@ -117,11 +172,13 @@ const DemoHome = () => {
                 <p className="mt-1 text-2xl font-semibold">{totalCount ?? "—"}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/50">Son başarılı sync</p>
+                <p className="text-xs uppercase tracking-wide text-white/50">Son senkronizasyon</p>
                 <p className="mt-1 text-sm font-medium">
-                  {syncStatus?.status === "success" && syncStatus.finished_at
-                    ? new Date(syncStatus.finished_at).toLocaleString("tr-TR")
-                    : syncStatus?.status ?? "henüz çalışmadı"}
+                  {syncIsRunning
+                    ? "çalışıyor…"
+                    : syncStatus?.status === "success" && syncStatus.finished_at
+                      ? new Date(syncStatus.finished_at).toLocaleString("tr-TR")
+                      : syncStatus?.status ?? "henüz çalışmadı"}
                 </p>
                 {syncStatus?.status === "success" && (
                   <p className="mt-1 text-xs text-white/50">
@@ -131,8 +188,10 @@ const DemoHome = () => {
               </div>
             </div>
 
-            {syncStatus?.error_message && (
-              <p className="mt-3 text-sm text-red-300">Son hata: {syncStatus.error_message}</p>
+            {syncStatus?.status === "error" && (
+              <p className="mt-3 text-sm text-red-300">
+                Son senkronizasyon başarısız oldu. Teknik ekip bilgilendirildi.
+              </p>
             )}
 
             <div className="mt-6 flex flex-wrap gap-4">

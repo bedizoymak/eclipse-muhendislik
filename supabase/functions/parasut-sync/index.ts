@@ -87,10 +87,35 @@ interface SyncResult {
 
 type SyncFn = (db: SupabaseClient, accessToken: string, dryRun: boolean) => Promise<SyncResult>;
 
-function jsonResponse(body: unknown, status = 200): Response {
+// Phase 14.6: explicit CORS allowlist. The browser sends a preflight OPTIONS
+// request before every cross-origin POST; without a matching handler and
+// Access-Control-* headers on every response (including errors), the
+// browser blocks the request before it reaches this function at all -- the
+// SDK then surfaces it as a generic "Failed to send a request" with no
+// further detail, regardless of which resource was requested.
+const ALLOWED_ORIGINS = new Set([
+  "https://demo.eclipsemuhendislik.com",
+  "https://www.demo.eclipsemuhendislik.com",
+  "https://eclipsemuhendislik.com",
+  "https://www.eclipsemuhendislik.com",
+  "http://localhost:5173",
+  "http://localhost:8080",
+]);
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(body: unknown, status = 200, cors: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...cors },
   });
 }
 
@@ -2490,15 +2515,64 @@ async function syncChecks(db: SupabaseClient, accessToken: string, dryRun: boole
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req.headers.get("origin"));
+
+  // Preflight must succeed before any body parsing or auth/Parasut work --
+  // browsers never attach cookies/tokens to it and expect a fast 204.
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors });
+  }
+
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonResponse({ error: "Method not allowed" }, 405, cors);
+  }
+
+  // Phase 14.6: this function is deployed with verify_jwt = true, so the
+  // Supabase gateway already rejects any request without a valid, correctly
+  // signed Supabase JWT (missing/malformed) with a 401 before this code
+  // runs. That signature check alone doesn't distinguish *who* signed in,
+  // so the code below re-checks the token's role:
+  //   - role "service_role" -> the caller holds the service_role key. This
+  //     key never ships to any browser bundle (see the bundle scan in the
+  //     Phase 14.6 report); the only holders are the scheduled pg_cron job
+  //     (key stored in Supabase Vault, injected server-side) and anyone
+  //     with dashboard/CLI access. Trusted without a getUser() round-trip.
+  //   - anything else (anon key, a real user JWT) -> must resolve to a
+  //     genuine authenticated user via getUser(); the public "Verileri
+  //     yenile" button never sends an Authorization header that reaches
+  //     this branch at all, because it never calls this function.
+  const authHeader = req.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token) {
+    return jsonResponse({ error: "Giriş gerekli. Bu işlem için oturum açmanız gerekiyor." }, 401, cors);
+  }
+
+  let isServiceRole = false;
+  try {
+    const payloadSegment = token.split(".")[1];
+    const payload = JSON.parse(atob(payloadSegment.replace(/-/g, "+").replace(/_/g, "/")));
+    isServiceRole = payload?.role === "service_role";
+  } catch {
+    // Malformed payload: fall through to the real-user check below, which
+    // will reject it.
+  }
+
+  if (!isServiceRole) {
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    );
+    const { data: userData, error: userError } = await authClient.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return jsonResponse({ error: "Oturum geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın." }, 401, cors);
+    }
   }
 
   let body: { resource?: string; dry_run?: boolean };
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ error: "Invalid JSON body" }, 400);
+    return jsonResponse({ error: "Invalid JSON body" }, 400, cors);
   }
 
   const resource = body.resource as Resource;
@@ -2506,6 +2580,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(
       { error: `resource must be one of: ${SUPPORTED_RESOURCES.join(", ")}` },
       400,
+      cors,
     );
   }
   const dryRun = body.dry_run === true;
@@ -2535,9 +2610,9 @@ Deno.serve(async (req: Request) => {
 
   if (lockError) {
     if (lockError.code === "23505") {
-      return jsonResponse({ error: `A sync for "${resource}" is already running` }, 409);
+      return jsonResponse({ error: `A sync for "${resource}" is already running` }, 409, cors);
     }
-    return jsonResponse({ error: `Failed to start sync run: ${lockError.message}` }, 500);
+    return jsonResponse({ error: `Failed to start sync run: ${lockError.message}` }, 500, cors);
   }
 
   const runId = runRow.id as string;
@@ -2638,6 +2713,7 @@ Deno.serve(async (req: Request) => {
           error_message: result.errorMessages.join(" | "),
         },
         502,
+        cors,
       );
     }
 
@@ -2679,22 +2755,27 @@ Deno.serve(async (req: Request) => {
           ...result.responseFields,
         },
         502,
+        cors,
       );
     }
 
-    return jsonResponse({
-      resource,
-      dry_run: dryRun,
-      ...result.responseFields,
-      status: runStatus,
-      error_count: 0,
-    });
+    return jsonResponse(
+      {
+        resource,
+        dry_run: dryRun,
+        ...result.responseFields,
+        status: runStatus,
+        error_count: 0,
+      },
+      200,
+      cors,
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await finishRunBestEffort({
       status: "error",
       error_message: message.slice(0, 2000),
     });
-    return jsonResponse({ resource, dry_run: dryRun, status: "error", error_message: message }, 502);
+    return jsonResponse({ resource, dry_run: dryRun, status: "error", error_message: message }, 502, cors);
   }
 });
