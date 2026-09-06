@@ -2527,45 +2527,41 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Method not allowed" }, 405, cors);
   }
 
-  // Phase 14.6: this function is deployed with verify_jwt = true, so the
-  // Supabase gateway already rejects any request without a valid, correctly
-  // signed Supabase JWT (missing/malformed) with a 401 before this code
-  // runs. That signature check alone doesn't distinguish *who* signed in,
-  // so the code below re-checks the token's role:
-  //   - role "service_role" -> the caller holds the service_role key. This
-  //     key never ships to any browser bundle (see the bundle scan in the
-  //     Phase 14.6 report); the only holders are the scheduled pg_cron job
-  //     (key stored in Supabase Vault, injected server-side) and anyone
-  //     with dashboard/CLI access. Trusted without a getUser() round-trip.
-  //   - anything else (anon key, a real user JWT) -> must resolve to a
-  //     genuine authenticated user via getUser(); the public "Verileri
-  //     yenile" button never sends an Authorization header that reaches
-  //     this branch at all, because it never calls this function.
+  // Phase 14.7: this function is deployed with verify_jwt = true, so the
+  // Supabase gateway already rejects any request with no/malformed
+  // Authorization header (401) before this code runs. That signature check
+  // only proves the token was issued by this project -- it does not mean
+  // the caller is allowed to trigger a write sync. Authentication and
+  // authorization are deliberately separated here: this product has no
+  // login-gated sync feature (the public button is read-only and never
+  // calls this function), so the ONLY authorized caller is whoever holds
+  // the service_role key -- the scheduled orchestrator (key read from
+  // Supabase Vault, server-side only) or someone with dashboard/CLI
+  // access. A real, successfully-authenticated Supabase user session is
+  // NOT sufficient on its own and is explicitly rejected with 403 --
+  // getUser() succeeding only proves *who* the caller is, never that they
+  // are allowed to run this.
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) {
-    return jsonResponse({ error: "Giriş gerekli. Bu işlem için oturum açmanız gerekiyor." }, 401, cors);
+    return jsonResponse({ error: "Missing authorization header" }, 401, cors);
   }
 
-  let isServiceRole = false;
+  let role: string | undefined;
   try {
     const payloadSegment = token.split(".")[1];
     const payload = JSON.parse(atob(payloadSegment.replace(/-/g, "+").replace(/_/g, "/")));
-    isServiceRole = payload?.role === "service_role";
+    role = typeof payload?.role === "string" ? payload.role : undefined;
   } catch {
-    // Malformed payload: fall through to the real-user check below, which
-    // will reject it.
+    return jsonResponse({ error: "Malformed authorization token" }, 401, cors);
   }
 
-  if (!isServiceRole) {
-    const authClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+  if (role !== "service_role") {
+    return jsonResponse(
+      { error: "Bu işlem yalnızca sunucu tarafı zamanlanmış senkronizasyon tarafından çalıştırılabilir." },
+      403,
+      cors,
     );
-    const { data: userData, error: userError } = await authClient.auth.getUser(token);
-    if (userError || !userData?.user) {
-      return jsonResponse({ error: "Oturum geçersiz veya süresi dolmuş. Lütfen yeniden giriş yapın." }, 401, cors);
-    }
   }
 
   let body: { resource?: string; dry_run?: boolean };
