@@ -3,6 +3,64 @@
 Date: 2026-09-07
 Scope: `src/` (frontend), `supabase/functions/` (Edge Functions, secondary/bonus check), `supabase/migrations/` (evidence only, nothing applied).
 
+## 0a. Addendum (verified after initial pass) — deployed Edge Functions gap
+
+This addendum was added after re-verifying section 2/5/7 with additional
+read-only remote checks (REST probes with the publishable key, and
+`npx supabase functions list`). It materially changes the section 5 picture
+and is reported here up front because it is load-bearing for the whole report.
+
+**Verified facts (read-only, reproducible):**
+
+1. `npx supabase functions list` against the linked remote project returns
+   **exactly one** deployed function: `parasut-sync` (status `ACTIVE`).
+   **None of the 11 Phase 15 read functions** (`customers`, `sales`, `expenses`,
+   `payroll`, `cash`, `products`, `inventory`, `shipments`, `e-documents`,
+   `tags-and-settings`, `sync-status`) are deployed to this project, even
+   though they exist as source under `supabase/functions/*/index.ts` and the
+   frontend calls them exclusively (section 1).
+2. A direct `POST https://<project>.supabase.co/functions/v1/sales` (and
+   `/customers`) with the publishable key returns
+   `{"code":"NOT_FOUND","message":"Requested function was not found"}` —
+   confirming (1) live, not just via `functions list` metadata.
+3. A direct PostgREST `GET` against `public.parasut_sales_invoices_demo`,
+   `public.parasut_contacts_demo`, and `public.parasut_sales_invoice_counts_demo`
+   with the publishable (`anon`) key returns
+   `{"code":"PGRST205","message":"Could not find the table '...' in the schema cache"}`
+   for **every view tried**, not a permission error. This is consistent with
+   migration `20260930010000_lock_down_demo_views_after_edge_function_cutover.sql`
+   — whose own file header says **"NOT YET APPLIED... do not run `supabase db
+   push`... without explicit human approval"** — having in fact been applied
+   on remote out-of-band. `npx supabase migration list` shows `20260930010000`
+   as applied on both local and remote, alongside the two genuinely
+   unexplained drift entries (`20260930000000`, `20260930020000`) that have
+   **no local file at all**. This is additional, concrete evidence for the
+   parallel schema-drift incident, not a new/separate incident.
+
+**Net effect, verified, not guessed:** right now, on the linked remote
+project, the frontend's *only* data path (the 11 Edge Functions) is entirely
+undeployed, and the fallback/legacy path (direct anon `SELECT` on the
+`public.parasut_*_demo` views) has also been locked down. **No frontend page
+that reads Parasut-mirrored data can currently return data on this project
+at all** — this is not specific to "the newest sales invoices," it would
+affect every module in section 3 identically. This was not fixed here: per
+the task's explicit instructions, deploying Edge Functions and
+applying/reverting migrations are both out of scope for this audit, and the
+lock-down migration having been applied out-of-band is exactly the kind of
+unauthorized-change surface the parallel schema-drift investigation owns.
+
+This finding **upgrades confidence** in the section 5 classification below:
+it is not merely "we don't have access to check" — it is a verified,
+reproducible, currently-live outage of the entire read path, discovered
+using only read-only checks (CLI `functions list`, unauthenticated REST
+probes with the public anon key — no writes, no service_role key used, no
+schema touched). It should be surfaced to whoever owns deployment/release
+for this project as an urgent, separate action item: **redeploy the 11
+Phase 15 Edge Functions**, and **decide whether to keep or roll back
+`20260930010000`'s out-of-band application** (rollback is a single
+`GRANT SELECT` statement per the migration's own documented rollback note),
+once the broader drift incident is understood.
+
 ## 0. Context note
 
 This task was written as a "Phase 14.7 frontend `.from()` audit/fix," but Phase 15
@@ -85,18 +143,29 @@ explicit restriction was not to query the live remote database directly for
 row-level data (only read-only CLI verification of migration/schema state was
 in scope). No row-level data was fabricated for any layer above.
 
-**Root cause classification: `UNKNOWN_OR_BLOCKED`.**
+**Root cause classification: `UNKNOWN_OR_BLOCKED`** — but see the concrete,
+verified aggravating cause below (section 0a), which is stronger than a plain
+"we lack access" statement.
 
 Rationale: the remote `parasut`/`parasut_ops` schema has unexplained drift
 (migrations `20260930000000`/`20260930020000` on remote, not in repo history;
-`oauth_tokens`/`sync_runs` missing) under active separate investigation. Any
-conclusion about why new invoices aren't appearing (`SYNC_NOT_RUN` vs.
-`SCHEDULER_BROKEN` vs. `RESOURCE_SYNC_FAILED` vs. `BASE_MISSING` vs. `VIEW_FILTERED`,
-etc.) would depend on schema/table state that is currently in an unresolved,
-possibly-compromised condition. Classifying this any more specifically before
-that investigation concludes would risk being wrong and would not be based on
-verified evidence. This finding should be revisited once the schema-drift
-incident is resolved.
+`oauth_tokens`/`sync_runs` missing) under active separate investigation. On
+top of that, this audit independently verified (section 0a, read-only) that
+the frontend's entire Edge Function read path (`sales` included) is currently
+undeployed on the linked remote project, and direct anon `SELECT` on the demo
+views has also been locked down — so *no* sales invoice, new or old, can
+currently be read through the live frontend on this project, regardless of
+whether the specific newest rows synced correctly. This does not by itself
+prove or rule out `SYNC_NOT_RUN` / `SCHEDULER_BROKEN` / `RESOURCE_SYNC_FAILED`
+/ `BASE_MISSING` at the sync layer underneath — that layer is exactly what the
+parallel schema-drift investigation owns, and this audit did not query
+`parasut.sales_invoices` row data to avoid duplicating/interfering with that
+work. Given both an unresolved base-schema drift *and* a verified, currently-
+live deployment gap sit between "Paraşüt API" and "rendered UI," classifying
+this any more specifically than `UNKNOWN_OR_BLOCKED` before both are resolved
+would risk being wrong. This finding should be revisited once (a) the
+schema-drift incident is resolved and (b) the 11 Edge Functions are
+(re)deployed and confirmed reachable.
 
 ## 6. Refresh button security
 
@@ -141,6 +210,8 @@ No migration applied, no Edge Function deployed, no push to remote. No code chan
 | Edge Functions are current access path (bonus check) | PASS (reasonable, read-only spot check) |
 | `eDocuments.ts` / test mocks edge case | PASS — no stale `.from()` found |
 | Sales-invoice reconciliation root cause | **UNKNOWN_OR_BLOCKED** — pending separate schema-drift investigation |
+| 11 Phase 15 Edge Functions deployed on remote | **FAIL — 0 of 11 deployed** (verified via `functions list` + direct probe); only legacy `parasut-sync` exists |
+| Public demo views reachable via anon SELECT | **FAIL — 0 reachable** (`PGRST205` on every view probed); `20260930010000` lock-down appears applied out-of-band |
 | Refresh button security | PASS |
 | `tsc --noEmit` | PASS |
 | `vitest run` | PASS (55/55) |
@@ -152,16 +223,38 @@ No migration applied, no Edge Function deployed, no push to remote. No code chan
 **Overall verdict: PASS** for everything within this audit's actual scope
 (frontend source correctness, build/test health, refresh-button security).
 **BLOCKED** on the sales-invoice reconciliation root-cause classification and
-on `public`-schema-level view verification, both pending resolution of the
+on full `public`-schema-level view verification, pending resolution of the
 separately-tracked `parasut`/`parasut_ops` schema-drift incident
 (`20260930000000`/`20260930010000`/`20260930020000`, missing `oauth_tokens`/`sync_runs`).
+**FAIL (infra, not code)**, newly verified by this audit: the live remote
+project currently has **zero** of the 11 Phase 15 Edge Functions deployed
+(only legacy `parasut-sync` exists), and the `public.parasut_*_demo` views'
+anon `SELECT` grant has also been revoked (via `20260930010000`, applied
+out-of-band despite its own file header saying not to). The result is that
+**no page in this app can currently read any Parasut-mirrored data on this
+project** — confirmed via unauthenticated REST/CLI probes, no writes, no
+service_role key used. This is a deployment/release-state fact, not a
+frontend code defect, and is not something this audit is authorized to fix
+(no Edge Function deploys, no migration pushes) — it needs owner action.
 
-Code commit SHA: no code changes were made (no fix was needed), so there is no
-code commit for this phase. Report commit SHA: see the commit created
+Code commit SHA: no frontend code changes were made (no code defect was
+found to fix — see section 4). Report commit SHA: see the commit created
 alongside this file.
 
 ## Needs user/owner decision
 
+- **Urgent, separate from the schema-drift investigation but likely related:**
+  redeploy the 11 Phase 15 Edge Functions (`customers`, `sales`, `expenses`,
+  `payroll`, `cash`, `products`, `inventory`, `shipments`, `e-documents`,
+  `tags-and-settings`, `sync-status`) to the linked project — right now only
+  `parasut-sync` is deployed, so the entire frontend read path is down.
+- Decide whether `20260930010000_lock_down_demo_views_after_edge_function_cutover.sql`
+  having been applied out-of-band (ahead of its own "do not apply without
+  approval" instruction, and apparently at the same time as the two
+  unexplained drift migrations) should stand once the Edge Functions are
+  redeployed, or be rolled back (`grant select on public.<view> to anon,
+  authenticated;` per its own rollback note) until the situation is fully
+  understood.
 - The sales-invoice-not-appearing report cannot be root-caused with confidence
-  until the schema-drift incident is resolved by the parallel investigation.
-  Once resolved, section 5 of this report should be re-run.
+  until both of the above are resolved. Once resolved, section 5 of this
+  report should be re-run.
