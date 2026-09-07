@@ -76,15 +76,28 @@ function compareText(a: unknown, b: unknown, ascending: boolean): number {
   return ascending ? c : -c;
 }
 
-/** Reads every row matching a query, in CHUNK-sized ranges. */
-async function fetchAll(
-  build: () => ReturnType<ReturnType<SupabaseClient["from"]>["select"]>,
-): Promise<Res<Row[]>> {
-  const out: Row[] = [];
+/**
+ * Reads every row matching a query, in CHUNK-sized ranges.
+ *
+ * Deliberately typed structurally (just "has .range()") instead of against
+ * SupabaseClient's PostgrestFilterBuilder generics -- binding to that type
+ * directly causes `tsc`/`deno check` to blow its instantiation depth trying
+ * to unify the `.schema(SCHEMA).from(table).select(columns)` builder chain
+ * (TS2589) and mis-infers the resolved row type as `GenericStringError[]`.
+ */
+async function fetchAll<T = Row>(
+  // `data: unknown` (not `T[]`) here deliberately: a PostgrestFilterBuilder
+  // built from a non-literal `.select(columns)` string types its rows as
+  // `GenericStringError[]`, which is not assignable to a concrete `T[]` --
+  // widening the structural bound to `unknown` sidesteps that mismatch
+  // without weakening the function's own advertised return type.
+  build: () => { range(from: number, to: number): PromiseLike<{ data: unknown; error: unknown }> },
+): Promise<Res<T[]>> {
+  const out: T[] = [];
   for (let offset = 0; ; offset += CHUNK) {
     const { data, error } = await build().range(offset, offset + CHUNK - 1);
     if (error) return { ok: false, error };
-    const batch = (data ?? []) as Row[];
+    const batch = (data ?? []) as T[];
     out.push(...batch);
     if (batch.length < CHUNK) return { ok: true, value: out };
   }
@@ -92,7 +105,10 @@ async function fetchAll(
 
 /** Builds a parasut_id -> row map for a lookup table, reading it whole. */
 async function loadLookup(db: SupabaseClient, table: string, columns: string): Promise<Res<Map<unknown, Row>>> {
-  const res = await fetchAll(() => db.schema(SCHEMA).from(table).select(columns).order("parasut_id", { ascending: true }));
+  // Explicit <Row> here: with a non-literal `columns` string, supabase-js
+  // cannot infer a row shape and silently falls back to `GenericStringError`,
+  // which then poisons everything downstream -- see the comment on fetchAll.
+  const res = await fetchAll<Row>(() => db.schema(SCHEMA).from(table).select(columns).order("parasut_id", { ascending: true }));
   if (!res.ok) return res;
   return { ok: true, value: new Map(res.value.map((r) => [r["parasut_id"], r])) };
 }
@@ -107,7 +123,8 @@ async function loadLookupByIds(
   if (ids.length === 0) return { ok: true, value: new Map() };
   const { data, error } = await db.schema(SCHEMA).from(table).select(columns).in("parasut_id", ids);
   if (error) return { ok: false, error };
-  return { ok: true, value: new Map(((data ?? []) as Row[]).map((r) => [r["parasut_id"], r])) };
+  const rows = (data ?? []) as unknown as Row[];
+  return { ok: true, value: new Map(rows.map((r) => [r["parasut_id"], r])) };
 }
 
 function idsOf(rows: Row[], column: string): unknown[] {

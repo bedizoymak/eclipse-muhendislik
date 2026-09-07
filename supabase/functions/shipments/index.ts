@@ -84,7 +84,11 @@ async function loadNames(
   if (ids.length === 0) return { ok: true, value: new Map() };
   const { data, error } = await db.schema(SCHEMA).from(table).select(columns).in("parasut_id", ids);
   if (error) return { ok: false, error };
-  return { ok: true, value: new Map(((data ?? []) as Row[]).map((r) => [r["parasut_id"], r])) };
+  // A non-literal `.select(columns)` string types rows as `GenericStringError`,
+  // which a direct `as Row[]` cast rejects as non-overlapping -- go through
+  // `unknown` first, same as the equivalent helper in inventory/index.ts.
+  const rows = (data ?? []) as unknown as Row[];
+  return { ok: true, value: new Map(rows.map((r) => [r["parasut_id"], r])) };
 }
 
 Deno.serve(async (req) => {
