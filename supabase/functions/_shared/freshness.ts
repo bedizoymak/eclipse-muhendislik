@@ -76,6 +76,12 @@ async function latestRun(db: SupabaseClient, resource: Resource) {
     .from("sync_runs")
     .select("status, started_at, finished_at")
     .eq("resource", resource)
+    // dry_run runs log status/finished_at identically to a real run but
+    // upsert nothing (see parasut-sync/index.ts's `if (!dryRun)` guards
+    // around every write) -- excluding them here is required, not
+    // cosmetic: without it, a dry run would mark genuinely stale data as
+    // fresh for up to `maxAgeMs()`, with no data having actually moved.
+    .eq("dry_run", false)
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -92,8 +98,21 @@ function isFreshOrRunning(run: { status: string; started_at: string | null; fini
 
 async function requestSync(resource: Resource): Promise<void> {
   const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) throw new Error("Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+  // NOT Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"): on this project that
+  // platform-injected value is the new sb_secret_... key format (a single
+  // opaque token, not a JWT), and parasut-sync's own auth check decodes its
+  // bearer token as a JWT to read a `role` claim -- it 401s
+  // ("Malformed authorization token") on anything else. The pg_cron
+  // dispatcher already had this exact problem and solved it by keeping a
+  // legacy-format JWT service_role key in Supabase Vault
+  // (`parasut_sync_service_role_key`, see
+  // supabase/migrations/20260906194321_parasut_durable_scheduler.sql).
+  // PARASUT_SYNC_INTERNAL_KEY is that same legacy JWT, stored as an Edge
+  // Function secret instead of in Vault since this call is made from an
+  // Edge Function, not from SQL -- same credential, same purpose, just
+  // accessible from where this code actually runs.
+  const key = Deno.env.get("PARASUT_SYNC_INTERNAL_KEY");
+  if (!url || !key) throw new Error("Missing SUPABASE_URL / PARASUT_SYNC_INTERNAL_KEY");
 
   const response = await fetch(`${url}/functions/v1/parasut-sync`, {
     method: "POST",
@@ -132,5 +151,14 @@ async function refreshStaleResources(db: SupabaseClient, resources: readonly Res
 }
 
 export function scheduleDomainFreshness(db: SupabaseClient, domain: Domain): void {
+  // Defensive: EdgeRuntime is a Supabase-injected platform global, not a
+  // language guarantee. Freshness is explicitly best-effort everywhere else
+  // in this file (see the catch in refreshStaleResources) -- an unguarded
+  // reference here would be the one path where a freshness problem could
+  // take the whole read endpoint down with it instead of degrading quietly.
+  if (typeof EdgeRuntime === "undefined") {
+    console.error("[freshness] EdgeRuntime.waitUntil unavailable; skipping background refresh");
+    return;
+  }
   EdgeRuntime.waitUntil(refreshStaleResources(db, DOMAIN_RESOURCES[domain]));
 }
