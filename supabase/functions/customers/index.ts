@@ -15,6 +15,7 @@
 // are unchanged.
 import { authorize, corsHeaders, errorResponse, jsonResponse, parseListParams } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/db.ts";
+import { scheduleDomainFreshness } from "../_shared/freshness.ts";
 import { runGetQuery, runListQuery, runRelatedQuery } from "../_shared/query.ts";
 
 const SCHEMA = "parasut";
@@ -42,6 +43,7 @@ Deno.serve(async (req) => {
 
   const action = body?.["action"];
   const db = serviceClient();
+  scheduleDomainFreshness(db, "customers");
 
   try {
     if (action === "list") {

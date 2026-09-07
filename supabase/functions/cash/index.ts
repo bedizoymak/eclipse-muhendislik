@@ -58,6 +58,7 @@
 // and PII exclusions are all unchanged.
 import { authorize, corsHeaders, errorResponse, jsonResponse, parseListParams } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/db.ts";
+import { scheduleDomainFreshness } from "../_shared/freshness.ts";
 import { runRelatedQuery } from "../_shared/query.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
@@ -155,6 +156,7 @@ Deno.serve(async (req) => {
 
   const action = body?.["action"];
   const db = serviceClient();
+  scheduleDomainFreshness(db, "cash");
 
   try {
     switch (action) {
