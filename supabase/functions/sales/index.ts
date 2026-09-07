@@ -579,16 +579,24 @@ Deno.serve(async (req) => {
       }
 
       case "payments.counts": {
-        // The retired view had no WHERE: every payment counts, whatever it
-        // is payable against.
-        const { count, error } = await db.schema(SCHEMA).from("payments").select("parasut_id", { count: "exact", head: true });
+        // This endpoint backs the Tahsilatlar screens. A payment attached to
+        // a purchase bill is an outgoing expense payment, not a collection.
+        const { count, error } = await db
+          .schema(SCHEMA)
+          .from("payments")
+          .select("parasut_id", { count: "exact", head: true })
+          .eq("payable_type", "sales_invoices");
         if (error) return errorResponse("internal_error", cors, error);
         return jsonResponse({ data: { total: count ?? 0 } }, 200, cors);
       }
       case "payments.list": {
         const parsed = parseListParams(body, PAYMENT_SORT, { column: "date", direction: "desc" });
         if ("error" in parsed) return errorResponse(parsed.error, cors);
-        let query = db.schema(SCHEMA).from("payments").select(PAYMENT_LIST_BASE_COLUMNS, { count: "exact" });
+        let query = db
+          .schema(SCHEMA)
+          .from("payments")
+          .select(PAYMENT_LIST_BASE_COLUMNS, { count: "exact" })
+          .eq("payable_type", "sales_invoices");
         const range = buildDateRange(body, "date");
         if (range?.gte) query = query.gte(range.column, range.gte);
         if (range?.lte) query = query.lte(range.column, range.lte);
@@ -633,6 +641,7 @@ Deno.serve(async (req) => {
           .from("payments")
           .select(PAYMENT_DETAIL_BASE_COLUMNS)
           .eq("parasut_id", id)
+          .eq("payable_type", "sales_invoices")
           .maybeSingle();
         if (paymentError) return errorResponse("internal_error", cors, paymentError);
         if (!paymentRow) return errorResponse("not_found", cors);
