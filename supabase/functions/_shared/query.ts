@@ -143,16 +143,26 @@ export async function runGetQuery<T = Record<string, unknown>>(
 
 /** Runs an arbitrary related-rows query with a fixed column list, no
  * pagination envelope (used for detail-page "related rows" like invoice
- * line items, activities, etc.). */
+ * line items, activities, etc.).
+ *
+ * `order` is the same purely-additive escape hatch as `schema`: when a demo
+ * view baked an `ORDER BY` into its own definition, migrating off that view
+ * onto the base table has to re-express the ordering EXPLICITLY here, or the
+ * related rows silently come back in heap order. Omitting it preserves the
+ * original unordered behaviour for domains not yet migrated. */
 export async function runRelatedQuery<T = Record<string, unknown>>(
   db: SupabaseClient,
   view: string,
   columns: string,
   eq: EqFilter[],
   schema?: string,
+  order?: { column: string; ascending: boolean; nullsFirst?: boolean },
 ): Promise<{ ok: true; rows: T[] } | { ok: false; error: unknown }> {
   let query = fromTable(db, view, schema).select(columns);
   for (const f of eq) query = query.eq(f.column, f.value);
+  if (order) {
+    query = query.order(order.column, { ascending: order.ascending, nullsFirst: order.nullsFirst });
+  }
   const { data, error } = await query;
   if (error) return { ok: false, error };
   return { ok: true, rows: (data ?? []) as unknown as T[] };
