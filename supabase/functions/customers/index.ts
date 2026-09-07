@@ -1,10 +1,25 @@
 // Phase 15 domain 1 -- customers. Public read function (verify_jwt = false),
-// backs /musteriler and /musteriler/:id. Replaces direct
-// `.from("parasut_contacts_demo"/"parasut_contact_people_demo")` calls from
-// the frontend with a server-side, hardcoded-column-list proxy.
+// backs /musteriler and /musteriler/:id. Server-side, hardcoded-column-list
+// proxy in front of the Parasut mirror.
+//
+// Phase 15.1: migrated off the `public.parasut_contacts_demo` /
+// `public.parasut_contact_people_demo` views onto the `parasut.*` base tables
+// directly (see the design note at the top of ../_shared/query.ts). Both
+// views were plain single-table passthroughs -- same column lists, no WHERE,
+// no join, no aggregate -- so this is a schema+relation swap with identical
+// results. The only thing either view added was `ORDER BY name` on
+// parasut_contacts_demo, which was already overridden on every code path:
+// `list` always applies its own .order() (defaulting to name asc, matching
+// the view), `counts` is head-only, and `get` returns a single row. The
+// response envelope, field allow-list, pagination, sort and count behaviour
+// are unchanged.
 import { authorize, corsHeaders, errorResponse, jsonResponse, parseListParams } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/db.ts";
 import { runGetQuery, runListQuery, runRelatedQuery } from "../_shared/query.ts";
+
+const SCHEMA = "parasut";
+const CONTACTS_TABLE = "contacts";
+const CONTACT_PEOPLE_TABLE = "contact_people";
 
 const CONTACT_COLUMNS = "parasut_id, name, short_name, email, phone, contact_type, city, archived, synced_at";
 const CONTACT_PEOPLE_COLUMNS =
@@ -48,7 +63,8 @@ Deno.serve(async (req) => {
       }
 
       const res = await runListQuery(db, {
-        view: "parasut_contacts_demo",
+        view: CONTACTS_TABLE,
+        schema: SCHEMA,
         columns: CONTACT_COLUMNS,
         page: parsed.page,
         pageSize: parsed.pageSize,
@@ -61,10 +77,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === "counts") {
+      const contacts = () => db.schema(SCHEMA).from(CONTACTS_TABLE).select("parasut_id", { count: "exact", head: true });
       const [activeRes, archivedRes, allRes] = await Promise.all([
-        db.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", false),
-        db.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }).eq("archived", true),
-        db.from("parasut_contacts_demo").select("parasut_id", { count: "exact", head: true }),
+        contacts().eq("archived", false),
+        contacts().eq("archived", true),
+        contacts(),
       ]);
       const err = activeRes.error ?? archivedRes.error ?? allRes.error;
       if (err) return errorResponse("internal_error", cors, err);
@@ -79,13 +96,22 @@ Deno.serve(async (req) => {
       const id = Number(body?.["id"]);
       if (!Number.isFinite(id)) return errorResponse("invalid_params", cors);
 
-      const contactRes = await runGetQuery(db, { view: "parasut_contacts_demo", columns: CONTACT_COLUMNS, id });
+      const contactRes = await runGetQuery(db, {
+        view: CONTACTS_TABLE,
+        schema: SCHEMA,
+        columns: CONTACT_COLUMNS,
+        id,
+      });
       if (!contactRes.ok) return errorResponse("internal_error", cors, contactRes.error);
       if (!contactRes.row) return errorResponse("not_found", cors);
 
-      const peopleRes = await runRelatedQuery(db, "parasut_contact_people_demo", CONTACT_PEOPLE_COLUMNS, [
-        { column: "contact_parasut_id", value: id },
-      ]);
+      const peopleRes = await runRelatedQuery(
+        db,
+        CONTACT_PEOPLE_TABLE,
+        CONTACT_PEOPLE_COLUMNS,
+        [{ column: "contact_parasut_id", value: id }],
+        SCHEMA,
+      );
       if (!peopleRes.ok) return errorResponse("internal_error", cors, peopleRes.error);
 
       return jsonResponse({ data: { ...contactRes.row, contact_people: peopleRes.rows } }, 200, cors);

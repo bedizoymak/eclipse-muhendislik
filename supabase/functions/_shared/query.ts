@@ -1,10 +1,51 @@
-// Phase 15: shared list/get query helpers against public.parasut_*_demo
-// views. Every column list passed in here is a hardcoded, server-side
-// constant defined by the calling domain function -- never a client-
-// supplied value -- so a client can never widen a `select()` beyond what
-// the function author explicitly allow-listed (defense in depth, on top of
-// the views themselves already being column-curated).
+// Phase 15: shared list/get query helpers for the read Edge Functions.
+// Every column list passed in here is a hardcoded, server-side constant
+// defined by the calling domain function -- never a client-supplied value --
+// so a client can never widen a `select()` beyond what the function author
+// explicitly allow-listed (defense in depth).
+//
+// ---------------------------------------------------------------------------
+// Phase 15.1 DESIGN DECISION -- how domain functions reach `parasut.*`
+// ---------------------------------------------------------------------------
+// We are migrating the 11 domain functions off the `public.parasut_*_demo`
+// views onto the `parasut.*` base tables directly. The rule, applied
+// uniformly to every domain:
+//
+//   1. These generic helpers take an OPTIONAL `schema` field. When set (in
+//      practice always "parasut") they issue `db.schema(s).from(table)`,
+//      matching the `.schema('parasut').from(...)` pattern already proven by
+//      `parasut-sync/index.ts`. When omitted they behave EXACTLY as before
+//      (`db.from(table)`, i.e. `public`), so domains not yet migrated in this
+//      pass keep working untouched -- this change is strictly additive and
+//      backward-compatible.
+//   2. Use these helpers ONLY for views that are plain single-table
+//      passthroughs of one `parasut.*` table (no join / no aggregate). The
+//      table name replaces the view name; the hardcoded column list is
+//      unchanged; any `WHERE`/`ORDER BY` the view baked in must be
+//      re-expressed here as `eq`/`sort` options.
+//   3. For the ~15 views that DO join or aggregate, do NOT try to express the
+//      join through PostgREST embedding: supabase-js resource embedding needs
+//      a declared FK and does not compose cleanly across a non-default schema,
+//      and several of these views join on `parasut_id` business keys rather
+//      than real FKs. Instead write a small, explicit, per-domain query
+//      function in that domain's own file: fetch the parent page, collect the
+//      key list, fetch the related rows with a single `.in(...)`, and merge in
+//      TypeScript. That keeps the SQL-shaped logic visible next to the domain
+//      that owns it and avoids building a generic join framework nobody else
+//      needs. NULL-preserving / COALESCE semantics from the view must be
+//      re-implemented literally in that merge step (an unmatched parent keeps
+//      NULL; it must never be silently dropped by the join, and must never be
+//      back-filled with a guessed value).
+//
+// `customers` is the first domain migrated under this decision and is a pure
+// case (1)+(2): both of its views are unfiltered single-table passthroughs.
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+
+/** Resolves the schema-qualified table/view builder. Omitting `schema`
+ * preserves the original `public` behaviour for not-yet-migrated domains. */
+export function fromTable(db: SupabaseClient, table: string, schema?: string) {
+  return schema ? db.schema(schema).from(table) : db.from(table);
+}
 
 export interface EqFilter {
   column: string;
@@ -18,7 +59,8 @@ export interface DateRangeFilter {
 }
 
 export interface ListQueryOptions {
-  view: string;
+  view: string; // table or view name
+  schema?: string; // omit for `public` (legacy demo views)
   columns: string; // fixed, hardcoded select() column list
   page: number;
   pageSize: number;
@@ -42,7 +84,7 @@ export async function runListQuery<T = Record<string, unknown>>(
   db: SupabaseClient,
   opts: ListQueryOptions,
 ): Promise<{ ok: true; result: ListResult<T> } | { ok: false; error: unknown }> {
-  let query = db.from(opts.view).select(opts.columns, { count: "exact" });
+  let query = fromTable(db, opts.view, opts.schema).select(opts.columns, { count: "exact" });
 
   for (const f of opts.eq ?? []) {
     query = query.eq(f.column, f.value);
@@ -81,6 +123,7 @@ export async function runListQuery<T = Record<string, unknown>>(
 
 export interface GetQueryOptions {
   view: string;
+  schema?: string;
   columns: string;
   idColumn?: string; // default "parasut_id"
   id: number | string;
@@ -90,8 +133,7 @@ export async function runGetQuery<T = Record<string, unknown>>(
   db: SupabaseClient,
   opts: GetQueryOptions,
 ): Promise<{ ok: true; row: T | null } | { ok: false; error: unknown }> {
-  const { data, error } = await db
-    .from(opts.view)
+  const { data, error } = await fromTable(db, opts.view, opts.schema)
     .select(opts.columns)
     .eq(opts.idColumn ?? "parasut_id", opts.id)
     .maybeSingle();
@@ -107,8 +149,9 @@ export async function runRelatedQuery<T = Record<string, unknown>>(
   view: string,
   columns: string,
   eq: EqFilter[],
+  schema?: string,
 ): Promise<{ ok: true; rows: T[] } | { ok: false; error: unknown }> {
-  let query = db.from(view).select(columns);
+  let query = fromTable(db, view, schema).select(columns);
   for (const f of eq) query = query.eq(f.column, f.value);
   const { data, error } = await query;
   if (error) return { ok: false, error };
