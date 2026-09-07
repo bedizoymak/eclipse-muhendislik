@@ -1,0 +1,1845 @@
+{
+  "generated_at": "2026-09-06T20:55:56.968Z",
+  "source": "live remote schema dump (supabase db dump -s public,parasut,parasut_ops), parsed post-incident",
+  "note": "Captured to document actual remote parasut schema state after unexplained migrations (20260930000000/010000/020000) altered it beyond this repo's tracked migration history. Compare against backups/schema_snapshot_20260906_230119.sql for pre-incident baseline.",
+  "schemas": {
+    "parasut": {
+      "tables": {
+        "accounts": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "activities": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "addresses": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "bank_fees": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "checks": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "companies": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "contact_people": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "contact_portals": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "contacts": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_archives": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_document_commons": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_document_pdfs": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_invoice_inboxes": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_invoices": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_smm_commons": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "e_smms": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "employees": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "inventory_levels": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "item_categories": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "payments": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "products": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "profiles": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "purchase_bill_details": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "purchase_bills": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "recurrence_plans": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "salaries": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_invoice_details": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_invoices": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_offer_details": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_offers": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_offers_details": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sales_offers_pdfs": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "sharings": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "shipment_documents": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "stock_movements": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "stock_update_details": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "stock_updates": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "tags": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "taxes": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "trackable_jobs": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "transactions": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "user_roles": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "users": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "warehouses": [
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "attributes",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "relationships",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "links",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "meta",
+            "type": "jsonb",
+            "nullable": true,
+            "default": null
+          }
+        ]
+      },
+      "views": []
+    },
+    "parasut_ops": {
+      "tables": {
+        "scheduled_sync_cycles": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "started_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "\"now\"()"
+          },
+          {
+            "name": "finished_at",
+            "type": "timestamp with time zone",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "nullable": false,
+            "default": "'running'::\"text\""
+          },
+          {
+            "name": "total_steps",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "completed_steps",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          }
+        ],
+        "scheduled_sync_log": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "run_started_at",
+            "type": "timestamp with time zone",
+            "nullable": false,
+            "default": "\"now\"()"
+          },
+          {
+            "name": "resource",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "http_status",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "waited_seconds",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "request_id",
+            "type": "bigint",
+            "nullable": true,
+            "default": null
+          }
+        ],
+        "scheduled_sync_steps": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "cycle_id",
+            "type": "bigint",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "resource",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "ordinal",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "nullable": false,
+            "default": "'pending'::\"text\""
+          },
+          {
+            "name": "request_id",
+            "type": "bigint",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "enqueued_at",
+            "type": "timestamp with time zone",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "finished_at",
+            "type": "timestamp with time zone",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "http_status",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "error_summary",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "fetched_count",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "upserted_count",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "error_count",
+            "type": "integer",
+            "nullable": true,
+            "default": null
+          }
+        ]
+      },
+      "views": []
+    }
+  }
+}
