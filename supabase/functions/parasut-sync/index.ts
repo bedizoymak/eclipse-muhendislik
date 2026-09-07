@@ -19,7 +19,7 @@
 // response's `included` array, or the run is an error, never a guess.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { fetchAllPages, fetchCompaniesList, fetchMe, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
+import { fetchAllPages, fetchCompaniesList, fetchMe, fetchPage, fetchResource, getAccessToken, type JsonApiResource } from "./parasut_client.ts";
 import { mapContact, mapContactPerson } from "./resources/contacts.ts";
 import { detailIdsForInvoice, mapSalesInvoice, mapSalesInvoiceDetail } from "./resources/sales_invoices.ts";
 import { detailIdsForOffer, mapSalesOffer, mapSalesOfferActivity, mapSalesOfferDetail } from "./resources/sales_offers.ts";
@@ -2390,39 +2390,153 @@ async function syncEInvoicesStandalone(db: SupabaseClient, accessToken: string, 
  * iteration needed, unlike transactions in Phase 3). No archived concept.
  * Upserting on parasut_id is naturally idempotent -- no duplicate risk from
  * a single linear stream.
+ *
+ * RESUMABLE, unlike every other resource here. Measured against the live
+ * API (not assumed):
+ *   - `page[size]` is hard-capped at 25 by Parasut -- 50 and 100 both come
+ *     back 422 "Page size is too big. page[size] can be maximum 25". With
+ *     3424 stock movements that is 137 mandatory sequential page requests.
+ *   - Parasut rate-limits at 10 requests per 10s window: the 11th request
+ *     in a window returns 429 with `x-ratelimit-limit: 10`,
+ *     `x-ratelimit-remaining: 0` and `Retry-After: 8`, which fetchPage
+ *     honours by sleeping.
+ * So the wall-clock FLOOR for a single full pass is ~13 x 8s of forced
+ * rate-limit sleeps (~104s) plus ~137 x ~0.25s of request latency (~35s)
+ * = ~140s, before any upsert round-trips -- over the Edge Function's
+ * ~150s wall-clock budget. The worker was being killed by the platform
+ * mid-loop (the scheduler recorded HTTP 546 / WORKER_LIMIT for every
+ * stock_movements step), and because a killed worker runs no catch and no
+ * finally, finishRun() never executed and the parasut.sync_runs row was
+ * orphaned at status='running' forever. This is exactly the
+ * "chunking stock_movements across multiple invocations" follow-up that
+ * 20260906194321_parasut_durable_scheduler.sql explicitly deferred.
+ *
+ * The fix: fetch pages under an explicit wall-clock budget, flushing each
+ * page's rows to the mirror as it goes (so progress is durable even if the
+ * pass is cut short), and record the page to resume from in
+ * sync_runs.metadata.next_page. The next invocation picks up there. A
+ * completed pass records next_page = null, so the following run starts
+ * over at page 1 and re-observes the whole universe.
+ *
+ * `include=product,source,contact,warehouse` is REQUIRED and must not be
+ * dropped as a "payload saving" optimisation, even though this syncer
+ * never reads the `included` array. Verified against the live API: with
+ * no include, Parasut returns every relationship as `{"meta":{}}` with no
+ * `data` member at all, so mapStockMovement resolves every
+ * product/warehouse/source/contact id to null. With the include, the same
+ * record returns real `relationships.product.data.id` etc. The include is
+ * what populates the relationship linkage, not just the sideload.
  */
-async function syncStockMovements(db: SupabaseClient, accessToken: string, dryRun: boolean) {
-  const result = await fetchAllPages(accessToken, "stock_movements", 25, {
-    include: "product,source,contact,warehouse",
-  });
-  const fetchedCount = result.items.length;
-  const rows = result.items.map(mapStockMovement);
-  const unresolvedCount = rows.filter((r) => r.product_parasut_id == null || r.warehouse_parasut_id == null).length;
+const STOCK_MOVEMENTS_PAGE_SIZE = 25;
+const STOCK_MOVEMENTS_INCLUDE = "product,source,contact,warehouse";
+/** Leaves real headroom under the Edge Function's ~150s wall-clock limit
+ * for token acquisition, the final upsert flush and finishRun. */
+const STOCK_MOVEMENTS_BUDGET_MS = 100_000;
 
+async function readStockMovementsResumePage(db: SupabaseClient): Promise<number> {
+  const { data, error } = await db
+    .schema("parasut")
+    .from("sync_runs")
+    .select("metadata")
+    .eq("resource", "stock_movements")
+    .not("finished_at", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // A missing/unreadable cursor is never fatal -- it just means this pass
+  // starts from the top, which is always correct (upserts are idempotent).
+  if (error || !data) return 1;
+  const next = (data.metadata as { next_page?: unknown } | null)?.next_page;
+  return typeof next === "number" && Number.isFinite(next) && next > 1 ? Math.floor(next) : 1;
+}
+
+async function syncStockMovements(db: SupabaseClient, accessToken: string, dryRun: boolean) {
+  const startedAt = Date.now();
+  const startPage = dryRun ? 1 : await readStockMovementsResumePage(db);
+
+  let fetchedCount = 0;
   let upsertedCount = 0;
+  let unresolvedCount = 0;
   let errorCount = 0;
   const errorMessages: string[] = [];
 
-  if (!dryRun) {
-    const upsertResult = await upsertBatched(db, "stock_movements", rows as unknown as Record<string, unknown>[]);
-    upsertedCount = upsertResult.upsertedCount;
-    errorCount = upsertResult.errorCount;
-    errorMessages.push(...upsertResult.errorMessages);
+  let totalPages: number | null = null;
+  let totalCountReported: number | null = null;
+  let page = startPage;
+  let lastCompletedPage = startPage - 1;
+
+  while (true) {
+    const result = await fetchPage(accessToken, "stock_movements", page, STOCK_MOVEMENTS_PAGE_SIZE, {
+      include: STOCK_MOVEMENTS_INCLUDE,
+    });
+
+    if (result.meta?.total_pages != null) totalPages = result.meta.total_pages;
+    if (result.meta?.total_count != null) totalCountReported = result.meta.total_count;
+
+    const rows = result.items.map(mapStockMovement);
+    fetchedCount += rows.length;
+    unresolvedCount += rows.filter((r) => r.product_parasut_id == null || r.warehouse_parasut_id == null).length;
+
+    if (!dryRun && rows.length > 0) {
+      const upsertResult = await upsertBatched(db, "stock_movements", rows as unknown as Record<string, unknown>[]);
+      upsertedCount += upsertResult.upsertedCount;
+      errorCount += upsertResult.errorCount;
+      errorMessages.push(...upsertResult.errorMessages);
+      // Stop immediately on a real write error rather than burning the
+      // rest of the budget repeating it -- the run reports error and the
+      // cursor is not advanced past the failed page.
+      if (upsertResult.errorCount > 0) break;
+    }
+
+    lastCompletedPage = page;
+
+    if (result.items.length === 0) break;
+    if (totalPages != null && page >= totalPages) break;
+    if (totalPages == null && result.items.length < STOCK_MOVEMENTS_PAGE_SIZE) break;
+
+    page += 1;
+
+    if (Date.now() - startedAt > STOCK_MOVEMENTS_BUDGET_MS) break;
   }
+
+  const completedFullPass = totalPages != null && lastCompletedPage >= totalPages && errorCount === 0;
+  // null = "start over from page 1 next time"; a number = "resume here".
+  const nextPage = errorCount > 0
+    ? lastCompletedPage + 1
+    : completedFullPass
+    ? null
+    : lastCompletedPage + 1;
 
   return {
     dbFields: {
       fetched_count: fetchedCount,
-      total_count_reported: result.totalCountReported,
+      total_count_reported: totalCountReported,
       upserted_count: dryRun ? 0 : upsertedCount,
       unresolved_count: unresolvedCount,
       error_count: errorCount,
+      metadata: {
+        start_page: startPage,
+        last_completed_page: lastCompletedPage,
+        total_pages: totalPages,
+        next_page: dryRun ? null : nextPage,
+        completed_full_pass: completedFullPass,
+        page_size: STOCK_MOVEMENTS_PAGE_SIZE,
+      },
     },
     responseFields: {
       total_fetched_count: fetchedCount,
       upserted_count: dryRun ? 0 : upsertedCount,
       unresolved_count: unresolvedCount,
-      total_count_reported: result.totalCountReported,
+      total_count_reported: totalCountReported,
+      start_page: startPage,
+      last_completed_page: lastCompletedPage,
+      total_pages: totalPages,
+      next_page: dryRun ? null : nextPage,
+      completed_full_pass: completedFullPass,
+      note: completedFullPass
+        ? "Full stock_movements pass completed in this invocation."
+        : "Partial stock_movements pass -- Parasut caps page[size] at 25 and rate-limits at 10 req/10s, so a full 137-page pass exceeds the Edge Function wall-clock budget. Progress is durable; the next invocation resumes at next_page.",
     },
     errorCount,
     errorMessages,
